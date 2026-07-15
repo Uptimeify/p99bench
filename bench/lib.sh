@@ -30,13 +30,29 @@ die()  { printf '\033[1;31m[x]\033[0m %s\n' "$*" >&2; exit 1; }
 # emit_json <fragment-name> <json-string>
 # Stores a fragment that run-all.sh will deep-merge into the final result.
 #
-# A failed write is fatal on purpose. Swallowing it would produce a result file
-# with a section silently missing, which is worse than no result at all: the
-# verdict would come out "unknown" for reasons nobody can reconstruct later.
+# All three failure modes are fatal on purpose:
+#
+#   empty    - the jq that built this payload failed, usually because a parser
+#              upstream fed it a word where a number was expected. Writing a
+#              0-byte file here makes run-all.sh die 40 minutes later with
+#              "invalid JSON text passed to --argjson", naming neither the file
+#              nor the stage. Dying here names the stage.
+#   invalid  - same reasoning, caught one step earlier.
+#   unwritable - a missing fragment silently removes a whole section from the
+#              result and the verdict comes out "unknown" with no way to
+#              reconstruct why. Worse than no result at all.
 emit_json() {
   local name="$1"; shift
   local target="$P99_WORK/frag-$name.json"
-  if ! printf '%s' "$*" > "$target" 2>/dev/null; then
+  local payload="$*"
+
+  if [[ -z "$payload" ]]; then
+    die "stage '$name' produced no JSON - a jq call upstream failed. Rerun just this stage to see its error."
+  fi
+  if ! printf '%s' "$payload" | jq empty 2>/dev/null; then
+    die "stage '$name' produced invalid JSON: $(printf '%s' "$payload" | head -c 200)"
+  fi
+  if ! printf '%s' "$payload" > "$target" 2>/dev/null; then
     die "cannot write $target - a missing fragment would leave holes in the result. Check: ls -ld $P99_WORK"
   fi
 }
@@ -45,11 +61,24 @@ need() {
   command -v "$1" >/dev/null 2>&1 || die "missing tool: $1 (see README install step)"
 }
 
-# jq helper: null-safe number, rounds to 2dp, returns JSON null on missing.
-# usage: jnum "$(some command | grep ...)"
+# jq helper: emit a JSON number, or JSON null when the value is missing or is
+# not actually a number.
+#
+# The non-numeric guard matters: these values come from awk-parsing the output
+# of tools whose format changes between versions. When a parse misses, the
+# variable holds a word ("bytes", "not", an error message), and passing that to
+# jq --argjson kills the whole fragment. Recording null loses one metric;
+# passing garbage loses the entire run.
 jnum() {
   local v="$1"
-  if [[ -z "$v" || "$v" == "null" ]]; then printf 'null'; else printf '%s' "$v"; fi
+  if [[ -z "$v" || "$v" == "null" ]]; then
+    printf 'null'
+  elif [[ "$v" =~ ^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$ ]]; then
+    printf '%s' "$v"
+  else
+    warn "expected a number, got '${v:0:40}' - recording null"
+    printf 'null'
+  fi
 }
 
 # jstr: JSON-escape a string, or null if empty.

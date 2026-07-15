@@ -129,6 +129,15 @@ META=$(jq -n \
 RESULT="$META"
 for f in "$P99_WORK"/frag-*.json; do
   [[ -e "$f" ]] || continue
+  # emit_json should have caught this already, but a fragment left over from an
+  # older tool version or a killed stage would otherwise take down the whole
+  # merge with jq's unhelpful "invalid JSON text passed to --argjson", which
+  # names neither the file nor the stage.
+  if ! jq empty "$f" 2>/dev/null; then
+    warn "fragment $(basename "$f") is empty or invalid - that stage failed"
+    warn "the result will be missing a section; do not submit it without checking"
+    continue
+  fi
   RESULT=$(jq -n --argjson a "$RESULT" --argjson b "$(cat "$f")" '$a * $b')
 done
 
