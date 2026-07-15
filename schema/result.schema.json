@@ -4,7 +4,7 @@
   "title": "p99bench result",
   "description": "A single benchmark run on a single host at a single point in time.",
   "type": "object",
-  "required": ["schema_version", "run", "provider", "host", "disk", "cpu", "ram"],
+  "required": ["schema_version", "run", "provider", "host", "disk", "cpu", "ram", "network"],
   "additionalProperties": false,
   "properties": {
     "schema_version": {
@@ -204,6 +204,57 @@
         "rnd_write_mbs": { "type": ["number", "null"], "minimum": 0 },
         "numa_local_mbs": { "type": ["number", "null"] },
         "numa_remote_mbs": { "type": ["number", "null"] }
+      }
+    },
+    "network": {
+      "type": "object",
+      "description": "Uplink measured against the fixed targets in schema/network-targets.yaml. Informational: no verdict rule reads these fields. Required as a field, but reachable=false is a valid and complete answer -- an egress-blocked host is a real configuration, not a failed measurement.",
+      "required": ["reachable"],
+      "additionalProperties": false,
+      "properties": {
+        "reachable": {
+          "type": "boolean",
+          "description": "False when the host has no egress to the reference targets."
+        },
+        "skip_reason": {
+          "type": ["string", "null"],
+          "description": "Why it was not measured, when reachable is false."
+        },
+        "target_list_version": {
+          "type": ["string", "null"],
+          "description": "list_version from network-targets.yaml. Results measured against different list versions are not comparable on network metrics."
+        },
+        "targets": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "required": ["id", "reachable"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "reachable": { "type": "boolean" },
+              "mbps": { "type": ["number", "null"], "minimum": 0 },
+              "ttfb_ms": { "type": ["number", "null"], "minimum": 0 },
+              "dns_ms": { "type": ["number", "null"], "minimum": 0 },
+              "rtt_p50_ms": { "type": ["number", "null"], "minimum": 0 },
+              "rtt_p99_ms": { "type": ["number", "null"], "minimum": 0 },
+              "loss_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 }
+            }
+          }
+        },
+        "ookla": {
+          "type": ["object", "null"],
+          "description": "Optional context from Ookla's CLI against a NEARBY server. Not comparable across hosts -- different hosts get different servers. Never required: Ookla's CLI is licensed for personal, non-commercial use, and this project invites submissions from providers.",
+          "additionalProperties": false,
+          "properties": {
+            "server": { "type": ["string", "null"] },
+            "down_mbps": { "type": ["number", "null"], "minimum": 0 },
+            "up_mbps": { "type": ["number", "null"], "minimum": 0 },
+            "idle_latency_ms": { "type": ["number", "null"], "minimum": 0 },
+            "jitter_ms": { "type": ["number", "null"], "minimum": 0 },
+            "loss_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 }
+          }
+        }
       }
     },
     "app": {

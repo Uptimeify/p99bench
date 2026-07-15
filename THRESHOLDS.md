@@ -94,6 +94,14 @@ and single-core speed; largely indifferent to disk.
 
 ## Known gaps
 
+- **Network is measured but has no thresholds.** `06-network.sh` records
+  throughput and latency to fixed reference targets, and `RESULTS.md` reports
+  them, but no verdict reads them. This is on purpose. A rule like "a database
+  host needs 500 Mbit/s" cannot be derived from any workload requirement -- it
+  would be a number chosen to look authoritative. What the data *can* eventually
+  support is a relative claim ("this provider's peering toward DE-CIX is an
+  outlier"), and that needs a corpus first. Until then the numbers are published
+  and left to the reader.
 - **No thresholds for object storage, queues, or search.** Contributions welcome.
 - **`nuxt_ssr` is the weakest profile.** Web apps tolerate a lot. It is close to
   "is this machine broken?" rather than a meaningful fitness test.

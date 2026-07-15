@@ -13,6 +13,9 @@ thresholds**. The second is often more valuable than the first.
 - [ ] **You know what you are testing.** Boot volume or dedicated data volume?
       They behave completely differently, and the result records which.
 - [ ] **You know the price and billing model.** Required fields.
+- [ ] **~400 MB of egress is acceptable.** The network stage downloads from fixed
+      reference targets. On metered bandwidth, check the cost first. No egress at
+      all is fine — it records `reachable: false` and the result stays valid.
 
 ### Run it
 
@@ -91,6 +94,24 @@ file.
 Someone has to vouch for the claim that the machine was idle and the run was
 honest. That is not a bureaucratic requirement; it is the only thing standing
 between this dataset and being useless.
+
+## About the network stage
+
+Every host measures the **same** targets from
+[`schema/network-targets.yaml`](schema/network-targets.yaml). Please do not
+substitute your own "closer" targets: the whole point is that distance is a
+constant so peering differences become visible. A run against different targets
+is not comparable with anything and will be asked to be re-run.
+
+`--with-ookla` is optional context. It picks a nearby server, so it is not
+comparable across hosts, and Ookla's CLI is licensed for personal,
+non-commercial use — which is exactly why it can never be required in a repo
+that invites provider submissions.
+
+Proposing a target change: open an issue. Changing the list breaks comparability
+with every result already submitted, so `list_version` gets bumped and old runs
+are flagged as measured against a different list. This is why the list is short
+and boring.
 
 ## About `host_id`
 

@@ -11,12 +11,16 @@
 #   --skip-steady     skip the 30 min sustained test (result marked incomplete)
 #   --steady-only     run only the 30 min sustained test
 #   --storage-tier S  block storage tier name, if not the boot volume
+#   --with-ookla      also run Ookla speedtest as context (needs `speedtest`;
+#                     Ookla's CLI is licensed for personal, non-commercial use)
+#   --skip-network    do not measure the network at all (recorded as skipped)
 set -uo pipefail
 cd "$(dirname "$0")" || exit 1
 source ./lib.sh
 
 PROVIDER="" PRODUCT="" REGION="" PRICE="null" BILLING="null"
 SUBMITTER="" NOTES="" TIER="" SKIP_STEADY=0 STEADY_ONLY=0
+SKIP_NETWORK=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -32,7 +36,9 @@ while [[ $# -gt 0 ]]; do
     --size)     export P99_SIZE="$2"; shift 2;;
     --skip-steady) SKIP_STEADY=1; shift;;
     --steady-only) STEADY_ONLY=1; shift;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0;;
+    --with-ookla) export P99_WITH_OOKLA=1; shift;;
+    --skip-network) SKIP_NETWORK=1; shift;;
+    -h|--help) sed -n '2,21p' "$0"; exit 0;;
     *) die "unknown option: $1";;
   esac
 done
@@ -75,6 +81,13 @@ else
   run_stage 02-cpu.sh
   run_stage 03-ram.sh
   run_stage 05-latency.sh
+  if (( SKIP_NETWORK )); then
+    warn "network skipped by request"
+    printf '%s' '{"network": {"reachable": false, "skip_reason": "--skip-network"}}' \
+      > "$P99_WORK/frag-network.json"
+  else
+    run_stage 06-network.sh
+  fi
   run_stage 04-app-optional.sh
   if (( SKIP_STEADY )); then
     warn "steady state skipped - submission will be flagged incomplete"

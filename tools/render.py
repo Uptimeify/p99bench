@@ -60,6 +60,14 @@ def fmt_pct(v) -> str:
     return "-" if v is None else f"{v:.1f}%"
 
 
+def fmt_mbps(v) -> str:
+    if v is None:
+        return "-"
+    if v >= 1000:
+        return f"{v/1000:.2f} Gb/s"
+    return f"{v:.0f} Mb/s"
+
+
 def dig(o, path, default=None):
     cur = o
     for p in path.split("."):
@@ -266,6 +274,111 @@ def main() -> int:
             print()
         print("</details>")
         print()
+
+    # ---------------------------------------------------------------- network
+    # Deliberately its own section rather than a column in the verdict tables:
+    # nothing here produces a pass/fail, and mixing it in would imply it does.
+    print("## Network")
+    print()
+    print("Throughput and latency to the **same fixed targets** from every host")
+    print("([schema/network-targets.yaml](schema/network-targets.yaml)). Nearest-server")
+    print("speedtests measure a different path per host and cannot be compared in one")
+    print("table; these can. Distance is a known constant here, so a low number points")
+    print("at the provider's peering rather than at geography.")
+    print()
+    print("**No verdict reads these numbers.** See [THRESHOLDS.md](THRESHOLDS.md#known-gaps)")
+    print("for why: nobody can yet justify a pass/fail line from a workload requirement")
+    print("rather than from taste.")
+    print()
+
+    net_runs = [r for r in runs if dig(r, "network.reachable") is True
+                and dig(r, "network.targets")]
+    if not net_runs:
+        unreachable = [r for r in runs if dig(r, "network.reachable") is False]
+        if unreachable:
+            print(f"No network data: {len(unreachable)} run(s) had no egress to the")
+            print("reference targets. That is a valid result, not a failure.")
+        else:
+            print("No network data submitted yet.")
+        print()
+    else:
+        target_ids = []
+        for r in net_runs:
+            for tgt in r["network"]["targets"]:
+                if tgt["id"] not in target_ids:
+                    target_ids.append(tgt["id"])
+
+        versions = {dig(r, "network.target_list_version") for r in net_runs}
+        if len(versions) > 1:
+            print(f"> Runs here used different target list versions ({', '.join(sorted(str(v) for v in versions))}).")
+            print("> Numbers across versions are not comparable.")
+            print()
+
+        print("| Provider | Region | Product | " + " | ".join(target_ids) + " |")
+        print("|---|---|---|" + "---|" * len(target_ids))
+        by_prod_net = defaultdict(list)
+        for r in net_runs:
+            p_ = r["provider"]
+            by_prod_net[(p_["name"], p_["region"], p_["product"])].append(r)
+        for (name, region, product), rs in sorted(by_prod_net.items()):
+            cells = [name, region, f"`{product}`"]
+            for tid in target_ids:
+                vals = []
+                for r in rs:
+                    for tgt in r["network"]["targets"]:
+                        if tgt["id"] == tid and tgt.get("mbps") is not None:
+                            vals.append(tgt["mbps"])
+                if not vals:
+                    cells.append("-")
+                else:
+                    med = statistics.median(vals)
+                    rtts = []
+                    for r in rs:
+                        for tgt in r["network"]["targets"]:
+                            if tgt["id"] == tid and tgt.get("rtt_p50_ms") is not None:
+                                rtts.append(tgt["rtt_p50_ms"])
+                    rtt_s = f" / {statistics.median(rtts):.0f}ms" if rtts else ""
+                    cells.append(f"{fmt_mbps(med)}{rtt_s}")
+            print("| " + " | ".join(cells) + " |")
+        print()
+        print("Median throughput / median RTT p50 per target. ")
+        print()
+
+        losses = []
+        for r in net_runs:
+            for tgt in r["network"]["targets"]:
+                if tgt.get("loss_pct"):
+                    losses.append((r["provider"]["name"], r["provider"]["region"],
+                                   tgt["id"], tgt["loss_pct"]))
+        if losses:
+            print("**Packet loss observed**")
+            print()
+            print("| Provider | Region | Target | Loss |")
+            print("|---|---|---|---|")
+            for name, region, tid, loss in sorted(losses, key=lambda x: -x[3]):
+                print(f"| {name} | {region} | {tid} | {loss:.2f}% |")
+            print()
+            print("Sustained loss above ~0.05% will hurt TCP throughput and replication.")
+            print()
+
+        ookla_runs = [r for r in runs if dig(r, "network.ookla")]
+        if ookla_runs:
+            print("<details>")
+            print("<summary>Ookla results (context only, not comparable)</summary>")
+            print()
+            print("Ookla picks a nearby server, so each row measures a different path.")
+            print("Useful as a sanity check on the link itself, useless for ranking.")
+            print()
+            print("| Provider | Region | Server | Down | Up | Idle latency | Loss |")
+            print("|---|---|---|---|---|---|---|")
+            for r in ookla_runs:
+                o, p_ = r["network"]["ookla"], r["provider"]
+                print(f"| {p_['name']} | {p_['region']} | {o.get('server','?')} | "
+                      f"{fmt_mbps(o.get('down_mbps'))} | {fmt_mbps(o.get('up_mbps'))} | "
+                      f"{o.get('idle_latency_ms','-')} ms | {o.get('loss_pct','-')}% |")
+            print()
+            print("</details>")
+            print()
 
     # --------------------------------------------------------------- failures
     print("## Why runs failed")

@@ -15,13 +15,14 @@ never the numbers in the marketing material:
 | "4 vCPU" | steal time under full load | A vCPU you do not get is not a vCPU. |
 | 60-second benchmark results | 30-minute sustained load | Burst credits cover the first minute. Your database runs longer than that. |
 | "dedicated resources" | scheduler stall worst case | Redis and Node are single-threaded. A 10 ms stall is 10 ms of frozen service. |
+| "1 Gbit/s uplink" | throughput to *fixed* targets | A nearest-server speedtest measures a different path per host. Same targets everywhere, or the numbers cannot share a table. |
 
 ## Quickstart
 
 ```bash
 # Debian 13 / Ubuntu 24.04
 apt update && apt install -y fio sysbench stress-ng smartmontools dmidecode \
-  numactl redis-tools jq bc sysstat python3-yaml
+  numactl redis-tools jq bc sysstat curl iputils-ping python3-yaml
 
 git clone https://github.com/Uptimeify/p99bench && cd p99bench/bench
 
@@ -36,8 +37,14 @@ free and a machine with nothing else running on it.
 To benchmark a dedicated data volume instead of the boot disk:
 
 ```bash
-sudo ./run-all.sh --target /mnt/data --provider ... 
+sudo ./run-all.sh --target /mnt/data --provider ...
 ```
+
+The network stage downloads ~400 MB from fixed reference targets. If the host has
+no egress, that is recorded as `reachable: false` and the result stays valid — a
+firewalled host is a real configuration, not a failed measurement. `--skip-network`
+skips it entirely; `--with-ookla` adds an Ookla run as context (needs the
+`speedtest` CLI, which is licensed for personal, non-commercial use).
 
 ## What you get
 
@@ -103,6 +110,7 @@ procurement.
 | `02-cpu.sh` | single/multi core, clock under load, **steal time** | ~3 min |
 | `03-ram.sh` | bandwidth, 8k random, NUMA locality | ~3 min |
 | `05-latency.sh` | **scheduler stalls** (no Redis needed) | 1 min |
+| `06-network.sh` | uplink + RTT to fixed targets (informational) | ~2 min |
 | `04-app-optional.sh` | pgbench / redis-benchmark, only if already running | varies |
 
 ## Docs

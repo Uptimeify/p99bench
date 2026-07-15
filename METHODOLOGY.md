@@ -99,6 +99,29 @@ We also report scaling efficiency (`multi / (single × cores)`). Around 0.9 mean
 physical cores. Around 0.6 means SMT siblings sold as cores. Much below that
 means you are sharing physical cores with other tenants.
 
+### 6. Uplink to fixed reference targets (informational)
+
+Speedtest tools pick the closest, best-connected server available. That is the
+right design for "is my connection working" and the wrong one here: it measures
+a different path for every host, so the resulting numbers cannot go in a shared
+table. A Hetzner box measuring against a Nuremberg server and an OVH box
+measuring against a Zurich server are not comparable, however similar the two
+numbers look side by side.
+
+So p99bench measures every host against the *same* targets. Distance becomes a
+known constant instead of a hidden variable, and a low number means something
+specific: this provider's peering toward that destination is poor. That is a
+property of the provider, which is the thing under study.
+
+Ookla is recorded too when `--with-ookla` is passed, as context rather than as a
+measurement -- it is the number people recognise, and it is a useful sanity
+check on the link itself. It is never required, partly because it is not
+comparable and partly because Ookla's CLI is licensed for personal,
+non-commercial use, and this project explicitly invites submissions from
+providers.
+
+No verdict reads any network field. See THRESHOLDS.md for why.
+
 ## Measurement decisions
 
 ### `--direct=1` is not negotiable
@@ -159,9 +182,13 @@ proof is EDAC exposing live error counters, which essentially no VM does — whi
 is why we record `ecc_verifiable` separately from `ecc_claimed`. If ECC matters
 to you, get it in a contract, not from this tool.
 
-**It cannot tell you about network.** Cluster topology, inter-node RTT and
-packet loss are decisive for Patroni and Redis Cluster and are out of scope here;
-they need two hosts and a longer observation window than a benchmark run.
+**It cannot tell you about inter-node network.** `06-network.sh` measures the
+uplink from one host to fixed public targets. It says nothing about the RTT
+between two of your nodes, which is what actually bounds commit latency in a
+synchronous Patroni cluster or decides whether Redis Sentinel elections are
+stable. That needs two hosts under your control and a much longer observation
+window than a benchmark run -- a single 100-second ping cannot see a BGP flap or
+an evening congestion pattern. Out of scope, and deliberately not approximated.
 
 **It cannot predict your workload.** The profiles in `thresholds.yaml` are
 informed generalisations. A read-mostly Postgres with a working set that fits in

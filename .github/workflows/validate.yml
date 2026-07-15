@@ -71,7 +71,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install bench deps
-        run: sudo apt-get update -qq && sudo apt-get install -y fio sysbench jq bc redis-tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fio sysbench jq bc redis-tools curl iputils-ping
+          pip install pyyaml
       - name: Smoke test disk script
         env:
           P99_TARGET: /tmp/p99smoke
@@ -87,3 +90,13 @@ jobs:
         run: |
           bash bench/05-latency.sh
           jq -e '.cpu' /tmp/p99bench/frag-latency.json
+      - name: Smoke test network script
+        # Runners have egress, so this exercises the real path. It is not a
+        # measurement of anything: a shared CI runner's uplink is meaningless.
+        # We only assert the script emits a well-formed fragment either way.
+        run: |
+          bash bench/06-network.sh
+          jq -e '.network.reachable != null' /tmp/p99bench/frag-network.json
+      - name: Network targets file is parseable
+        run: |
+          python3 -c "import yaml; d=yaml.safe_load(open('schema/network-targets.yaml')); assert d['targets'], 'no targets'; print(f\"{len(d['targets'])} targets, list v{d['list_version']}\")"

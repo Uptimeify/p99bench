@@ -1,0 +1,74 @@
+# p99bench network reference targets
+#
+# WHY A FIXED LIST INSTEAD OF "NEAREST SERVER"
+# -------------------------------------------
+# Speedtest tools pick the closest, best-connected server they can find. That
+# produces a number describing a short, optimised path -- usually "your link is
+# fine" -- and it describes a DIFFERENT path for every host tested. A Hetzner
+# box in FSN measuring against a Nuremberg server and an OVH box in ZRH
+# measuring against a Zurich server produce two numbers that look comparable in
+# a table and are not.
+#
+# So every host measures against the SAME targets. The distance is then a known
+# constant rather than a hidden variable, and a low number means something:
+# this provider's peering toward that destination is poor. That is a property of
+# the provider, which is what this project is about.
+#
+# WHAT MAKES A GOOD TARGET
+#   - stable hostname, run by the operator itself, intended for this purpose
+#   - plain HTTPS (no client registration, no "server busy" like public iperf3)
+#   - geographically spread, so peering rather than distance dominates
+#
+# CHANGING THIS LIST BREAKS COMPARABILITY with every result already submitted.
+# Bump list_version when you do, and expect old and new runs not to be directly
+# comparable on network metrics. This is why the list is deliberately short.
+
+list_version: "1"
+
+# Bytes downloaded per target. 100 MB is enough to get past TCP slow start on a
+# gigabit link while costing little egress. Multiply by the number of targets
+# for the traffic cost of one run: currently ~400 MB.
+download_size_mb: 100
+
+targets:
+  - id: hetzner-fsn1
+    label: "Hetzner Falkenstein (DE)"
+    url: "https://fsn1-speed.hetzner.com/100MB.bin"
+    ping_host: "fsn1-speed.hetzner.com"
+    country: DE
+    note: "Central European reference. Hetzner peers widely at DE-CIX."
+
+  - id: hetzner-hel1
+    label: "Hetzner Helsinki (FI)"
+    url: "https://hel1-speed.hetzner.com/100MB.bin"
+    ping_host: "hel1-speed.hetzner.com"
+    country: FI
+    note: "Northern Europe. Longer path from central EU, exposes transit quality."
+
+  - id: ovh-gra
+    label: "OVH Gravelines (FR)"
+    url: "https://gra.proof.ovh.net/files/100Mio.dat"
+    ping_host: "gra.proof.ovh.net"
+    country: FR
+    note: "Western Europe, different vendor from Hetzner on purpose."
+
+  - id: hetzner-ash
+    label: "Hetzner Ashburn (US)"
+    url: "https://ash-speed.hetzner.com/100MB.bin"
+    ping_host: "ash-speed.hetzner.com"
+    country: US
+    note: "Transatlantic. Mostly a check that transit is not badly broken."
+
+# Ookla is optional context, never a substitute for the fixed targets above.
+#
+# It is the number people recognise, and it picks a nearby server, so it answers
+# "is the link itself healthy" rather than "how is this provider's peering".
+# Both are worth knowing; only the second is comparable across hosts.
+#
+# NOTE ON LICENSING: Ookla's CLI is licensed for personal, non-commercial use.
+# This is precisely why it cannot be required -- this project explicitly invites
+# submissions from providers, who would be using it commercially. It stays
+# optional and opt-in, and a result without it is complete.
+ookla:
+  enabled_by_default: false
+  requires_flag: "--with-ookla"
