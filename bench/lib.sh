@@ -7,7 +7,12 @@ P99BENCH_VERSION="0.1.0"
 
 # Where partial JSON fragments accumulate before run-all.sh merges them.
 : "${P99_WORK:=/tmp/p99bench}"
-mkdir -p "$P99_WORK"
+mkdir -p "$P99_WORK" 2>/dev/null || true
+if [[ ! -w "$P99_WORK" ]]; then
+  printf '\033[1;31m[x]\033[0m %s\n' "$P99_WORK is not writable by $(id -un)." >&2
+  printf '\033[1;31m[x]\033[0m %s\n' "Usually left over from an earlier run as root. Try: rm -rf $P99_WORK" >&2
+  exit 1
+fi
 
 # Where fio writes. Override with P99_TARGET to test a dedicated data volume.
 : "${P99_TARGET:=/var/lib/p99bench}"
@@ -24,9 +29,16 @@ die()  { printf '\033[1;31m[x]\033[0m %s\n' "$*" >&2; exit 1; }
 
 # emit_json <fragment-name> <json-string>
 # Stores a fragment that run-all.sh will deep-merge into the final result.
+#
+# A failed write is fatal on purpose. Swallowing it would produce a result file
+# with a section silently missing, which is worse than no result at all: the
+# verdict would come out "unknown" for reasons nobody can reconstruct later.
 emit_json() {
   local name="$1"; shift
-  printf '%s' "$*" > "$P99_WORK/frag-$name.json"
+  local target="$P99_WORK/frag-$name.json"
+  if ! printf '%s' "$*" > "$target" 2>/dev/null; then
+    die "cannot write $target - a missing fragment would leave holes in the result. Check: ls -ld $P99_WORK"
+  fi
 }
 
 need() {

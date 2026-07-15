@@ -67,14 +67,22 @@ jobs:
     # The scripts must at least run. We cannot benchmark meaningfully on a
     # shared CI runner, so this only proves they do not crash and emit valid
     # JSON fragments -- never treat CI output as a result.
+    #
+    # Every step runs under `sudo -E` so that all fragments end up owned by the
+    # same user. Mixing root and non-root steps leaves /tmp/p99bench owned by
+    # root and the next step cannot write to it.
     runs-on: ubuntu-latest
+    env:
+      P99_WORK: /tmp/p99bench
     steps:
       - uses: actions/checkout@v4
+
       - name: Install bench deps
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y fio sysbench jq bc redis-tools curl iputils-ping
           pip install pyyaml
+
       - name: Smoke test disk script
         env:
           P99_TARGET: /tmp/p99smoke
@@ -82,21 +90,32 @@ jobs:
           P99_RUNTIME: 5
         run: |
           sudo -E bash bench/01-disk.sh
-          test -f /tmp/p99bench/frag-disk.json
-          jq -e '.disk.wal_fsync.iops != null' /tmp/p99bench/frag-disk.json
+          sudo jq -e '.disk.wal_fsync.iops != null' "$P99_WORK/frag-disk.json"
+
       - name: Smoke test latency script
         env:
           P99_LATENCY_DURATION: 5
         run: |
-          bash bench/05-latency.sh
-          jq -e '.cpu' /tmp/p99bench/frag-latency.json
+          sudo -E bash bench/05-latency.sh
+          sudo jq -e '.cpu' "$P99_WORK/frag-latency.json"
+
       - name: Smoke test network script
         # Runners have egress, so this exercises the real path. It is not a
         # measurement of anything: a shared CI runner's uplink is meaningless.
-        # We only assert the script emits a well-formed fragment either way.
+        # We only assert the script emits a well-formed fragment either way --
+        # reachable=false is just as valid an outcome as reachable=true.
         run: |
-          bash bench/06-network.sh
-          jq -e '.network.reachable != null' /tmp/p99bench/frag-network.json
+          sudo -E bash bench/06-network.sh
+          sudo jq -e '.network.reachable != null' "$P99_WORK/frag-network.json"
+
       - name: Network targets file is parseable
         run: |
-          python3 -c "import yaml; d=yaml.safe_load(open('schema/network-targets.yaml')); assert d['targets'], 'no targets'; print(f\"{len(d['targets'])} targets, list v{d['list_version']}\")"
+          python3 - <<'PY'
+          import yaml
+          d = yaml.safe_load(open('schema/network-targets.yaml'))
+          assert d['targets'], 'no targets defined'
+          for t in d['targets']:
+              for k in ('id', 'url', 'ping_host'):
+                  assert t.get(k), f"target {t.get('id', '?')} missing {k}"
+          print(f"{len(d['targets'])} targets, list v{d['list_version']}")
+          PY
