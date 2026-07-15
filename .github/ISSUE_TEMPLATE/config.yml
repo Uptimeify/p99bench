@@ -1,0 +1,17 @@
+# Blank issues stay enabled on purpose: methodology objections rarely fit a form,
+# and the worst outcome here would be someone with a good argument bouncing off
+# a template that does not match their point.
+blank_issues_enabled: true
+
+contact_links:
+  - name: Read the methodology first
+    url: https://github.com/Uptimeify/p99bench/blob/main/METHODOLOGY.md
+    about: Why these metrics and not the ones your provider advertises. Most "the numbers look wrong" questions are answered here.
+
+  - name: Where the pass/fail numbers come from
+    url: https://github.com/Uptimeify/p99bench/blob/main/THRESHOLDS.md
+    about: Every threshold with its reasoning and a confidence level. Check this before challenging one.
+
+  - name: How to submit a result
+    url: https://github.com/Uptimeify/p99bench/blob/main/CONTRIBUTING.md
+    about: A PR is preferred over an issue. Three runs at different hours, sustained test included.

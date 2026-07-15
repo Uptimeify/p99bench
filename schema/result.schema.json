@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Uptimeify/p99bench/schema/result.schema.json",
+  "title": "p99bench result",
+  "description": "A single benchmark run on a single host at a single point in time.",
+  "type": "object",
+  "required": ["schema_version", "run", "provider", "host", "disk", "cpu", "ram"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "run": {
+      "type": "object",
+      "required": ["timestamp_utc", "tool_version", "local_hour", "host_id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "host_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{12}$",
+          "description": "Salted hash of /etc/machine-id, stable across runs on the same VM and meaningless off it. Two runs sharing a host_id are the same machine at different times; two runs of the same product with different host_ids are different machines. Without this the two cases are indistinguishable and cannot be reported separately."
+        },
+        "timestamp_utc": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 UTC start time of the run"
+        },
+        "local_hour": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 23,
+          "description": "Local hour at the datacenter. Needed to spot time-of-day contention."
+        },
+        "duration_s": { "type": ["integer", "null"] },
+        "tool_version": { "type": "string" },
+        "submitter": {
+          "type": ["string", "null"],
+          "description": "GitHub handle of the person vouching for this measurement."
+        },
+        "notes": { "type": ["string", "null"] }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "required": ["name", "product", "region"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Lowercase slug, e.g. hetzner, ovh, azure, scaleway"
+        },
+        "product": {
+          "type": "string",
+          "description": "Exact instance type as billed, e.g. CPX41, B2-7, Standard_D4s_v5"
+        },
+        "region": {
+          "type": "string",
+          "description": "Provider region/DC code, e.g. fsn1, zrh, eu-west-1"
+        },
+        "price_eur_month": { "type": ["number", "null"], "minimum": 0 },
+        "billing": {
+          "type": ["string", "null"],
+          "enum": ["hourly", "monthly", "yearly", "spot", "reserved", null]
+        },
+        "storage_tier": {
+          "type": ["string", "null"],
+          "description": "Block storage tier if the disk under test is not the boot volume, e.g. 'Premium SSD v2', 'high-speed-nvme'"
+        }
+      }
+    },
+    "host": {
+      "type": "object",
+      "required": ["vcpu", "ram_mb", "virt"],
+      "additionalProperties": false,
+      "properties": {
+        "virt": {
+          "type": "string",
+          "description": "Output of systemd-detect-virt. 'none' means bare metal."
+        },
+        "vcpu": { "type": "integer", "minimum": 1 },
+        "ram_mb": { "type": "integer", "minimum": 1 },
+        "cpu_model": { "type": ["string", "null"] },
+        "cpu_governor": { "type": ["string", "null"] },
+        "numa_nodes": { "type": ["integer", "null"], "minimum": 1 },
+        "ecc_claimed": {
+          "type": ["string", "null"],
+          "description": "Raw dmidecode 'Error Correction Type'. On VMs this is what the hypervisor claims, not necessarily reality."
+        },
+        "ecc_verifiable": {
+          "type": "boolean",
+          "description": "True only if EDAC is present and exposes real counters. Almost always false on VMs."
+        },
+        "kernel": { "type": ["string", "null"] },
+        "distro": { "type": ["string", "null"] }
+      }
+    },
+    "disk": {
+      "type": "object",
+      "required": ["target_fs", "wal_fsync"],
+      "additionalProperties": false,
+      "properties": {
+        "device_model": { "type": ["string", "null"] },
+        "scheduler": { "type": ["string", "null"] },
+        "rotational": { "type": ["boolean", "null"] },
+        "target_fs": {
+          "type": "string",
+          "description": "Filesystem of the tested path, e.g. ext4, xfs"
+        },
+        "is_boot_volume": {
+          "type": ["boolean", "null"],
+          "description": "True if tested on the OS disk rather than a dedicated data volume."
+        },
+        "seq_read": { "$ref": "#/$defs/bwResult" },
+        "seq_write": { "$ref": "#/$defs/bwResult" },
+        "rand_read_8k": { "$ref": "#/$defs/ioResult" },
+        "rand_write_8k": { "$ref": "#/$defs/ioResult" },
+        "mixed_8k": { "$ref": "#/$defs/ioResult" },
+        "wal_fsync": {
+          "type": "object",
+          "description": "QD1 fdatasync write. The single most important number for Postgres WAL and Redis AOF.",
+          "required": ["iops", "p999_us"],
+          "additionalProperties": false,
+          "properties": {
+            "iops": { "type": ["number", "null"], "minimum": 0 },
+            "avg_us": { "type": ["number", "null"], "minimum": 0 },
+            "p50_us": { "type": ["number", "null"], "minimum": 0 },
+            "p99_us": { "type": ["number", "null"], "minimum": 0 },
+            "p999_us": { "type": ["number", "null"], "minimum": 0 },
+            "max_us": { "type": ["number", "null"], "minimum": 0 }
+          }
+        },
+        "steady_state": {
+          "type": ["object", "null"],
+          "description": "30-minute sustained mixed load. Exposes burst credit throttling.",
+          "additionalProperties": false,
+          "properties": {
+            "duration_s": { "type": ["integer", "null"] },
+            "first_min_iops": { "type": ["number", "null"] },
+            "last_min_iops": { "type": ["number", "null"] },
+            "degradation_pct": {
+              "type": ["number", "null"],
+              "description": "Percent drop from first minute to last minute. >50 means burst credits ran out."
+            },
+            "p99_us_first_min": { "type": ["number", "null"] },
+            "p99_us_last_min": { "type": ["number", "null"] }
+          }
+        }
+      }
+    },
+    "cpu": {
+      "type": "object",
+      "required": ["single_thread_eps", "intrinsic_latency_max_us"],
+      "additionalProperties": false,
+      "properties": {
+        "single_thread_eps": {
+          "type": ["number", "null"],
+          "description": "sysbench cpu events/sec, 1 thread. Drives Redis, Node event loop, Anubis."
+        },
+        "multi_thread_eps": { "type": ["number", "null"] },
+        "scaling_efficiency": {
+          "type": ["number", "null"],
+          "description": "multi_thread_eps / (single_thread_eps * vcpu). Below 0.6 means SMT siblings or oversubscription."
+        },
+        "clock_idle_mhz": { "type": ["number", "null"] },
+        "clock_under_load_mhz": { "type": ["number", "null"] },
+        "steal_pct_under_load": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Mean %steal from mpstat during full-load stress. The VPS killer."
+        },
+        "intrinsic_latency_max_us": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "redis-cli --intrinsic-latency 60 worst case. Measures scheduler stalls. Needs no Redis server."
+        },
+        "intrinsic_latency_avg_us": { "type": ["number", "null"], "minimum": 0 },
+        "aes_256_gcm_mbs": {
+          "type": ["number", "null"],
+          "description": "openssl speed, all cores. TLS termination throughput."
+        },
+        "sha256_bogo_ops": {
+          "type": ["number", "null"],
+          "description": "stress-ng sha256. Proof-of-work workloads like Anubis."
+        }
+      }
+    },
+    "ram": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "configured_speed": { "type": ["string", "null"] },
+        "type": { "type": ["string", "null"] },
+        "populated_slots": { "type": ["integer", "null"] },
+        "seq_read_mbs": { "type": ["number", "null"], "minimum": 0 },
+        "seq_write_mbs": { "type": ["number", "null"], "minimum": 0 },
+        "rnd_read_mbs": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "8k random. Closer to real DB buffer pool access than sequential."
+        },
+        "rnd_write_mbs": { "type": ["number", "null"], "minimum": 0 },
+        "numa_local_mbs": { "type": ["number", "null"] },
+        "numa_remote_mbs": { "type": ["number", "null"] }
+      }
+    },
+    "app": {
+      "type": ["object", "null"],
+      "description": "Optional application-level verification. Only present if the service was actually running.",
+      "additionalProperties": false,
+      "properties": {
+        "pgbench": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "version": { "type": ["string", "null"] },
+            "scale": { "type": ["integer", "null"] },
+            "tps_ro_64c": { "type": ["number", "null"] },
+            "tps_rw_32c": { "type": ["number", "null"] },
+            "tps_rw_sync_commit_32c": { "type": ["number", "null"] },
+            "latency_p95_ms": { "type": ["number", "null"] }
+          }
+        },
+        "redis": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "version": { "type": ["string", "null"] },
+            "set_qps_appendfsync_everysec": { "type": ["number", "null"] },
+            "set_qps_appendfsync_always": { "type": ["number", "null"] },
+            "set_p99_ms": { "type": ["number", "null"] }
+          }
+        }
+      }
+    },
+    "verdict": {
+      "type": ["object", "null"],
+      "description": "COMPUTED by tools/verdict.py from THRESHOLDS.md. Never hand-written.",
+      "additionalProperties": false,
+      "properties": {
+        "postgres_oltp": { "$ref": "#/$defs/verdictValue" },
+        "timescale_ingest": { "$ref": "#/$defs/verdictValue" },
+        "redis_aof": { "$ref": "#/$defs/verdictValue" },
+        "nuxt_ssr": { "$ref": "#/$defs/verdictValue" },
+        "reasons": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "verdictValue": {
+      "type": ["string", "null"],
+      "enum": ["pass", "marginal", "fail", "unknown", null]
+    },
+    "ioResult": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "iops": { "type": ["number", "null"], "minimum": 0 },
+        "bw_mbs": { "type": ["number", "null"], "minimum": 0 },
+        "p50_us": { "type": ["number", "null"], "minimum": 0 },
+        "p99_us": { "type": ["number", "null"], "minimum": 0 },
+        "p999_us": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "bwResult": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "bw_mbs": { "type": ["number", "null"], "minimum": 0 },
+        "iops": { "type": ["number", "null"], "minimum": 0 },
+        "p99_us": { "type": ["number", "null"], "minimum": 0 }
+      }
+    }
+  }
+}

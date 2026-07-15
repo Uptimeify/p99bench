@@ -1,0 +1,89 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install jsonschema pyyaml
+
+      - name: Validate result files against schema and policy
+        run: python3 tools/validate.py results/
+
+      - name: Verify verdicts match thresholds
+        # validate.py already checks this per-file, but this makes the failure
+        # mode obvious in the job list: a hand-edited verdict is not a schema
+        # error, it is a trust problem.
+        run: |
+          fail=0
+          shopt -s nullglob globstar
+          for f in results/**/*.json; do
+            tmp=$(mktemp)
+            cp "$f" "$tmp"
+            python3 tools/verdict.py "$tmp" --in-place
+            if ! diff -q "$f" "$tmp" >/dev/null; then
+              echo "::error file=$f::verdict does not match schema/thresholds.yaml"
+              diff "$f" "$tmp" || true
+              fail=1
+            fi
+            rm -f "$tmp"
+          done
+          exit $fail
+
+      - name: Check RESULTS.md is up to date
+        run: |
+          python3 tools/render.py > /tmp/RESULTS.md
+          if ! diff -q RESULTS.md /tmp/RESULTS.md >/dev/null; then
+            echo "::error::RESULTS.md is stale. Run: python3 tools/render.py > RESULTS.md"
+            diff RESULTS.md /tmp/RESULTS.md || true
+            exit 1
+          fi
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y shellcheck
+          # SC1091: lib.sh is sourced at runtime, shellcheck cannot follow it
+          shellcheck -e SC1091 bench/*.sh
+
+  smoke:
+    # The scripts must at least run. We cannot benchmark meaningfully on a
+    # shared CI runner, so this only proves they do not crash and emit valid
+    # JSON fragments -- never treat CI output as a result.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install bench deps
+        run: sudo apt-get update -qq && sudo apt-get install -y fio sysbench jq bc redis-tools
+      - name: Smoke test disk script
+        env:
+          P99_TARGET: /tmp/p99smoke
+          P99_SIZE: 1G
+          P99_RUNTIME: 5
+        run: |
+          sudo -E bash bench/01-disk.sh
+          test -f /tmp/p99bench/frag-disk.json
+          jq -e '.disk.wal_fsync.iops != null' /tmp/p99bench/frag-disk.json
+      - name: Smoke test latency script
+        env:
+          P99_LATENCY_DURATION: 5
+        run: |
+          bash bench/05-latency.sh
+          jq -e '.cpu' /tmp/p99bench/frag-latency.json

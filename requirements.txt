@@ -1,0 +1,15 @@
+# Python deps for the tooling in tools/ only.
+#
+# The benchmark scripts in bench/ deliberately do NOT need these - they are
+# plain bash + fio/sysbench/jq, so you can run a benchmark on a fresh host
+# without setting up a Python environment. Only validating, computing verdicts
+# and rendering RESULTS.md need Python.
+#
+#   pip install -r requirements.txt
+#   # or, on Debian 12+/Ubuntu 24.04 where pip refuses to touch the system env:
+#   pip install -r requirements.txt --break-system-packages
+#   # or the distro packages:
+#   apt install python3-jsonschema python3-yaml
+
+jsonschema>=4.0     # tools/validate.py - schema checks against schema/result.schema.json
+pyyaml>=6.0         # tools/verdict.py  - reads schema/thresholds.yaml

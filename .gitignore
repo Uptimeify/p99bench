@@ -1,0 +1,6 @@
+# Local run output - submit via PR into results/ instead
+bench/results-local/
+*.log
+__pycache__/
+*.pyc
+.venv/

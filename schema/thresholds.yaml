@@ -1,0 +1,169 @@
+# p99bench thresholds
+#
+# This file is the single source of truth for verdicts.
+# THRESHOLDS.md documents the reasoning; this file is what the code reads.
+# Changing a number here changes every verdict on the next render.
+#
+# Semantics:
+#   op: "gte" -> value must be >= pass to pass, >= marginal to be marginal, else fail
+#   op: "lte" -> value must be <= pass to pass, <= marginal to be marginal, else fail
+#   A missing/null value yields "unknown" for that rule and does not fail the profile,
+#   but a profile with any required rule unknown is reported as "unknown" overall.
+
+version: "1.0"
+
+profiles:
+
+  postgres_oltp:
+    label: "PostgreSQL OLTP"
+    description: >
+      Classic transactional Postgres. Commit latency is bounded by fsync;
+      index lookups by random read; checkpoints by random write.
+    rules:
+      - path: disk.wal_fsync.p999_us
+        op: lte
+        pass: 2000
+        marginal: 5000
+        required: true
+        why: "Every COMMIT waits on fdatasync. p99.9 is what your slowest transactions feel."
+      - path: disk.wal_fsync.iops
+        op: gte
+        pass: 15000
+        marginal: 5000
+        required: true
+        why: "Ceiling on single-connection commit rate."
+      - path: disk.rand_read_8k.p99_us
+        op: lte
+        pass: 1000
+        marginal: 5000
+        required: true
+        why: "8k is the Postgres page size. Index lookups are random reads."
+      - path: disk.rand_read_8k.iops
+        op: gte
+        pass: 100000
+        marginal: 30000
+        required: false
+      - path: disk.rand_write_8k.iops
+        op: gte
+        pass: 50000
+        marginal: 15000
+        required: false
+      - path: cpu.steal_pct_under_load
+        op: lte
+        pass: 2
+        marginal: 5
+        required: true
+        why: "Steal time delays Patroni heartbeats and causes spurious failovers."
+      - path: disk.steady_state.degradation_pct
+        op: lte
+        pass: 10
+        marginal: 50
+        required: false
+        why: "Burst credits. A 60s benchmark cannot see this."
+
+  timescale_ingest:
+    label: "TimescaleDB ingest"
+    description: >
+      High-rate inserts plus background compression and continuous aggregates.
+      Sequential throughput and memory bandwidth matter more than for plain OLTP.
+    rules:
+      - path: disk.wal_fsync.p999_us
+        op: lte
+        pass: 2000
+        marginal: 5000
+        required: true
+      - path: disk.seq_write.bw_mbs
+        op: gte
+        pass: 500
+        marginal: 200
+        required: true
+        why: "Chunk writes and compression jobs are sequential and bulky."
+      - path: disk.seq_read.bw_mbs
+        op: gte
+        pass: 2000
+        marginal: 500
+        required: false
+        why: "Continuous aggregate refresh reads whole chunks."
+      - path: disk.rand_write_8k.iops
+        op: gte
+        pass: 50000
+        marginal: 15000
+        required: false
+      - path: ram.seq_read_mbs
+        op: gte
+        pass: 15000
+        marginal: 8000
+        required: false
+        why: "Aggregation over chunks is memory-bandwidth bound."
+      - path: cpu.steal_pct_under_load
+        op: lte
+        pass: 2
+        marginal: 5
+        required: true
+      - path: disk.steady_state.degradation_pct
+        op: lte
+        pass: 10
+        marginal: 50
+        required: false
+
+  redis_aof:
+    label: "Redis (AOF durable)"
+    description: >
+      Single-threaded, latency-critical, in-memory. Scheduler stalls translate
+      directly into request latency. AOF everysec/always adds an fsync path.
+      Needs no running Redis to evaluate.
+    rules:
+      - path: cpu.intrinsic_latency_max_us
+        op: lte
+        pass: 200
+        marginal: 1000
+        required: true
+        why: >
+          Redis is single-threaded. Any scheduler stall is dead time for every
+          client. This is measurable without a server via redis-cli --intrinsic-latency.
+      - path: cpu.single_thread_eps
+        op: gte
+        pass: 1000
+        marginal: 600
+        required: true
+        why: "Redis throughput is bounded by one core."
+      - path: disk.wal_fsync.p999_us
+        op: lte
+        pass: 2000
+        marginal: 5000
+        required: true
+        why: "appendfsync always/everysec blocks on the same fdatasync path as WAL."
+      - path: cpu.steal_pct_under_load
+        op: lte
+        pass: 2
+        marginal: 5
+        required: true
+
+  nuxt_ssr:
+    label: "Nuxt / Node SSR"
+    description: >
+      Single-threaded event loop per worker. Sensitive to scheduler stalls and
+      single-core speed; largely indifferent to disk.
+    rules:
+      - path: cpu.single_thread_eps
+        op: gte
+        pass: 1000
+        marginal: 600
+        required: true
+      - path: cpu.intrinsic_latency_max_us
+        op: lte
+        pass: 1000
+        marginal: 5000
+        required: true
+        why: "Event loop blocking. More tolerant than Redis, but not immune."
+      - path: cpu.steal_pct_under_load
+        op: lte
+        pass: 5
+        marginal: 10
+        required: false
+      - path: cpu.aes_256_gcm_mbs
+        op: gte
+        pass: 2000
+        marginal: 500
+        required: false
+        why: "TLS termination. Absent AES-NI is a red flag."
