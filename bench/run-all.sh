@@ -14,13 +14,28 @@
 #   --with-ookla      also run Ookla speedtest as context (needs `speedtest`;
 #                     Ookla's CLI is licensed for personal, non-commercial use)
 #   --skip-network    do not measure the network at all (recorded as skipped)
+#   --skip-cpu-steady do not run the 15 min CPU sustained test (result marked
+#                     incomplete; playwright_node and worker_probe grade "?")
+#   --submitter NAME  who vouches for this run. Results are not accepted
+#                     anonymously - see CONTRIBUTING.md
+#   --notes TEXT      free text recorded as run.notes. Providers submitting
+#                     results from their own hardware: disclose it here.
 set -uo pipefail
+# Resolve our own path BEFORE cd, because --help reads this file's comment block
+# back out of $0. After the cd below, a relative $0 ("bench/run-all.sh") no
+# longer resolves and --help silently printed nothing while still exiting 0.
+SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 cd "$(dirname "$0")" || exit 1
 source ./lib.sh
 
+# Print the header comment block as usage: every line from line 2 up to the
+# first line that is not a comment. Derived rather than a hard-coded line range,
+# so adding an option cannot desync the help text from the options themselves.
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$SELF"; }
+
 PROVIDER="" PRODUCT="" REGION="" PRICE="null" BILLING="null"
 SUBMITTER="" NOTES="" TIER="" SKIP_STEADY=0 STEADY_ONLY=0
-SKIP_NETWORK=0
+SKIP_NETWORK=0 SKIP_CPU_STEADY=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -38,7 +53,8 @@ while [[ $# -gt 0 ]]; do
     --steady-only) STEADY_ONLY=1; shift;;
     --with-ookla) export P99_WITH_OOKLA=1; shift;;
     --skip-network) SKIP_NETWORK=1; shift;;
-    -h|--help) sed -n '2,21p' "$0"; exit 0;;
+    --skip-cpu-steady) SKIP_CPU_STEADY=1; shift;;
+    -h|--help) usage; exit 0;;
     *) die "unknown option: $1";;
   esac
 done
@@ -77,6 +93,7 @@ LOGFILE="$OUTDIR/$BASENAME.log"
 
 log "p99bench $P99BENCH_VERSION"
 log "Target: $P99_TARGET | size ${P99_SIZE}/job | log: $LOGFILE"
+log "Expect ~60 min: 30 disk steady + 15 CPU steady + ~15 for everything else."
 
 run_stage() {
   local s="$1"
@@ -92,6 +109,11 @@ else
   run_stage 02-cpu.sh
   run_stage 03-ram.sh
   run_stage 05-latency.sh
+  if (( SKIP_CPU_STEADY )); then
+    warn "CPU steady state skipped - playwright_node and worker_probe will grade '?'"
+  else
+    run_stage 02b-cpu-steady.sh
+  fi
   if (( SKIP_NETWORK )); then
     warn "network skipped by request"
     printf '%s' '{"network": {"reachable": false, "skip_reason": "--skip-network"}}' \

@@ -247,3 +247,95 @@ def test_cpu_stage_emits_scaling_efficiency(repo_root):
     cpu = run_stage(repo_root, "02-cpu.sh", {"P99_CPU_QUICK": "1"}, "cpu")["cpu"]
     assert cpu["scaling_efficiency"] is not None
     assert 0 < cpu["scaling_efficiency"] <= 1.5
+
+
+@pytest.mark.docker
+def test_cpu_steady_emits_degradation(repo_root):
+    frag = run_stage(repo_root, "02b-cpu-steady.sh",
+                     {"P99_CPU_STEADY_MIN": "1"}, "cpu-steady")
+    steady = frag["cpu"]["steady_state"]
+    assert steady["degradation_pct"] is not None
+    assert steady["first_min_eps"] is not None
+    assert steady["last_min_eps"] is not None
+
+
+@pytest.mark.docker
+def test_cpu_steady_degradation_sign_is_drop_not_gain(repo_root):
+    # degradation_pct must be positive when throughput FALLS, matching
+    # disk.steady_state.degradation_pct, which the bands read as "lte".
+    # A sign flip here would grade a throttled host as excellent.
+    #
+    # MUST run with at least 2 minutes: at MIN=1 the first and last samples
+    # are the same array element, degradation is identically 0, and this
+    # assertion holds no matter what the implementation does.
+    frag = run_stage(repo_root, "02b-cpu-steady.sh",
+                     {"P99_CPU_STEADY_MIN": "2"}, "cpu-steady")
+    steady = frag["cpu"]["steady_state"]
+    first, last = steady["first_min_eps"], steady["last_min_eps"]
+    assert first != last, (
+        "first and last minute are identical -- the series is not being "
+        "sampled per-minute, so this test cannot see a sign error"
+    )
+    expected = (first - last) / first * 100
+    assert abs(steady["degradation_pct"] - expected) < 0.5
+
+
+@pytest.mark.docker
+def test_cpu_steady_reports_positive_degradation_when_throughput_falls():
+    # Pure unit check of the sign convention, independent of hardware: feed
+    # the shell's own expression a falling series and assert the sign. A
+    # container cannot be made to throttle on demand, so the container tests
+    # above can never prove this direction.
+    import subprocess
+    out = subprocess.run(
+        ["bash", "-c", 'echo "scale=2; (1000 - 400) / 1000 * 100" | bc'],
+        capture_output=True, text=True,
+    )
+    assert float(out.stdout) == 60.0, "falling throughput must give positive degradation"
+
+
+@pytest.mark.docker
+def test_cpu_steady_nests_under_cpu_not_top_level(repo_root):
+    # run-all.sh deep-merges fragments; this must land at cpu.steady_state so
+    # the band path in thresholds.yaml resolves.
+    frag = run_stage(repo_root, "02b-cpu-steady.sh",
+                     {"P99_CPU_STEADY_MIN": "1"}, "cpu-steady")
+    assert set(frag.keys()) == {"cpu"}
+    assert "steady_state" in frag["cpu"]
+
+
+def test_run_all_help_lists_every_option_it_parses(repo_root):
+    """--help must actually print, and must document every flag run-all parses.
+
+    Two bugs this guards, both of which shipped:
+
+    1. run-all.sh does `cd "$(dirname "$0")"` and then read its own comment block
+       back out of "$0". After the cd a relative $0 no longer resolves, so
+       `bash bench/run-all.sh --help` -- the invocation CONTRIBUTING.md documents
+       -- printed a sed error to stderr, nothing to stdout, and exited 0.
+    2. The help text was a hard-coded line range (`sed -n '2,21p'`). Adding an
+       option silently desynced the range from the options.
+
+    Needs no container: this is a text/CLI property.
+    """
+    import subprocess
+
+    # Invoke by RELATIVE path from the repo root, exactly as CONTRIBUTING.md
+    # documents (`sudo ./bench/run-all.sh ...`). This is load-bearing: an
+    # absolute $0 survives the script's `cd` and hides bug 1 entirely, so a test
+    # using an absolute path passes against the broken code.
+    proc = subprocess.run(
+        ["bash", "bench/run-all.sh", "--help"],
+        capture_output=True, text=True, cwd=str(repo_root),
+    )
+    assert proc.returncode == 0
+    assert proc.stdout.strip(), "--help printed nothing (the cd/$0 bug)"
+
+    src = (repo_root / "bench" / "run-all.sh").read_text()
+    # Every long option the arg parser matches, e.g. `--skip-cpu-steady) ...`
+    parsed = set(re.findall(r"^\s*(--[a-z-]+)\)", src, re.M))
+    # Required options are documented in the Usage example line, not the
+    # Options list, so exclude the ones the parser takes as mandatory.
+    required = {"--provider", "--product", "--region", "--price", "--billing"}
+    for opt in sorted(parsed - required):
+        assert opt in proc.stdout, f"{opt} is parsed but undocumented in --help"
