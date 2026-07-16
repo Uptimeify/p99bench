@@ -255,7 +255,111 @@ categories:
     - network.dns_ms
     - network.rtt_jitter_ratio
 
-# profiles: populated by Task 4. Left as an empty object here so this file
-# already satisfies schema/bands.schema.json (which requires the key) without
-# pre-empting Task 4's content.
-profiles: {}
+profiles:
+
+  postgres_oltp:
+    label: "PostgreSQL OLTP"
+    description: >
+      Classic transactional Postgres. Commit latency is bounded by fsync; index
+      lookups by random read; checkpoints by random write.
+    rules:
+      - { metric: disk.wal_fsync.p999_us,           required: true }
+      - { metric: disk.wal_fsync.iops,              required: true }
+      - { metric: disk.rand_read_8k.p99_us,         required: true }
+      - { metric: disk.rand_read_8k.iops,           required: false }
+      - { metric: disk.rand_write_8k.iops,          required: false }
+      - { metric: cpu.steal_pct_under_load,         required: true }
+      - { metric: disk.steady_state.degradation_pct, required: false }
+
+  timescale_ingest:
+    label: "TimescaleDB ingest"
+    description: >
+      High-rate inserts plus background compression and continuous aggregates.
+      Sequential throughput and memory bandwidth matter more than for plain OLTP.
+    rules:
+      - { metric: disk.wal_fsync.p999_us,           required: true }
+      - { metric: disk.seq_write.bw_mbs,            required: true }
+      - { metric: disk.seq_read.bw_mbs,             required: false }
+      - { metric: disk.rand_write_8k.iops,          required: false }
+      # required: false so a v1 result still grades -- it predates the LLC fix
+      # and carries no bw_read_mbs (spec 9.3).
+      - { metric: ram.bw_read_mbs,                  required: false }
+      - { metric: cpu.steal_pct_under_load,         required: true }
+      - { metric: disk.steady_state.degradation_pct, required: false }
+
+  patroni_member:
+    label: "Patroni cluster member"
+    description: >
+      A Postgres node in a Patroni cluster. Grades ONLY what one host decides.
+      Commit latency here is local fsync + inter-node RTT; the second term needs
+      two hosts under your control and a far longer observation window than a
+      benchmark run, so it is not measured and not approximated (spec 7.3).
+    network_half_unmeasured: true
+    rules:
+      - { metric: disk.wal_fsync.p999_us,           required: true }
+      # Steal is a correctness rule here, not a performance one: it delays the
+      # leader's heartbeats, and a delayed heartbeat past the TTL fires a
+      # failover because the host was busy, not because anything was wrong.
+      - { metric: cpu.steal_pct_under_load,         required: true }
+      - { metric: cpu.stall_p999_us,                required: true }
+      - { metric: cpu.single_thread_eps,            required: true }
+      - { metric: cpu.steady_state.degradation_pct, required: true }
+
+  redis_sentinel:
+    label: "Redis (Sentinel member, AOF durable)"
+    description: >
+      Single-threaded, latency-critical, in-memory, as a Sentinel cluster
+      member. Evaluated without a running Redis. Grades only the local half;
+      Sentinel election stability also depends on inter-node RTT (spec 7.3).
+    network_half_unmeasured: true
+    rules:
+      - { metric: cpu.stall_p999_us,                required: true }
+      - { metric: cpu.single_thread_eps,            required: true }
+      # Applies even to appendfsync no. Conservative on purpose: you rarely know
+      # at procurement time which durability setting you will end up needing.
+      - { metric: disk.wal_fsync.p999_us,           required: true }
+      - { metric: cpu.steal_pct_under_load,         required: true }
+      - { metric: cpu.steady_state.degradation_pct, required: true }
+
+  worker_probe:
+    label: "Monitoring probe (HTTP/SSL/ICMP/SMTP/SSH/FTP/TCP)"
+    description: >
+      A node running synthetic checks against the outside world. The network is
+      the workload here, which is the only reason network fields carry
+      thresholds at all (spec 6.5).
+    rules:
+      - { metric: cpu.single_thread_eps,            required: true }
+      - { metric: cpu.stall_p999_us,                required: true }
+      - { metric: cpu.steady_state.degradation_pct, required: true }
+      - { metric: cpu.tls_verify_s,                 required: true }
+      - { metric: network.loss_pct,                 required: false }
+      - { metric: network.dns_ms,                   required: false }
+      - { metric: network.rtt_jitter_ratio,         required: false }
+
+  playwright_node:
+    label: "Playwright / browser synthetics"
+    description: >
+      Chromium is multi-process and memory-hungry, so this is the one profile
+      where RAM capacity is primary. cpu.steady_state is the binding metric for
+      the Prague failure mode: a node pinned at a throttled baseline renders ~3x
+      slower, which surfaces as browser-check timeouts while plain HTTP checks
+      stay green (spec 2.6).
+    rules:
+      - { metric: cpu.steady_state.degradation_pct, required: true }
+      - { metric: cpu.scaling_efficiency,           required: true }
+      - { metric: cpu.single_thread_eps,            required: true }
+      - { metric: cpu.stall_p999_us,                required: true }
+      - { metric: host.ram_mb,                      required: true }
+      - { metric: ram.bw_read_mbs,                  required: false }
+      - { metric: network.loss_pct,                 required: false }
+      - { metric: network.dns_ms,                   required: false }
+
+  nuxt_ssr:
+    label: "Nuxt / Node SSR"
+    description: >
+      Single-threaded event loop per worker. Sensitive to scheduler stalls and
+      single-core speed; largely indifferent to disk.
+    rules:
+      - { metric: cpu.single_thread_eps,            required: true }
+      - { metric: cpu.stall_p999_us,                required: true }
+      - { metric: cpu.steal_pct_under_load,         required: false }
