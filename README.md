@@ -49,29 +49,96 @@ skips it entirely; `--with-ookla` adds an Ookla run as context (needs the
 
 ## What you get
 
-A single JSON file plus a verdict per workload profile:
+A single JSON result file, plus a grade — **A through F, or `?` for not-yet-
+measured** — per capability category (`disk`, `cpu`, `ram`, `network`) and per
+workload profile (`postgres_oltp`, `timescale_ingest`, `patroni_member`,
+`redis_sentinel`, `worker_probe`, `playwright_node`, `nuxt_ssr`). This is real
+output, not a mock-up — `python3 tools/grade.py
+results/ovh/zrh/2026-07-16T1024-vps-1-lz-2026.json` against a published run:
 
+```json
+{
+  "bands_version": "2.0",
+  "storage_class": "net-slow",
+  "categories": {
+    "disk": {
+      "grade": "F",
+      "bound_by": "disk.wal_fsync.p999_us",
+      "metrics": {
+        "disk.wal_fsync.p999_us": { "value": 137363.46, "grade": "F" },
+        "disk.wal_fsync.iops": { "value": 179.79, "grade": "D" },
+        "disk.rand_read_8k.p99_us": { "value": 18219.01, "grade": "F" },
+        "disk.rand_read_8k.iops": { "value": 7512.39, "grade": "D" },
+        "disk.rand_write_8k.iops": { "value": 5935.87, "grade": "D" },
+        "disk.seq_write.bw_mbs": { "value": 300.47, "grade": "C" },
+        "disk.seq_read.bw_mbs": { "value": 300.49, "grade": "D" },
+        "disk.steady_state.degradation_pct": { "value": 0.38, "grade": "A" }
+      }
+    },
+    "cpu": {
+      "grade": "?",
+      "bound_by": "cpu.stall_p999_us",
+      "metrics": {
+        "cpu.single_thread_eps": { "value": 1615.96, "grade": "A" },
+        "cpu.scaling_efficiency": { "value": 0.97, "grade": "A" },
+        "cpu.steal_pct_under_load": { "value": 0.12, "grade": "A" },
+        "cpu.stall_p999_us": { "value": null, "grade": "?" },
+        "cpu.steady_state.degradation_pct": { "value": null, "grade": "?" },
+        "cpu.tls_verify_s": { "value": null, "grade": "?" }
+      }
+    },
+    "ram": {
+      "grade": "?",
+      "bound_by": "ram.bw_read_mbs",
+      "metrics": { "ram.bw_read_mbs": { "value": null, "grade": "?" } }
+    },
+    "network": {
+      "grade": "A",
+      "bound_by": "network.loss_pct",
+      "metrics": {
+        "network.loss_pct": { "value": 0, "grade": "A" },
+        "network.rtt_jitter_ratio": { "value": 1.0277777777777777, "grade": "A" }
+      }
+    }
+  },
+  "profiles": {
+    "postgres_oltp": { "grade": "F", "bound_by": "disk.wal_fsync.p999_us" },
+    "timescale_ingest": { "grade": "F", "bound_by": "disk.wal_fsync.p999_us" },
+    "patroni_member": { "grade": "F", "bound_by": "disk.wal_fsync.p999_us", "network_half_unmeasured": true },
+    "redis_sentinel": { "grade": "F", "bound_by": "disk.wal_fsync.p999_us", "network_half_unmeasured": true },
+    "worker_probe": { "grade": "?", "bound_by": "cpu.stall_p999_us", "reason": "needs re-run (tool >= 0.2.0)" },
+    "playwright_node": { "grade": "?", "bound_by": "cpu.steady_state.degradation_pct", "reason": "needs re-run (tool >= 0.2.0)" },
+    "nuxt_ssr": { "grade": "?", "bound_by": "cpu.stall_p999_us", "reason": "needs re-run (tool >= 0.2.0)" }
+  }
+}
 ```
-postgres_oltp:    fail
-timescale_ingest: fail
-redis_aof:        fail
-nuxt_ssr:         marginal
 
-reasons:
-  - [postgres_oltp] disk.wal_fsync.p999_us = 8200 > 5000
-  - [redis_aof] cpu.intrinsic_latency_max_us = 10707 > 1000
-  - [postgres_oltp] disk.steady_state.degradation_pct = 58.7 > 50
-```
+`postgres_oltp`, `timescale_ingest`, `patroni_member` and `redis_sentinel` all
+grade F here, bound by the same 137 ms fsync p99.9 — that is what `net-slow`
+storage does under a durability-sensitive workload. `worker_probe`,
+`playwright_node` and `nuxt_ssr` grade `?`, not a pass: this run predates the
+tool version that measures scheduler stall, so there is nothing to grade yet.
 
-The verdict is not an opinion. It is a pure function of the measured numbers and
-[`schema/thresholds.yaml`](schema/thresholds.yaml), which is public and versioned.
-CI recomputes it and rejects any file where a verdict was hand-edited. If you
-think a verdict is wrong, the thing to argue about is the threshold.
+The grade is not an opinion. It is a pure function of the measured numbers and
+[`schema/thresholds.yaml`](schema/thresholds.yaml), which is public and
+versioned: every band from A to F lives in that file, and a category's or a
+profile's grade is the *worst* band among its metrics, never an average — a
+superb sequential write speed does not buy back a 137 ms fsync tail. CI
+recomputes every grade and rejects any file where a grade was hand-edited. If
+you think a grade is wrong, the thing to argue about is the band.
 
 ## Results
 
-See **[RESULTS.md](RESULTS.md)** — generated from [`results/`](results/), never
-edited by hand.
+Everything below is generated from [`results/`](results/) by
+[`tools/render.py`](tools/render.py) and never edited by hand — CI runs
+`render.py --check` and rejects a stale or hand-edited artifact:
+
+- **[RESULTS.md](RESULTS.md)** — the index: one row per product and region.
+- **`results/<provider>/README.md`** (e.g. [results/ovh](results/ovh/README.md),
+  [results/hetzner](results/hetzner/README.md)) — the detail page for that
+  provider: every product/region, every metric, every run.
+- **[data/index.json](data/index.json)** / `data/index.csv` — the
+  machine-readable export, for anyone building something on top of this data.
 
 Results are laid out as `results/<provider>/<region>/`, and every run carries an
 anonymous `host_id` so runs on the same VM link together. That lets `RESULTS.md`

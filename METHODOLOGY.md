@@ -122,7 +122,91 @@ providers.
 
 `worker_probe` and `playwright_node` grade `network.loss_pct` and
 `network.rtt_jitter_ratio`; every other profile reads no network field. See
-THRESHOLDS.md for why.
+"Why network is graded only where the workload is the network" below for the
+reasoning, and THRESHOLDS.md for the bands.
+
+## Grading doctrine
+
+Three pieces of reasoning came out of the redesign that turned a single
+pass/marginal/fail verdict into A-F grades per category and per profile. They
+belong here rather than in THRESHOLDS.md: this document owns *why*, THRESHOLDS.md
+owns the numbers.
+
+### Broken vs quiet
+
+A metric that produces the same grade on every published result is one of two
+things, and from inside a single corpus the two are indistinguishable — one
+grade, every time, either way. The difference is intent, and it has to be
+declared, not inferred from the shape of the data:
+
+- **Broken** — unreachable by construction, on every machine, in any plausible
+  corpus. Never ship it.
+- **Quiet** — reachable in both directions; this particular corpus merely
+  happens to be clean. Keep it. Its silence is itself a finding: it says these
+  machines genuinely do not exhibit the failure mode, not that the metric
+  cannot see one.
+
+This distinction exists because the project got it wrong once. The original
+thresholds shipped with three bounds no VM in the corpus could ever pass:
+`disk.wal_fsync.iops >= 15,000` against a best-measured 1,588, `rand_read_8k.p99
+<= 1 ms` against a measured 2,408 µs, and `intrinsic_latency <= 200 µs` against
+a measured 1,642 µs. Every one of the 10 published runs failed all three, which
+meant three of the four v1 profiles could never return anything but `fail` —
+the verdict column carried no information for most of what it claimed to
+grade. Nobody noticed until someone sat down and analysed the corpus rather
+than reading verdicts one file at a time.
+
+A threshold that fails every host it will ever see is not a demanding
+threshold. It is a broken one, and "the whole corpus fails this" and "the
+whole corpus is clean on this" produce the identical symptom, so eyeballing a
+result table cannot tell them apart. `tests/test_band_doctrine.py` makes the
+distinction mechanical: any metric that yields a single grade across the
+corpus must declare `quiet: true` or `provisional: true` in
+`schema/thresholds.yaml`, or CI fails. See THRESHOLDS.md's "Quiet metrics"
+section for the current list and why each entry there is quiet rather than
+broken.
+
+### Storage class is a facet, never a curve
+
+Every result also carries a `storage_class` — `local-nvme`, `net-fast`,
+`net-slow`, or `degraded` — derived from measured fsync latency-per-op, never
+from what a provider calls the disk. Its job is to *explain* a grade: "this is
+network-attached storage, and that is why the tail looks like this." It must
+never *soften* one.
+
+A `net-slow` host that fails `postgres_oltp` still fails `postgres_oltp`.
+Grading a network-storage VM against its own class — curving the bar to
+"acceptable for net-slow" — would excuse exactly what this project exists to
+expose: that the provider sold tail latency unfit for a database, regardless of
+which mechanism produced it. The class is context for the reader, not a second
+chance for the machine.
+
+### Why network is graded only where the workload IS the network
+
+Before this redesign, no verdict read a network field at all, and for most
+profiles that stance still holds. "A database host needs 500 Mbit/s" cannot be
+derived from any workload requirement — it would be a number chosen to look
+authoritative, not one earned by reasoning about what `postgres_oltp` or
+`timescale_ingest` actually need from the network. So `postgres_oltp`,
+`timescale_ingest`, `patroni_member`, `redis_sentinel`, and `nuxt_ssr` still
+read no network field.
+
+That reasoning collapses exactly where the network stops being incidental and
+becomes the thing under test. `worker_probe` runs HTTP/SSL/ICMP/SMTP/SSH/FTP/TCP
+checks; `playwright_node` loads real pages over a real connection. For both,
+packet loss and jitter are not an excuse for a bad result — they are the
+failure mode itself.
+
+The bands for `network.loss_pct` follow from that, rather than being chosen to
+look plausible. A monitoring check that sends 3 ICMP packets and declares a
+target down only on total loss false-alarms at rate p³, where p is the
+underlying packet-loss rate. At `p = 10%`, that is a 1-in-1,000 chance per
+check; at one check per minute, that is 1.4 false alarms a day — enough to
+train an on-call engineer to ignore the pager. The corpus contains exactly this
+case: the `ovh/zrh -> hetzner-ash` path measures 10% loss, which is why loss
+above 2% grades F for a probe workload. A monitoring tool that cries wolf more
+than once an hour is not one anyone would trust, and that is a fact about the
+workload, computed from the measurement — not an opinion about the provider.
 
 ## Measurement decisions
 

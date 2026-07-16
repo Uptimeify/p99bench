@@ -72,12 +72,19 @@ mkdir -p results/hetzner/fsn1
 scp root@yourhost:'~/p99bench/bench/results-local/*.json' results/hetzner/fsn1/
 
 python3 tools/validate.py results/
-python3 tools/render.py > RESULTS.md
+python3 tools/render.py
 
 git checkout -b result/hetzner-cpx41-fsn1
-git add results/ RESULTS.md
+git add results/ RESULTS.md data/index.json data/index.csv
 git commit -m "result: hetzner CPX41 fsn1, 3 runs"
 ```
+
+`python3 tools/render.py` regenerates every derived artifact in one pass:
+`RESULTS.md` (the index), `results/<provider>/README.md` (the per-provider
+detail page — this is why `git add results/` above is enough to pick it up),
+and `data/index.json` / `data/index.csv` (the machine-readable export). All of
+them are generated and none of them is hand-edited — commit them with the
+result, not separately, or CI's `render.py --check` will find your PR stale.
 
 Layout: `results/<provider>/<region>/YYYY-MM-DDThhmm-<product-slug>.json`
 
@@ -94,8 +101,11 @@ file.
 - Missing `disk.wal_fsync.p999_us` (the primary metric)
 - Missing `run.submitter` — **results are not accepted anonymously**
 - Wrong directory for the provider/region in the file
-- A `verdict` that does not match what `thresholds.yaml` computes
-- `RESULTS.md` not regenerated
+- Grades that do not match what `schema/thresholds.yaml` computes — CI recomputes
+  every `grades` block with `tools/grade.py` and diffs it
+- Any generated artifact not regenerated: `RESULTS.md`, `results/<provider>/README.md`,
+  `data/index.json`, `data/index.csv` — CI runs `tools/render.py --check`, which
+  fails and names every stale file at once
 
 ### Why no anonymous results
 
@@ -163,11 +173,14 @@ Open an issue with:
 - the threshold, the proposed value, and the reasoning
 - ideally, data
 
-Read [THRESHOLDS.md](THRESHOLDS.md) first — the confidence level of each number
-is documented, and the ones marked Low are already flagged as weak. The
-`redis_aof.single_thread_eps` proxy in particular deserves a better idea.
+Read [THRESHOLDS.md](THRESHOLDS.md) first — the confidence level of each band
+is documented, and the ones marked Low are already flagged as weak. The four
+provisional bands (`cpu.stall_p999_us`, `cpu.steady_state.degradation_pct`,
+`cpu.tls_verify_s`, `ram.bw_read_mbs`) have no corpus behind them yet and are
+the weakest of all; `cpu.tls_verify_s` in particular — a TLS client's own
+verify time standing in as a proxy for handshake cost — deserves a better idea.
 
-Accepted changes re-render every existing verdict. Results may flip. That is the
+Accepted changes re-render every existing grade. Results may flip. That is the
 system working.
 
 ## Code contributions
