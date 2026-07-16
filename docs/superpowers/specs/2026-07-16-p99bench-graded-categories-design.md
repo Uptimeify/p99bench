@@ -30,6 +30,14 @@ the entire file in one diff.
 All figures below are measured from the 10 results in `results/` as of
 2026-07-15/16, not estimated.
 
+> **Note (post-implementation):** these 10 results have since moved to
+> `tests/fixtures/corpus/` — same `<provider>/<region>/*.json` layout,
+> untouched content — where they are retained as calibration evidence and as
+> the test data behind this design's band-doctrine, storage-class, and
+> waw-vs-zrh proofs. `results/` holds published submissions and starts clean
+> for each new tool version; the analysis and figures below are unchanged,
+> only the path is. See `tests/conftest.py`.
+
 ### 2.1 Three rules no VM in the corpus can pass
 
 | Rule | `pass` demands | Best VM measured | Gap |

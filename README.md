@@ -54,7 +54,10 @@ measured** — per capability category (`disk`, `cpu`, `ram`, `network`) and per
 workload profile (`postgres_oltp`, `timescale_ingest`, `patroni_member`,
 `redis_sentinel`, `worker_probe`, `playwright_node`, `nuxt_ssr`). This is real
 output, not a mock-up — `python3 tools/grade.py
-results/ovh/zrh/2026-07-16T1024-vps-1-lz-2026.json` against a published run:
+tests/fixtures/corpus/ovh/zrh/2026-07-16T1024-vps-1-lz-2026.json` against a
+real published run (the corpus behind this example now lives in
+`tests/fixtures/corpus/` as calibration evidence; `results/` itself is clean
+until the next submission — see [CONTRIBUTING.md](CONTRIBUTING.md)):
 
 ```json
 {
@@ -134,9 +137,12 @@ Everything below is generated from [`results/`](results/) by
 `render.py --check` and rejects a stale or hand-edited artifact:
 
 - **[RESULTS.md](RESULTS.md)** — the index: one row per product and region.
-- **`results/<provider>/README.md`** (e.g. [results/ovh](results/ovh/README.md),
-  [results/hetzner](results/hetzner/README.md)) — the detail page for that
-  provider: every product/region, every metric, every run.
+- **`results/<provider>/README.md`** — the detail page for that provider:
+  every product/region, every metric, every run. One appears per provider once
+  a result for it is submitted (`results/` is clean right now, pending the
+  first result on tool >= 0.2.0 — see [CONTRIBUTING.md](CONTRIBUTING.md)). For
+  a worked example of the shape, see the retained tool-0.1.0 corpus at
+  `tests/fixtures/corpus/ovh/README.md`.
 - **[data/index.json](data/index.json)** / `data/index.csv` — the
   machine-readable export, for anyone building something on top of this data.
 
