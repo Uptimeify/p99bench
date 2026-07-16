@@ -7,6 +7,17 @@
 
 [Back to the index](../../RESULTS.md) - [machine-readable export](../../data/index.json)
 
+Every product/region section below includes throughput and RTT to
+the **same fixed reference targets** every host in the corpus measures
+([schema/network-targets.yaml](../../schema/network-targets.yaml)).
+Nearest-server speedtests measure a different path per host and cannot
+be compared in one table; these can. Distance is a known constant, so
+a low number points at this provider's peering rather than at
+geography. **Only `worker_probe` and `playwright_node` grade any of
+it** (`loss_pct`, `rtt_jitter_ratio`) -- for those two profiles the
+network *is* the workload. Throughput and `dns_ms` stay ungraded
+everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
+
 ## prg / `vps-1-lz-2026`
 
 2 runs - 1 machine - storage class `net-slow` - 7.49 EUR/mo - **boot volume**
@@ -17,6 +28,17 @@
 - `cpu`: ? -- bound by `cpu.stall_p999_us`
 - `ram`: ? -- bound by `ram.bw_read_mbs`
 - `network`: A -- bound by `network.loss_pct`
+
+**Network**
+
+| Target | Throughput | RTT p50 | RTT p99 |
+|---|---|---|---|
+| `hetzner-fsn1` | 334 Mb/s | 14ms | - |
+| `hetzner-hel1` | 311 Mb/s | 29ms | - |
+| `ovh-gra` | - | 18ms | - |
+| `hetzner-ash` | 176 Mb/s | 96ms | - |
+
+Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown per target instead (lowest throughput, highest RTT seen).
 
 **Machine `1d0480`** - 2 runs at 09h, 22h
 
@@ -43,6 +65,17 @@ Fewer than 3 runs, so no spread is computed. Worst fsync p99.9 seen: 12.5 ms.
 - `ram`: ? -- bound by `ram.bw_read_mbs`
 - `network`: A -- bound by `network.loss_pct`
 
+**Network**
+
+| Target | Throughput | RTT p50 | RTT p99 |
+|---|---|---|---|
+| `hetzner-fsn1` | 313 Mb/s | 26ms | - |
+| `hetzner-hel1` | 306 Mb/s | 41ms | - |
+| `ovh-gra` | 0 Mb/s | 26ms | - |
+| `hetzner-ash` | 174 Mb/s | 112ms | - |
+
+Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown per target instead (lowest throughput, highest RTT seen).
+
 <details>
 <summary>All 1 run</summary>
 
@@ -62,6 +95,25 @@ Fewer than 3 runs, so no spread is computed. Worst fsync p99.9 seen: 12.5 ms.
 - `cpu`: ? -- bound by `cpu.stall_p999_us`
 - `ram`: ? -- bound by `ram.bw_read_mbs`
 - `network`: F -- bound by `network.loss_pct`
+
+**Network**
+
+| Target | Throughput | RTT p50 | RTT p99 |
+|---|---|---|---|
+| `hetzner-fsn1` | 350 Mb/s | 11ms | - |
+| `hetzner-hel1` | 328 Mb/s | 26ms | - |
+| `ovh-gra` | - | 13ms | - |
+| `hetzner-ash` | 188 Mb/s | 96ms | - |
+
+Median throughput / RTT per target across this section's 3 runs.
+
+**Packet loss observed**
+
+| Target | Loss |
+|---|---|
+| `hetzner-ash` | 10.00% |
+
+Sustained loss above ~0.05% will hurt TCP throughput and replication.
 
 **Machine `c7d6f7`** - 2 runs at 09h, 22h
 

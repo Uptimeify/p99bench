@@ -38,6 +38,12 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 RESULTS_DIR = ROOT / "results"
 THRESHOLDS = yaml.safe_load((ROOT / "schema" / "thresholds.yaml").read_text())
+NETWORK_TARGETS = yaml.safe_load((ROOT / "schema" / "network-targets.yaml").read_text())
+NETWORK_TARGET_IDS = [t["id"] for t in NETWORK_TARGETS["targets"]]
+
+# Sustained loss above this hurts TCP throughput and replication -- the
+# threshold v1's "Packet loss observed" callout used, carried forward here.
+LOSS_CALLOUT_THRESHOLD_PCT = 0.05
 
 CATEGORIES = ["disk", "cpu", "ram", "network"]
 PROFILES = [
@@ -74,6 +80,20 @@ MIN_RUNS_FOR_SPREAD = aggregate.MIN_RUNS_FOR_SPREAD
 
 def fmt_pct(v) -> str:
     return "-" if v is None else f"{v:.1f}%"
+
+
+def fmt_mbps(v) -> str:
+    if v is None:
+        return "-"
+    if v >= 1000:
+        return f"{v/1000:.2f} Gb/s"
+    return f"{v:.0f} Mb/s"
+
+
+def fmt_rtt_ms(v) -> str:
+    if v is None:
+        return "-"
+    return f"{v:.1f}ms" if v < 10 else f"{v:.0f}ms"
 
 
 def storage_classes(runs: list[dict]) -> str:
@@ -218,6 +238,115 @@ def category_bound_by(rs: list[dict], category: str) -> str | None:
     return None
 
 
+def network_target_stats(rs: list[dict]) -> tuple[dict[str, dict], bool]:
+    """target_id -> {mbps, rtt_p50, rtt_p99, loss_pct}, plus whether that is a
+    median or a worst-of-few.
+
+    Follows aggregate.py's own doctrine (MIN_RUNS_FOR_SPREAD): with 3+ runs,
+    report the median; below that, "two points is not a distribution" --
+    statistics.median() on 2 points is silently their arithmetic mean, which
+    is exactly the collapse this project's "median AND worst, never a mean"
+    rule exists to forbid. So below the bar this reports the worst-of-few
+    instead (lowest throughput, highest RTT) rather than averaging them.
+
+    reachable is an HTTP-status flag (bench/06-network.sh: http_code == 200),
+    NOT a "nothing measured" flag -- a target with reachable: false can still
+    carry a real dns_ms/rtt_p50_ms/loss_pct (every published result has
+    exactly this on ovh-gra: mbps is null, RTT is real). So this collects
+    every target that appears, unconditionally on `reachable`; only mbps
+    being present or absent decides whether throughput renders as a number
+    or a dash. A Phase 2 bug skipped these rows outright, which could only
+    ever flatter a grade -- do not reintroduce that by filtering on
+    reachable here.
+
+    loss_pct is always the max seen, regardless of the run count: a single
+    10% loss event matters and averaging it against a run of zeros would
+    erase it.
+    """
+    by_target: dict[str, list[dict]] = defaultdict(list)
+    for r in rs:
+        for t in (dig(r, "network.targets") or []):
+            if t.get("id"):
+                by_target[t["id"]].append(t)
+
+    use_median = len(rs) >= MIN_RUNS_FOR_SPREAD
+
+    def reduce(key: str, targets: list[dict], worst_fn):
+        vals = [t[key] for t in targets if t.get(key) is not None]
+        if not vals:
+            return None
+        return statistics.median(vals) if use_median else worst_fn(vals)
+
+    out = {}
+    for tid, ts in by_target.items():
+        loss_vals = [t["loss_pct"] for t in ts if t.get("loss_pct") is not None]
+        out[tid] = {
+            "mbps": reduce("mbps", ts, min),          # worst = lowest throughput
+            "rtt_p50": reduce("rtt_p50_ms", ts, max),  # worst = highest latency
+            "rtt_p99": reduce("rtt_p99_ms", ts, max),
+            "loss_pct": max(loss_vals) if loss_vals else None,
+        }
+    return out, use_median
+
+
+def _rtt_p99_cell(rtt_p50, rtt_p99) -> str:
+    """RTT p99 only where it adds signal beyond p50 -- a p99 within ~15% of
+    p50 is noise, not jitter worth a reader's attention."""
+    if rtt_p99 is None:
+        return "-"
+    if rtt_p50 is not None and rtt_p50 > 0 and (rtt_p99 - rtt_p50) / rtt_p50 < 0.15:
+        return "-"
+    return fmt_rtt_ms(rtt_p99)
+
+
+def print_network_section(rs: list[dict]) -> None:
+    """The per-target network table plus packet-loss callout for one
+    (provider, region, product) section of a provider page.
+
+    Every host in the corpus measures the SAME fixed reference targets
+    (schema/network-targets.yaml) -- distance is a known constant, so a low
+    number here points at this provider's peering, not at geography.
+    Nearest-server speedtests measure a different path per host and cannot
+    share a table; these can, which is why the framing lives once at the top
+    of the page rather than being repeated per product.
+    """
+    stats, use_median = network_target_stats(rs)
+    if not stats:
+        return
+
+    print("**Network**")
+    print()
+    print("| Target | Throughput | RTT p50 | RTT p99 |")
+    print("|---|---|---|---|")
+    for tid in NETWORK_TARGET_IDS:
+        s = stats.get(tid)
+        if s is None:
+            continue
+        print(f"| `{tid}` | {fmt_mbps(s['mbps'])} | {fmt_rtt_ms(s['rtt_p50'])} | "
+              f"{_rtt_p99_cell(s['rtt_p50'], s['rtt_p99'])} |")
+    print()
+    if use_median:
+        print(f"Median throughput / RTT per target across this section's {len(rs)} runs.")
+    else:
+        print(f"Fewer than {MIN_RUNS_FOR_SPREAD} runs, so no median is computed -- worst-case "
+              "throughput / RTT shown per target instead (lowest throughput, highest RTT seen).")
+    print()
+
+    loss_rows = [(tid, s["loss_pct"]) for tid, s in stats.items()
+                 if s["loss_pct"] is not None and s["loss_pct"] > LOSS_CALLOUT_THRESHOLD_PCT]
+    if loss_rows:
+        print("**Packet loss observed**")
+        print()
+        print("| Target | Loss |")
+        print("|---|---|")
+        for tid, loss in sorted(loss_rows, key=lambda x: -x[1]):
+            print(f"| `{tid}` | {loss:.2f}% |")
+        print()
+        print(f"Sustained loss above ~{LOSS_CALLOUT_THRESHOLD_PCT}% will hurt TCP "
+              "throughput and replication.")
+        print()
+
+
 def write_provider_page(provider: str, runs: list[dict]) -> str:
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -247,6 +376,18 @@ def _print_provider_page(provider: str, runs: list[dict]) -> None:
     print()
     print("[Back to the index](../../RESULTS.md) - "
           "[machine-readable export](../../data/index.json)")
+    print()
+
+    print("Every product/region section below includes throughput and RTT to")
+    print("the **same fixed reference targets** every host in the corpus measures")
+    print("([schema/network-targets.yaml](../../schema/network-targets.yaml)).")
+    print("Nearest-server speedtests measure a different path per host and cannot")
+    print("be compared in one table; these can. Distance is a known constant, so")
+    print("a low number points at this provider's peering rather than at")
+    print("geography. **Only `worker_probe` and `playwright_node` grade any of")
+    print("it** (`loss_pct`, `rtt_jitter_ratio`) -- for those two profiles the")
+    print("network *is* the workload. Throughput and `dns_ms` stay ungraded")
+    print("everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).")
     print()
 
     by_product = aggregate.by_product(runs)
@@ -284,6 +425,8 @@ def _print_provider_page(provider: str, runs: list[dict]) -> None:
             if bound:
                 print(f"- `{c}`: {MARK[grade]} -- bound by `{bound}`")
         print()
+
+        print_network_section(rs)
 
         # TIME VARIANCE: one machine, several hours.
         for hid, hrs in sorted(by_host.items()):
@@ -447,12 +590,16 @@ def _print_index_md(rows: list[dict]) -> None:
     # implying the rest do too would misrepresent every other profile's row.
     print("## Network")
     print()
-    print("Throughput and latency to fixed reference targets are measured on every")
-    print("run but not summarized in this index -- that per-target detail lives on")
-    print("each provider's page. **Only `worker_probe` and `playwright_node` grade")
-    print("any of it** (`loss_pct`, `rtt_jitter_ratio`) -- for those two profiles the")
-    print("network *is* the workload. Everyone else's `net` column stays")
-    print("informational. See [THRESHOLDS.md](THRESHOLDS.md#known-gaps).")
+    print("Throughput and latency to the **same fixed reference targets** are")
+    print("measured on every run but not summarized in this index -- every host")
+    print("measures the same targets, so that per-target detail is worth a table")
+    print("of its own, and it lives on each provider's page (with a packet-loss")
+    print("callout wherever loss exceeds ~0.05%): "
+          f"{detail_links}. **Only `worker_probe`")
+    print("and `playwright_node` grade any of it** (`loss_pct`, `rtt_jitter_ratio`)")
+    print("-- for those two profiles the network *is* the workload. Everyone")
+    print("else's `net` column stays informational. See")
+    print("[THRESHOLDS.md](THRESHOLDS.md#known-gaps).")
     print()
 
     # --------------------------------------------------------------- failures

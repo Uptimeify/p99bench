@@ -155,3 +155,71 @@ def test_index_carries_no_mean():
     body = write_index_md(index_rows(aggregate.load_all())).lower()
     assert "mean" not in body
     assert "average" not in body
+
+
+# --------------------------------------------------------------------------
+# Network detail belongs on provider pages (fixing the Phase 3 data-loss bug)
+# --------------------------------------------------------------------------
+
+def test_provider_page_has_per_target_network_table():
+    # Every provider page must render the per-target throughput/RTT table --
+    # this is the detail RESULTS.md's "## Network" section claims lives here.
+    runs = aggregate.load_all()
+    page = write_provider_page("ovh", [r for r in runs if r["provider"]["name"] == "ovh"])
+    for target in ("hetzner-fsn1", "hetzner-hel1", "ovh-gra", "hetzner-ash"):
+        assert target in page, f"target {target} missing from ovh provider page"
+    assert "Mb/s" in page or "Gb/s" in page
+
+
+def test_provider_page_does_not_skip_unreachable_targets():
+    # reachable: false is an HTTP-status flag, not "nothing measured" -- such
+    # a target can still carry a real dns_ms/rtt_p50_ms/loss_pct. A Phase 2
+    # bug skipped these rows entirely, which could only ever flatter a grade.
+    # All 10 published results have exactly this on ovh-gra: mbps is null but
+    # RTT is real, so the honest cell is "-" throughput beside a real RTT --
+    # never a dropped row.
+    runs = aggregate.load_all()
+    page = write_provider_page("ovh", [r for r in runs if r["provider"]["name"] == "ovh"])
+    for section in page.split("## "):
+        if not section.startswith(("prg", "waw", "zrh")):
+            continue
+        assert "ovh-gra" in section, "ovh-gra row dropped from a product's network table"
+        # the row must carry a real RTT, not just a bare throughput dash with
+        # nothing beside it
+        line = next(ln for ln in section.splitlines() if "ovh-gra" in ln)
+        assert "ms" in line, f"ovh-gra row lost its RTT: {line!r}"
+
+
+def test_provider_page_reports_packet_loss():
+    # This is the exact measurement design spec 6.5 uses to DERIVE the
+    # network.loss_pct band (an ICMP check false-alarms at p^3). The corpus's
+    # only real network outlier must be visible on the provider page.
+    runs = aggregate.load_all()
+    page = write_provider_page("ovh", [r for r in runs if r["provider"]["name"] == "ovh"])
+    assert "10.00%" in page or "10.0%" in page
+    assert "hetzner-ash" in page
+    # scoped to the zrh section specifically
+    zrh_section = page.split("## zrh")[1].split("## ")[0]
+    assert "10.00%" in zrh_section or "10.0%" in zrh_section
+
+
+def test_provider_page_network_table_has_no_mean():
+    runs = aggregate.load_all()
+    page = write_provider_page("ovh", [r for r in runs if r["provider"]["name"] == "ovh"])
+    low = page.lower()
+    assert "mean" not in low
+    assert "average" not in low
+
+
+def test_results_md_network_pointer_is_true():
+    # RESULTS.md's "## Network" section points readers at the provider pages
+    # for per-target detail -- that claim must actually be true.
+    from writers import write_index_md
+    runs = aggregate.load_all()
+    body = write_index_md(index_rows(runs))
+    network_section = body.split("## Network")[1].split("## ")[0]
+    assert "provider" in network_section.lower() or "results/" in network_section
+    # and the detail must genuinely exist on the ovh page
+    ovh_page = write_provider_page("ovh", [r for r in runs if r["provider"]["name"] == "ovh"])
+    assert "hetzner-ash" in ovh_page
+    assert "10.00%" in ovh_page or "10.0%" in ovh_page

@@ -44,12 +44,15 @@ on any other profile's row is context, not a cause.
 
 ## Network
 
-Throughput and latency to fixed reference targets are measured on every
-run but not summarized in this index -- that per-target detail lives on
-each provider's page. **Only `worker_probe` and `playwright_node` grade
-any of it** (`loss_pct`, `rtt_jitter_ratio`) -- for those two profiles the
-network *is* the workload. Everyone else's `net` column stays
-informational. See [THRESHOLDS.md](THRESHOLDS.md#known-gaps).
+Throughput and latency to the **same fixed reference targets** are
+measured on every run but not summarized in this index -- every host
+measures the same targets, so that per-target detail is worth a table
+of its own, and it lives on each provider's page (with a packet-loss
+callout wherever loss exceeds ~0.05%): [hetzner](results/hetzner/README.md), [ovh](results/ovh/README.md), [windcloud](results/windcloud/README.md). **Only `worker_probe`
+and `playwright_node` grade any of it** (`loss_pct`, `rtt_jitter_ratio`)
+-- for those two profiles the network *is* the workload. Everyone
+else's `net` column stays informational. See
+[THRESHOLDS.md](THRESHOLDS.md#known-gaps).
 
 ## Why runs failed
 

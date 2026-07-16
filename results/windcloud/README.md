@@ -7,6 +7,17 @@
 
 [Back to the index](../../RESULTS.md) - [machine-readable export](../../data/index.json)
 
+Every product/region section below includes throughput and RTT to
+the **same fixed reference targets** every host in the corpus measures
+([schema/network-targets.yaml](../../schema/network-targets.yaml)).
+Nearest-server speedtests measure a different path per host and cannot
+be compared in one table; these can. Distance is a known constant, so
+a low number points at this provider's peering rather than at
+geography. **Only `worker_probe` and `playwright_node` grade any of
+it** (`loss_pct`, `rtt_jitter_ratio`) -- for those two profiles the
+network *is* the workload. Throughput and `dns_ms` stay ungraded
+everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
+
 ## enge-sande / `VPS-L`
 
 1 run - 1 machine - storage class `degraded` - 19.00 EUR/mo - **boot volume**
@@ -17,6 +28,17 @@
 - `cpu`: ? -- bound by `cpu.steal_pct_under_load`
 - `ram`: ? -- bound by `ram.bw_read_mbs`
 - `network`: A -- bound by `network.loss_pct`
+
+**Network**
+
+| Target | Throughput | RTT p50 | RTT p99 |
+|---|---|---|---|
+| `hetzner-fsn1` | 1.08 Gb/s | 17ms | - |
+| `hetzner-hel1` | 447 Mb/s | 29ms | - |
+| `ovh-gra` | 0 Mb/s | 21ms | - |
+| `hetzner-ash` | 237 Mb/s | 94ms | - |
+
+Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown per target instead (lowest throughput, highest RTT seen).
 
 <details>
 <summary>All 1 run</summary>
