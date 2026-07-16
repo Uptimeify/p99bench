@@ -531,7 +531,7 @@ identical `fail` rows.
 | `patroni_member` | fsync p99.9, steal (TTL), stall p99.9, 1-thr, cpu steady | network half unmeasured (§7.3) |
 | `redis_sentinel` | stall p99.9, 1-thr, fsync p99.9, steal, cpu steady | replaces `redis_aof`; network half unmeasured |
 | `worker_probe` | 1-thr, stall p99.9, cpu steady, tls_verify_s, dns_ms, loss_pct, jitter | HEAD/GET/SSL/ICMP/SMTP/SSH/FTP/TCP |
-| `playwright_node` | multi-thr, scaling_eff, cpu steady, host.ram_mb, ram bw, stall, 1-thr | the Prague profile (§2.6) |
+| `playwright_node` | multi-thr, scaling_eff, cpu steady, host.ram_mb, ram bw, stall, 1-thr, loss_pct, dns_ms | the Prague profile (§2.6). Reads network per §6.5 — a browser check is still a network check — but not `rtt_jitter_ratio`: a page load spans seconds, so per-packet jitter is noise at that timescale |
 | `nuxt_ssr` | 1-thr, stall p99.9, steal | unchanged intent |
 
 ### 7.1 `redis_sentinel` replaces `redis_aof`
