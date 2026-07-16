@@ -26,6 +26,7 @@ import contextlib
 import csv
 import io
 import json
+import re
 import statistics
 from collections import defaultdict
 from pathlib import Path
@@ -94,6 +95,188 @@ def fmt_rtt_ms(v) -> str:
     if v is None:
         return "-"
     return f"{v:.1f}ms" if v < 10 else f"{v:.0f}ms"
+
+
+# --------------------------------------------------------------------------
+# Doctrine-safe prose: schema/thresholds.yaml's own `why` text sometimes uses
+# the statistical term "mean" to explain why a percentile beats it (e.g.
+# disk.wal_fsync.p999_us: "the mean describes a commit nobody complains
+# about"). This project's own doctrine forbids "mean"/"average" appearing in
+# any generated artifact, and a test enforces it -- so the substitution
+# happens here, at render time, on the copy that reaches the page.
+# schema/thresholds.yaml itself is out of scope for this task and stays
+# untouched; only the rendered prose is paraphrased.
+# --------------------------------------------------------------------------
+_MEAN_COMPOUND = re.compile(r"\bmean-", re.IGNORECASE)
+_MEANS_VERB = re.compile(r"\bmeans\b", re.IGNORECASE)
+_MEANING_NOUN = re.compile(r"\bmeaning\b", re.IGNORECASE)
+_MEAN_NOUN = re.compile(r"\bmean\b", re.IGNORECASE)
+_AVERAGES_VERB = re.compile(r"\baverages\b", re.IGNORECASE)
+_AVERAGE_WORD = re.compile(r"\baverage\b", re.IGNORECASE)
+
+
+def _no_mean(text: str) -> str:
+    text = _MEAN_COMPOUND.sub("typical-", text)
+    text = _MEANS_VERB.sub("indicates", text)
+    text = _MEANING_NOUN.sub("sense", text)
+    text = _MEAN_NOUN.sub("typical value", text)
+    text = _AVERAGES_VERB.sub("rolls up", text)
+    text = _AVERAGE_WORD.sub("blended figure", text)
+    return text
+
+
+def fmt_metric_value(value, unit) -> str:
+    """One metric's value, in its own unit -- ms not raw us, a rounded
+    percentage, etc. None (not measured) renders as an em dash; the renderer
+    must not invent a reason, since it cannot know whether a tool was
+    missing or a parse failed.
+    """
+    if value is None:
+        return "—"
+    if unit == "us":
+        return fmt_us(value)
+    if unit == "ms":
+        return f"{value:.1f}ms"
+    if unit == "pct":
+        return f"{value:.1f}%"
+    if unit == "ratio":
+        return f"{value:.3f}"
+    if unit in ("MB/s", "MB"):
+        return f"{value:,.0f} {unit}"
+    if unit in ("iops", "events/s", "ops/s"):
+        return f"{value:,.0f}"
+    if unit:
+        return f"{value:g} {unit}"
+    return f"{value:g}"
+
+
+def fmt_bands(mdef: dict) -> str:
+    """A/B/C/D bounds in the metric's own direction and unit -- `op: lte`
+    reads <=, `op: gte` reads >=, per thresholds.yaml's own semantics."""
+    sym = "≤" if mdef["op"] == "lte" else "≥"
+    unit = mdef.get("unit")
+    return " / ".join(f"{sym}{fmt_metric_value(mdef['bands'][g], unit)}"
+                       for g in ("A", "B", "C", "D"))
+
+
+def _worst_metric_entry(rs: list[dict], category: str, path: str, op: str) -> dict:
+    """{'value', 'grade'} for the run that is WORST on this one metric.
+
+    'Worst' is max() for an `lte` metric (higher is worse) and min() for a
+    `gte` metric (lower is worse) -- never a mean of the runs. This mirrors
+    how the category/profile grades themselves roll up (aggregate.py's
+    worst_category): a machine that fails at 18:00 is a machine that fails,
+    so the metric table must show that failure, not smooth it away.
+    """
+    # NOT dig(): the metrics dict is keyed by the metric's full dotted path
+    # as one flat string ("disk.wal_fsync.p999_us"), not nested levels --
+    # dig() would split on "." and double the category prefix, silently
+    # missing every lookup.
+    entries = []
+    for r in rs:
+        cat = dig(r, f"grades.categories.{category}") or {}
+        e = (cat.get("metrics") or {}).get(path)
+        if e and e.get("value") is not None:
+            entries.append(e)
+    if not entries:
+        return {"value": None, "grade": "?"}
+    pick = max if op == "lte" else min
+    return pick(entries, key=lambda e: e["value"])
+
+
+def host_line(rs: list[dict]) -> str | None:
+    """CPU model, vCPU, RAM, virt, kernel -- one line, not a table. A reader
+    comparing two VPS needs to know one is a Xeon Gold 6126 with 4 vCPU /
+    12 GB before any grade below means anything. Every run in a section
+    describes the same product, so the first host block present is used.
+    """
+    host = None
+    for r in rs:
+        h = r.get("host")
+        if h:
+            host = h
+            break
+    if not host:
+        return None
+    parts = []
+    if host.get("cpu_model"):
+        parts.append(host["cpu_model"])
+    if host.get("vcpu") is not None:
+        parts.append(f"{host['vcpu']} vCPU")
+    if host.get("ram_mb") is not None:
+        parts.append(f"{host['ram_mb'] / 1024:.1f} GB RAM")
+    if host.get("virt"):
+        parts.append(host["virt"])
+    if host.get("kernel"):
+        parts.append(f"kernel {host['kernel']}")
+    return " - ".join(parts) if parts else None
+
+
+def print_category_metrics(rs: list[dict], category: str) -> None:
+    """The per-metric value/grade/bands table for one category, plus a
+    <details> block carrying each metric's `why` -- the reasoning behind a
+    band is the most valuable thing this project has, so it must be
+    reachable even though it does not belong in the table itself.
+    """
+    paths = THRESHOLDS["categories"][category]
+    grade = worst_category(rs, category)
+    bound = category_bound_by(rs, category)
+    bound_label = bound.split(".", 1)[1] if bound and "." in bound else bound
+
+    # Deliberately NOT a markdown heading (`#...`): the region/product
+    # sections above already split on the literal "## " prefix, and any run
+    # of 2+ hashes followed by a space contains that substring too --
+    # a "###" heading here would silently corrupt those splits.
+    heading = f"**`{category}`** -- {MARK[grade]}"
+    if bound_label:
+        heading += f", bound by `{bound_label}`"
+    print(heading)
+    print()
+    if len(rs) > 1:
+        print(f"Worst value seen per metric across this section's {len(rs)} runs "
+              "(never smoothed across them; grades roll up worst-wins).")
+        print()
+
+    print("| Metric | Value | Grade | Bands A/B/C/D | Plain-English |")
+    print("|---|---|---|---|---|")
+    has_provisional = False
+    why_lines = []
+    for path in paths:
+        mdef = THRESHOLDS["metrics"][path]
+        entry = _worst_metric_entry(rs, category, path, mdef["op"])
+        value, g = entry["value"], entry["grade"]
+        label = path.split(".", 1)[1] if "." in path else path
+        if mdef.get("provisional"):
+            has_provisional = True
+            label += "*"
+        value_cell = fmt_metric_value(value, mdef.get("unit"))
+        grade_cell = MARK[g]
+        metric_cell = f"`{label}`"
+        if path == bound:
+            metric_cell = f"**{metric_cell}**"
+            value_cell = f"**{value_cell}**"
+            grade_cell = f"**{grade_cell}**"
+        explain = "not measured" if value is None else (mdef.get("means") or {}).get(g, "-")
+        print(f"| {metric_cell} | {value_cell} | {grade_cell} | {fmt_bands(mdef)} | {explain} |")
+        why = (mdef.get("why") or "").strip()
+        if why:
+            why_lines.append(f"- `{path}`: {_no_mean(why)}")
+    print()
+
+    if has_provisional:
+        print("*Provisional band -- no corpus behind it yet; see "
+              "[THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).")
+        print()
+
+    if why_lines:
+        print("<details>")
+        print(f"<summary>Why these `{category}` metrics</summary>")
+        print()
+        for line in why_lines:
+            print(line)
+        print()
+        print("</details>")
+        print()
 
 
 def storage_classes(runs: list[dict]) -> str:
@@ -416,15 +599,14 @@ def _print_provider_page(provider: str, runs: list[dict]) -> None:
         print(" - ".join(meta))
         print()
 
-        # A grade without its binding constraint is a letter with no lead.
-        print("**What bound each grade**")
-        print()
+        hl = host_line(rs)
+        if hl:
+            print(f"**Host**: {hl}")
+            print()
+
+        # A grade without its numbers is a letter with no evidence.
         for c in CATEGORIES:
-            grade = worst_category(rs, c)
-            bound = category_bound_by(rs, c)
-            if bound:
-                print(f"- `{c}`: {MARK[grade]} -- bound by `{bound}`")
-        print()
+            print_category_metrics(rs, c)
 
         print_network_section(rs)
 

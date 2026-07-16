@@ -213,6 +213,85 @@ def test_provider_page_network_table_has_no_mean():
     assert "average" not in low
 
 
+def _load_windcloud_run():
+    return json.loads((ROOT / "results" / "windcloud" / "enge-sande" /
+                        "2026-07-16T1907-vps-l.json").read_text())
+
+
+def test_provider_page_shows_metric_values_and_grades():
+    # The complaint this whole task exists to fix: a page that says "disk: F"
+    # and never prints the 258998.27 (259.0 ms) behind it.
+    run = _load_windcloud_run()
+    page = write_provider_page("windcloud", [run])
+    assert "259.0 ms" in page
+    assert "wal_fsync.p999_us" in page
+
+
+def test_provider_page_marks_the_binding_metric():
+    run = _load_windcloud_run()
+    page = write_provider_page("windcloud", [run])
+    disk_section = page.split("**`disk`**")[1].split("**`cpu`**")[0]
+    assert "**F**" in disk_section
+    assert "**259.0 ms**" in disk_section
+
+
+def test_provider_page_flags_provisional_metrics():
+    # cpu.tls_verify_s is provisional -- windcloud's run has a real value for
+    # it (9835.0), so this is the real case, not a synthetic one. A reader
+    # must not mistake a provisional band for a calibrated one.
+    run = _load_windcloud_run()
+    page = write_provider_page("windcloud", [run])
+    cpu_section = page.split("**`cpu`**")[1].split("**`ram`**")[0]
+    assert "tls_verify_s*" in cpu_section
+    assert "provisional" in page.lower()
+
+
+def test_provider_page_renders_null_metric_as_not_measured():
+    # cpu.stall_p999_us is null on this run. Must render as not-measured, and
+    # must NOT invent a reason -- the renderer cannot know whether a tool was
+    # missing or a parse failed.
+    run = _load_windcloud_run()
+    page = write_provider_page("windcloud", [run])
+    cpu_section = page.split("**`cpu`**")[1].split("**`ram`**")[0]
+    assert "not measured" in cpu_section
+    assert "stall_p999_us" in cpu_section
+
+
+def test_provider_page_shows_host_inventory_line():
+    run = _load_windcloud_run()
+    page = write_provider_page("windcloud", [run])
+    assert "Xeon" in page
+    assert "4 vCPU" in page
+    assert "kvm" in page
+
+
+def test_provider_page_includes_metric_reasoning():
+    # The `why` behind a band is the most valuable thing this project has --
+    # it must be reachable, even if not in the table itself.
+    run = _load_windcloud_run()
+    page = write_provider_page("windcloud", [run])
+    assert "fdatasync" in page.lower()
+
+
+def test_metric_table_shows_worst_of_multiple_runs_never_averaged():
+    runs = load_corpus()
+    zrh_runs = [r for r in runs if r["provider"]["region"] == "zrh"
+                and r["provider"]["product"] == "vps-1-lz-2026"]
+    assert len(zrh_runs) >= 3
+    page = write_provider_page("ovh", zrh_runs)
+    zrh_section = page.split("## zrh")[1].split("## ")[0]
+    # worst of {117964.8, 109576.19, 137363.46} is 137363.46us == 137.4ms
+    assert "137.4 ms" in zrh_section
+
+
+def test_category_metric_table_has_no_mean_or_average():
+    run = _load_windcloud_run()
+    page = write_provider_page("windcloud", [run])
+    low = page.lower()
+    assert "mean" not in low
+    assert "average" not in low
+
+
 def test_results_md_network_pointer_is_true():
     # RESULTS.md's "## Network" section points readers at the provider pages
     # for per-target detail -- that claim must actually be true.
