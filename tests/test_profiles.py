@@ -6,7 +6,9 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ROOT / "tests"))
 from grade import compute  # noqa: E402
+from conftest import CORPUS_DIR  # noqa: E402
 
 THRESHOLDS = yaml.safe_load((ROOT / "schema" / "thresholds.yaml").read_text())
 
@@ -61,7 +63,7 @@ def test_v1_results_grade_postgres_and_timescale_but_not_the_new_profiles():
     # data that never measured a playwright workload is the failure this whole
     # redesign exists to correct.
     doc = json.loads(
-        (ROOT / "results" / "hetzner" / "hel-1" / "2026-07-16T1012-cpx32.json").read_text()
+        (CORPUS_DIR / "hetzner" / "hel-1" / "2026-07-16T1012-cpx32.json").read_text()
     )
     g = compute(doc, THRESHOLDS)["profiles"]
 
@@ -79,10 +81,10 @@ def test_ovh_waw_and_zrh_read_as_opposite_failures():
     # test ever passes trivially (both categories the same grade), the redesign
     # has lost its reason to exist.
     waw = json.loads(
-        (ROOT / "results" / "ovh" / "waw" / "2026-07-16T1017-vps-1-lz-2026.json").read_text()
+        (CORPUS_DIR / "ovh" / "waw" / "2026-07-16T1017-vps-1-lz-2026.json").read_text()
     )
     zrh = json.loads(
-        (ROOT / "results" / "ovh" / "zrh" / "2026-07-16T1024-vps-1-lz-2026.json").read_text()
+        (CORPUS_DIR / "ovh" / "zrh" / "2026-07-16T1024-vps-1-lz-2026.json").read_text()
     )
     waw_g = compute(waw, THRESHOLDS)["categories"]
     zrh_g = compute(zrh, THRESHOLDS)["categories"]

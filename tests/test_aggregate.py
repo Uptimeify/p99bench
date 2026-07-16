@@ -14,9 +14,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ROOT / "tests"))
 from aggregate import (  # noqa: E402
     MIN_RUNS_FOR_SPREAD, by_host, by_product, load_all, spread, worst_grade,
 )
+from conftest import CORPUS_DIR  # noqa: E402
 
 
 def _run(host, hour, fsync, grade="A"):
@@ -76,6 +78,9 @@ def test_by_product_groups_provider_region_product():
 
 
 def test_load_all_reads_the_real_corpus():
-    runs = load_all()
+    # The real corpus lives in tests/fixtures/corpus/ (calibration evidence,
+    # not synthetic data) -- results/ itself is clean until the next
+    # submission. See conftest.py's CORPUS_DIR docstring.
+    runs = load_all(CORPUS_DIR)
     assert len(runs) >= 10
     assert all("grades" in r for r in runs), "a v1 result leaked into the corpus"

@@ -28,10 +28,14 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ROOT / "tests"))
 from grade import grade_metric, metric_value  # noqa: E402
+from conftest import CORPUS_DIR  # noqa: E402
 
 THRESHOLDS = yaml.safe_load((ROOT / "schema" / "thresholds.yaml").read_text())
-CORPUS = [json.loads(p.read_text()) for p in sorted((ROOT / "results").rglob("*.json"))]
+# The real corpus lives in tests/fixtures/corpus/, not results/ -- see
+# conftest.py's CORPUS_DIR docstring for why.
+CORPUS = [json.loads(p.read_text()) for p in sorted(CORPUS_DIR.rglob("*.json"))]
 
 
 def _grades_for(path, mdef):

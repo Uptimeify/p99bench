@@ -10,11 +10,36 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
+
+# The 10 published measurements this project has ever taken, moved here from
+# results/ (2026-07-16) so results/ can start clean for the tool 0.2.0
+# re-run. These are NOT synthetic fixtures -- they are real hardware
+# measurements, kept as calibration evidence and as the proof behind spec
+# 2.4 (storage-class regimes), 2.5 (the ovh waw-vs-zrh headline: same
+# product, same price, opposite failures), and 4.4 (the broken-vs-quiet band
+# doctrine), plus the trust property (validate.py rejects a hand-edited
+# grade). If a test disagrees with this data, the code or the band is wrong,
+# not the data -- never hand-edit a file here to make a test pass.
+#
+# One home for the corpus path so it is never glob-duplicated across test
+# files: import CORPUS_DIR (for path-building / rglob) or load_corpus() (for
+# the parsed dicts, via aggregate.load_all) from here.
+CORPUS_DIR = ROOT / "tests" / "fixtures" / "corpus"
+
+
+def load_corpus() -> list[dict]:
+    """Every real result, parsed. Thin wrapper over aggregate.load_all so
+    there is exactly one function that knows where the corpus lives."""
+    import aggregate
+
+    return aggregate.load_all(CORPUS_DIR)
 
 
 @pytest.fixture

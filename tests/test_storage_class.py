@@ -4,7 +4,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ROOT / "tests"))
 from grade import storage_class  # noqa: E402
+from conftest import CORPUS_DIR  # noqa: E402
 
 
 def _r(iops):
@@ -31,7 +33,7 @@ def test_real_corpus_splits_into_the_regimes_spec_24_describes():
     # three physics regimes. This pins that the derivation actually reproduces
     # them from the published files, rather than from a table in a document.
     seen = {}
-    for p in sorted((ROOT / "results").rglob("*.json")):
+    for p in sorted(CORPUS_DIR.rglob("*.json")):
         d = json.loads(p.read_text())
         loc = f"{d['provider']['name']}/{d['provider']['region']}"
         seen.setdefault(loc, set()).add(storage_class(d))
@@ -49,6 +51,6 @@ def test_no_published_host_is_local_nvme():
     # look, because it changes what the fsync bands are being read against.
     classes = {
         storage_class(json.loads(p.read_text()))
-        for p in (ROOT / "results").rglob("*.json")
+        for p in CORPUS_DIR.rglob("*.json")
     }
     assert "local-nvme" not in classes

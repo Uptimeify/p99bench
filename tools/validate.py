@@ -36,19 +36,25 @@ THRESHOLDS = yaml.safe_load((ROOT / "schema" / "thresholds.yaml").read_text())
 FILENAME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{4}-[a-z0-9-]+\.json$")
 
 
-def check_policy(path: Path, data: dict) -> list[str]:
+def check_policy(path: Path, data: dict, results_dir: Path = RESULTS_DIR) -> list[str]:
     errs: list[str] = []
 
-    # Layout is results/<provider>/<region>/<file>.json. Provider and region are
+    # Layout is <root>/<provider>/<region>/<file>.json. Provider and region are
     # separate levels on purpose: it keeps "how is OVH Zurich?" and "how is OVH
     # overall?" both answerable. Folding the region into the provider slug
     # (ovh-zrh) would destroy the second question.
+    #
+    # results_dir defaults to results/ (production submissions) but is
+    # parameterised so the same policy check runs unchanged against
+    # tests/fixtures/corpus/ -- the real published corpus, moved there as
+    # test data/calibration evidence. The <provider>/<region>/*.json shape is
+    # the thing being checked, not the specific root it lives under.
     provider = data.get("provider", {}).get("name")
     region = data.get("provider", {}).get("region")
     # resolve() both sides: the CLI may hand us a relative path while
-    # RESULTS_DIR is absolute, and relative_to does not normalise.
+    # results_dir is absolute, and relative_to does not normalise.
     try:
-        rel = path.resolve().relative_to(RESULTS_DIR.resolve())
+        rel = path.resolve().relative_to(results_dir.resolve())
     except ValueError:
         rel = None
 

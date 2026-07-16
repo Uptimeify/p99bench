@@ -51,11 +51,11 @@ def dig(o, path, default=None):
     return cur
 
 
-def load_all() -> list[dict]:
+def load_all(root: Path = RESULTS) -> list[dict]:
     out = []
-    if not RESULTS.exists():
+    if not root.exists():
         return out
-    for f in sorted(RESULTS.rglob("*.json")):
+    for f in sorted(root.rglob("*.json")):
         try:
             d = json.loads(f.read_text())
             d["_path"] = str(f.relative_to(ROOT))
