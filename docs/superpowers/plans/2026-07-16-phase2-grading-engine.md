@@ -877,13 +877,11 @@ python3 -m pytest tests/test_grade.py -v
 
 Expected: all pass (4 from Task 1 + 11 new).
 
-- [ ] **Step 5: Delete the old engine**
+- [ ] **Step 5: Leave `tools/verdict.py` in place for now**
 
-`tools/verdict.py` computed a single verdict; its name lies now. Task 7 and Task 8 repoint `validate.py`, `render.py` and CI at `grade.py`; until those land, `validate.py` will be broken — that is expected within this task and fixed by Task 7.
+Do **not** delete it in this task. `tools/validate.py:29` does `from verdict import compute`, and `tests/test_validate.py` imports `validate` — deleting `verdict.py` here would break the suite for Tasks 3-6 and only heal at Task 7. Task 7 deletes it in the same commit that repoints `validate.py`, so the suite is green at every commit.
 
-```bash
-git rm tools/verdict.py
-```
+Both engines coexist for five tasks. That is fine: nothing imports `grade.py` yet except its own tests, and `verdict.py` keeps `validate.py` working meanwhile.
 
 - [ ] **Step 6: Commit**
 
@@ -905,7 +903,9 @@ Network metrics reduce across targets by WORST, not mean. Every host measures
 the same fixed targets, so one bad path is a bad path; averaging would bury
 the 10% loss outlier the corpus already contains under three clean paths.
 
-validate.py and render.py are broken until Tasks 7-8 repoint them."
+verdict.py stays for now: validate.py imports it, and deleting it here would
+break the suite until Task 7. Task 7 removes it in the same commit that
+repoints validate.py, so every commit is green."
 ```
 
 ---
@@ -1482,7 +1482,18 @@ Results are immutable **measurements**; `verdict`/`grades` is derived and always
 - Modify: `schema/result.schema.json`
 - Create: `tools/migrate_v1_v2.py`
 - Create: `tests/test_migrate.py`
+- Modify: `tests/test_validate.py` (its fixture pins the old shape — see below)
 - Modify: `results/*/*/*.json` (derived block only, via the tool)
+
+**You must also update `tests/test_validate.py`.** Phase 1 added it, and its
+`RESULT_020` fixture hardcodes `"schema_version": "1.0"` and `"verdict": None`.
+Both become invalid here. Change the fixture to `"schema_version": "2.0"` and
+replace `"verdict": None` with `"grades": None`.
+
+Do **not** weaken that test to make it pass. It exists because Phase 1 shipped a
+schema that rejected every result its own stages produced, and nothing caught it
+— it is the only end-to-end check that a freshly-measured result validates. Keep
+both of its assertions intact; only the fixture's shape changes.
 
 **Interfaces:**
 - Consumes: `compute()` from `tools/grade.py`.
@@ -1746,7 +1757,7 @@ Expected: **no output.** Any line here is a measured value the migration touched
 - [ ] **Step 7: Commit**
 
 ```bash
-git add schema/result.schema.json tools/migrate_v1_v2.py tests/test_migrate.py results/
+git add schema/result.schema.json tools/migrate_v1_v2.py tests/test_migrate.py tests/test_validate.py results/
 git commit -m "feat: schema v2, grades replace verdict, migrate the 10 results
 
 Atomic on purpose. schema_version was const 1.0 and the verdict node had
@@ -1820,13 +1831,23 @@ python3 -m pytest tests/test_validate_grades.py -v
 
 Expected: FAIL — `ImportError: cannot import name 'compute' from 'verdict'` (Task 2 deleted it).
 
-- [ ] **Step 3: Update validate.py**
+- [ ] **Step 3: Update validate.py and delete the old engine**
 
 Change the import:
 
 ```python
 from grade import compute  # noqa: E402
 ```
+
+Then delete `tools/verdict.py` **in this same commit** — its name lies once the
+output is grades, and this is the first moment nothing imports it:
+
+```bash
+git rm tools/verdict.py
+```
+
+Deleting it earlier would have broken `validate.py` (and `tests/test_validate.py`
+through it) for five tasks. Doing it here keeps every commit green.
 
 Replace the verdict-check block in `check_policy` with:
 
@@ -1883,6 +1904,7 @@ Expected: 3 passed; `10/10 valid`.
 
 ```bash
 git add tools/validate.py tests/test_validate_grades.py
+git rm --cached tools/verdict.py 2>/dev/null || true
 git commit -m "feat: validate grades and bands_version, not verdicts
 
 The trust property survives the rename: a hand-edited grade still fails the
