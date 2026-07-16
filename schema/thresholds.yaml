@@ -227,7 +227,22 @@ metrics:
     unit: ms
     bands: { A: 5, B: 20, C: 50, D: 100 }
     confidence: medium
-    why: "Every HEAD/GET check pays DNS before it starts."
+    why: >
+      NOT GRADED (spec 6.5 update) -- read no category and no profile below.
+      Every HEAD/GET check does pay DNS before it starts, so this ought to be
+      a worker_probe input, but 06-network.sh measures it as ONE curl
+      time_namelookup per target: a single uncached first lookup, n=1, no
+      warming, and reduce_network then takes the worst of four -- so the
+      graded number would be worst-of-four-cold-first-lookups, not a property
+      of the host. ovh/waw, one run, one resolver: 1.86 / 81.07 / 109.60 /
+      149.45 ms across four targets -- an 80x spread that is authoritative-NS
+      distance and cache state. A probe checking a target every minute pays
+      the cached lookup essentially always. Grading this would repeat the
+      extreme-value mistake spec 5.1 exists to correct. The bands above are
+      left in place, unused, so a later fix to 06-network.sh (repeated
+      lookups, warm and cold separated) has calibrated bounds ready rather
+      than starting from nothing -- but until that fix ships, no rule may
+      reference this metric. A band we cannot honestly derive is not a band.
 
   network.rtt_jitter_ratio:
     op: lte
@@ -256,8 +271,9 @@ categories:
   ram:
     - ram.bw_read_mbs
   network:
+    # network.dns_ms is deliberately absent -- see its `why:` above. Recorded
+    # and reported, never graded, until 06-network.sh measures it honestly.
     - network.loss_pct
-    - network.dns_ms
     - network.rtt_jitter_ratio
 
 profiles:
@@ -338,7 +354,7 @@ profiles:
       - { metric: cpu.steady_state.degradation_pct, required: true }
       - { metric: cpu.tls_verify_s,                 required: true }
       - { metric: network.loss_pct,                 required: false }
-      - { metric: network.dns_ms,                   required: false }
+      # network.dns_ms is recorded but not graded -- see its `why:` above.
       - { metric: network.rtt_jitter_ratio,         required: false }
 
   playwright_node:
@@ -357,7 +373,7 @@ profiles:
       - { metric: host.ram_mb,                      required: true }
       - { metric: ram.bw_read_mbs,                  required: false }
       - { metric: network.loss_pct,                 required: false }
-      - { metric: network.dns_ms,                   required: false }
+      # network.dns_ms is recorded but not graded -- see its `why:` above.
 
   nuxt_ssr:
     label: "Nuxt / Node SSR"

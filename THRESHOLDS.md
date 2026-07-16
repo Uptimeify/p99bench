@@ -130,17 +130,29 @@ benchmark is worse than an honest `?`.
 
 ## network — worker profiles only
 
-**`network.loss_pct`, `network.dns_ms`, and `network.rtt_jitter_ratio` are read
-by exactly two profiles: `worker_probe` and `playwright_node`.**
+**`network.loss_pct` and `network.rtt_jitter_ratio` are read by exactly two
+profiles: `worker_probe` and `playwright_node`.**
 `postgres_oltp`, `timescale_ingest`, `patroni_member`, `redis_sentinel`, and
-`nuxt_ssr` read none of them. Throughput (`mbps`) is never graded by any
-profile, in any category.
+`nuxt_ssr` read neither. Throughput (`mbps`) is never graded by any profile,
+in any category.
 
 | Metric | A | B | C | D | F | Reasoning | Confidence |
 |---|---|---|---|---|---|---|---|
 | `network.loss_pct` | ≤ 0.01% | ≤ 0.1% | ≤ 0.5% | ≤ 2% | > 2% | Derived, not chosen: an ICMP check sending 3 packets and declaring "down" on total loss false-alarms at rate `p^3`. At `p` = 10%, that is 1-in-1000 checks; at one check per minute, 1.4 false alarms per day. The corpus contains exactly this case: `ovh/zrh -> hetzner-ash` at 10% loss. | Medium |
-| `network.dns_ms` | ≤ 5 ms | ≤ 20 ms | ≤ 50 ms | ≤ 100 ms | > 100 ms | Every HEAD/GET check pays DNS before it starts. | Medium |
 | `network.rtt_jitter_ratio` | ≤ 1.1 | ≤ 1.5 | ≤ 2.0 | ≤ 5.0 | > 5.0 | `rtt_p99_ms / rtt_p50_ms`. Timing-sensitive checks care about the spread, not the mean. | Low |
+
+`network.dns_ms` has a band in `schema/thresholds.yaml` but **no category or
+profile reads it** — it is recorded and reported, never graded.
+`06-network.sh` measures it as one `curl` `time_namelookup` per target: a
+single uncached first lookup, n=1, no warming, and the worst-of-four rollup
+this project uses everywhere else would then report *worst-of-four-cold-
+first-lookups* as if it were a property of the host. The corpus disagrees:
+ovh/waw, one run, one resolver, four targets: 1.86 / 81.07 / 109.60 / 149.45
+ms — an 80x spread that is authoritative-NS distance and cache state, not the
+machine. Grading it would repeat the extreme-value mistake this redesign
+exists to fix. The band stays in the YAML, unused, so a future fix to
+`06-network.sh` (repeated lookups, warm and cold separated) has a calibrated
+starting point instead of nothing.
 
 Why only these two profiles: see [Known gaps](#known-gaps) below — this is a
 narrowing of the project's long-standing "no verdict reads network" stance, not

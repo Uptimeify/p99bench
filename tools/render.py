@@ -329,10 +329,11 @@ def main() -> int:
     print("at the provider's peering rather than at geography.")
     print()
     print("**Only `worker_probe` and `playwright_node` grade any of this** (`loss_pct`,")
-    print("`dns_ms`, `rtt_jitter_ratio`) -- because for those two profiles the network")
-    print("*is* the workload. See [THRESHOLDS.md](THRESHOLDS.md#known-gaps). Throughput")
-    print("(`mbps`, shown below) stays ungraded everywhere: no workload requirement")
-    print("yields a Mbit/s floor.")
+    print("`rtt_jitter_ratio`) -- because for those two profiles the network *is* the")
+    print("workload. See [THRESHOLDS.md](THRESHOLDS.md#known-gaps). Throughput (`mbps`,")
+    print("shown below) and `dns_ms` stay ungraded everywhere: throughput because no")
+    print("workload requirement yields a Mbit/s floor, `dns_ms` because it is currently")
+    print("measured as a single uncached lookup and cannot be honestly banded yet.")
     print()
 
     net_runs = [r for r in runs if dig(r, "network.reachable") is True

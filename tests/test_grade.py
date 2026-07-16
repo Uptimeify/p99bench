@@ -265,13 +265,16 @@ def test_compute_category_worst_wins_on_real_v1_data():
     assert disk["grade"] == "C"
     assert disk["bound_by"] == "disk.rand_read_8k.p99_us"
 
-    # network.dns_ms is bound by the HTTP-unreachable ovh-gra target
-    # (58.701ms), which CRITICAL 1 previously discarded entirely -- this is
-    # the after-fix grade, one band worse than the bug's D->C.
+    # network.dns_ms is no longer graded (demoted to informational -- it is
+    # measured as a single uncached lookup and cannot be honestly banded
+    # yet, see its `why:` in thresholds.yaml), so it is absent from this
+    # category entirely and the remaining metric, rtt_jitter_ratio, binds:
+    # hetzner-hel1's ratio (0.708/0.449 = 1.577) crosses the C bound (1.5).
     network = grades["categories"]["network"]
-    assert network["grade"] == "D"
-    assert network["bound_by"] == "network.dns_ms"
-    assert network["metrics"]["network.dns_ms"]["value"] == 58.701
+    assert network["grade"] == "C"
+    assert network["bound_by"] == "network.rtt_jitter_ratio"
+    assert "network.dns_ms" not in network["metrics"]
+    assert network["metrics"]["network.rtt_jitter_ratio"]["value"] == 1.576837416481069
 
 
 def test_compute_category_is_question_mark_when_a_required_metric_is_unmeasured():
