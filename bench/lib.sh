@@ -69,11 +69,18 @@ need() {
 # variable holds a word ("bytes", "not", an error message), and passing that to
 # jq --argjson kills the whole fragment. Recording null loses one metric;
 # passing garbage loses the entire run.
+#
+# The leading-dot branch is not cosmetic. bc prints values between -1 and 1
+# without a leading zero (".977", not "0.977"), so a regex demanding a digit
+# before the point silently nulls every ratio this suite computes -
+# scaling_efficiency is always 0-1 and was null in every published result
+# because of exactly this. JSON itself rejects ".977", but jq --argjson
+# accepts it and normalises, so emitting it is safe.
 jnum() {
   local v="$1"
   if [[ -z "$v" || "$v" == "null" ]]; then
     printf 'null'
-  elif [[ "$v" =~ ^-?[0-9]+([.][0-9]+)?([eE][-+]?[0-9]+)?$ ]]; then
+  elif [[ "$v" =~ ^-?([0-9]+|[0-9]*[.][0-9]+)([eE][-+]?[0-9]+)?$ ]]; then
     printf '%s' "$v"
   else
     warn "expected a number, got '${v:0:40}' - recording null"
