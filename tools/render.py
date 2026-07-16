@@ -1,35 +1,30 @@
 #!/usr/bin/env python3
-"""Render results/**/*.json into RESULTS.md.
+"""Render results/**/*.json into every published artifact.
 
-RESULTS.md is generated. Never edit it by hand -- CI regenerates it and fails
-the PR if the committed file differs.
+Generated artifacts are never hand-edited -- CI runs `--check` and fails the
+PR if a committed file differs from what results/ would produce.
 
-The central idea here is that there are two different kinds of variance, and
-collapsing them into one number destroys the information:
-
-  * TIME VARIANCE  -- same host_id, different hours. Noisy neighbours.
-    Answers: "is this machine consistent throughout the day?"
-
-  * HOST VARIANCE  -- different host_id, same product+region. Fleet spread.
-    Answers: "does this provider hand out consistent machines?"
-
-Averaging either one away is how you end up with a table claiming a provider is
-fine when it is fine at 03:00 and unusable at 18:00. So: median AND worst,
-always, and never a mean.
+The variance doctrine (median AND worst, never a mean; time variance vs host
+variance kept separate) lives in tools/aggregate.py, which this module uses
+for loading and rollups. See that module's docstring for the reasoning.
 
 Usage:
-    python3 tools/render.py > RESULTS.md
+    python3 tools/render.py            # write every artifact
+    python3 tools/render.py --check    # verify artifacts are up to date (CI)
 """
 from __future__ import annotations
 
-import json
+import argparse
+import contextlib
+import io
 import statistics
 import sys
 from collections import defaultdict
 from pathlib import Path
 
+import aggregate
+
 ROOT = Path(__file__).resolve().parent.parent
-RESULTS = ROOT / "results"
 
 MARK = {"A": "A", "B": "B", "C": "C", "D": "D", "F": "F", "?": "?", None: "?"}
 PROFILES = [
@@ -47,10 +42,6 @@ PROFILE_ABBR = {
     "nuxt_ssr": "nuxt",
 }
 
-# Below this many runs we do not compute a spread. Two points is not a
-# distribution, it is a line segment.
-MIN_RUNS_FOR_SPREAD = 3
-
 DISCLAIMER = (
     "*Every number below is a measurement of specific machines at specific times. "
     "Providers vary by region, by hardware generation within a region, and by who "
@@ -60,13 +51,7 @@ DISCLAIMER = (
 )
 
 
-def fmt_us(v) -> str:
-    """Microseconds stop being readable past a few thousand."""
-    if v is None:
-        return "-"
-    if v >= 1000:
-        return f"{v/1000:.1f} ms"
-    return f"{v:.0f} us"
+fmt_us = aggregate.fmt_us
 
 
 def fmt_pct(v) -> str:
@@ -81,63 +66,12 @@ def fmt_mbps(v) -> str:
     return f"{v:.0f} Mb/s"
 
 
-def dig(o, path, default=None):
-    cur = o
-    for p in path.split("."):
-        if not isinstance(cur, dict) or p not in cur or cur[p] is None:
-            return default
-        cur = cur[p]
-    return cur
-
-
-def load_all() -> list[dict]:
-    out = []
-    if not RESULTS.exists():
-        return out
-    for f in sorted(RESULTS.rglob("*.json")):
-        try:
-            d = json.loads(f.read_text())
-            d["_path"] = str(f.relative_to(ROOT))
-            out.append(d)
-        except json.JSONDecodeError:
-            print(f"skipping unparseable {f}", file=sys.stderr)
-    return out
-
-
-def profile_grade(r: dict, profile: str) -> str:
-    return dig(r, f"grades.profiles.{profile}.grade") or "?"
-
-
-def worst_grade(runs: list[dict], profile: str) -> str:
-    """Worst grade across runs for a profile.
-
-    Ranking matches grade.py's rollup precedence (spec 4.2): any F beats any
-    ?, because a definite failure is more true than an unmeasured one, and ?
-    in turn outranks a merely-worse measured band. A machine that grades A at
-    03:00 and F at 18:00 is a machine that grades F.
-    """
-    order = ["A", "B", "C", "D", "?", "F"]
-    seen = [profile_grade(r, profile) for r in runs]
-    if not seen:
-        return "?"
-    return max(seen, key=lambda v: order.index(v) if v in order else 0)
-
-
-def spread(runs: list[dict], path: str) -> tuple[str, str]:
-    """(median, worst) for a latency-like metric.
-
-    'Worst' is the maximum, so only latency-shaped paths belong here -- passing
-    a throughput metric would report the best value as the worst.
-    """
-    vals = [dig(r, path) for r in runs]
-    vals = [v for v in vals if v is not None]
-    if not vals:
-        return ("-", "-")
-    if len(vals) < MIN_RUNS_FOR_SPREAD:
-        # Refuse to print a median of one or two points. The worst case is still
-        # meaningful -- it happened -- so report that and mark the median absent.
-        return ("-", fmt_us(max(vals)))
-    return (fmt_us(statistics.median(vals)), fmt_us(max(vals)))
+dig = aggregate.dig
+load_all = aggregate.load_all
+profile_grade = aggregate.profile_grade
+worst_grade = aggregate.worst_grade
+spread = aggregate.spread
+MIN_RUNS_FOR_SPREAD = aggregate.MIN_RUNS_FOR_SPREAD
 
 
 def storage_classes(runs: list[dict]) -> str:
@@ -172,9 +106,17 @@ def render_run_row(r: dict) -> str:
     return "| " + " | ".join(cells) + " |"
 
 
-def main() -> int:
-    runs = load_all()
+def render_results_md(runs: list[dict]) -> str:
+    """Render the single-file report. Captures the exact prints below into a
+    string so the artifact can be compared (--check) or written (default)
+    instead of only ever going to stdout."""
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        _print_results_md(runs)
+    return buf.getvalue()
 
+
+def _print_results_md(runs: list[dict]) -> None:
     print("<!-- AUTOGENERATED by tools/render.py - do not edit. -->")
     print("<!-- Edit results/*.json and re-run: python3 tools/render.py > RESULTS.md -->")
     print()
@@ -183,7 +125,7 @@ def main() -> int:
 
     if not runs:
         print("No results submitted yet. See [CONTRIBUTING.md](CONTRIBUTING.md).")
-        return 0
+        return
 
     hosts = {r["run"]["host_id"] for r in runs}
     provs = {r["provider"]["name"] for r in runs}
@@ -467,6 +409,48 @@ def main() -> int:
     print()
     print("`host_id` is a salted hash of the machine's `/etc/machine-id`. It links runs")
     print("on the same VM together and means nothing outside this dataset.")
+
+
+def build_all(runs: list[dict]) -> dict[Path, str]:
+    """Every artifact this tool publishes, keyed by the path it belongs at.
+
+    Just RESULTS.md for now -- the per-provider pages, the machine-readable
+    export, and the compact index are added in later tasks. Keeping the
+    return type a dict from the start means this task's refactor is inert:
+    the CLI below already knows how to write or check N artifacts, so adding
+    the rest later touches only this function.
+    """
+    return {ROOT / "RESULTS.md": render_results_md(runs)}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        description="Generate every published artifact from results/."
+    )
+    ap.add_argument(
+        "--check", action="store_true",
+        help="verify the committed artifacts match what results/ would generate; "
+             "exit 1 and name each stale file. This is what CI runs.",
+    )
+    args = ap.parse_args()
+
+    runs = aggregate.load_all()
+    artifacts = build_all(runs)   # {Path: str}
+
+    if args.check:
+        stale = [p for p, body in artifacts.items()
+                 if not p.exists() or p.read_text() != body]
+        for p in stale:
+            print(f"stale: {p.relative_to(ROOT)}", file=sys.stderr)
+        if stale:
+            print("run: python3 tools/render.py", file=sys.stderr)
+            return 1
+        return 0
+
+    for p, body in artifacts.items():
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(body)
+        print(f"wrote {p.relative_to(ROOT)}", file=sys.stderr)
     return 0
 
 

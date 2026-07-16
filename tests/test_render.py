@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import render as R  # noqa: E402
+from aggregate import spread  # noqa: E402
 
 
 def _minimal_run(cpu):
@@ -56,5 +57,5 @@ def test_summary_spread_reads_stall_p999_us_not_legacy_field():
         _minimal_run({"stall_p999_us": 200.0, "intrinsic_latency_max_us": None}),
         _minimal_run({"stall_p999_us": 9999.0, "intrinsic_latency_max_us": None}),
     ]
-    _, worst = R.spread(runs, "cpu.stall_p999_us")
+    _, worst = spread(runs, "cpu.stall_p999_us")
     assert worst == "10.0 ms"
