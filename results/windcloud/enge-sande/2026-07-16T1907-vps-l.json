@@ -1,0 +1,302 @@
+{
+  "schema_version": "2.0",
+  "run": {
+    "timestamp_utc": "2026-07-16T19:07:24Z",
+    "host_id": "3637eb36eb5f",
+    "local_hour": 20,
+    "duration_s": 3536,
+    "tool_version": "0.2.0",
+    "submitter": "uptimeify",
+    "notes": null
+  },
+  "provider": {
+    "name": "windcloud",
+    "product": "VPS-L",
+    "region": "enge-sande",
+    "price_eur_month": 19.0,
+    "billing": "monthly",
+    "storage_tier": null
+  },
+  "app": null,
+  "cpu": {
+    "single_thread_eps": 397.99,
+    "multi_thread_eps": 1558.73,
+    "scaling_efficiency": 0.979,
+    "clock_idle_mhz": 2593,
+    "clock_under_load_mhz": 2593,
+    "steal_pct_under_load": null,
+    "aes_256_gcm_mbs": 10009.32,
+    "sha256_mbs": 1439.17,
+    "tls_verify_s": 9835.0,
+    "tls_sign_s": 27323.8,
+    "steady_state": {
+      "degradation_pct": -1.0,
+      "first_min_eps": 1570.38,
+      "last_min_eps": 1591.94,
+      "duration_s": 900,
+      "steal_pct": null
+    },
+    "stall_p99_us": null,
+    "stall_p999_us": null,
+    "stall_max_us": null,
+    "stall_samples": null,
+    "intrinsic_latency_max_us": null,
+    "intrinsic_latency_avg_us": null
+  },
+  "disk": {
+    "device_model": "QEMU HARDDISK",
+    "scheduler": "none",
+    "rotational": true,
+    "target_fs": "ext4",
+    "is_boot_volume": true,
+    "seq_read": {
+      "bw_mbs": 3286.52,
+      "iops": 3286.52,
+      "p99_us": 25821.18
+    },
+    "seq_write": {
+      "bw_mbs": 575.08,
+      "iops": 575.08,
+      "p99_us": 425721.86
+    },
+    "rand_read_8k": {
+      "iops": 60078.86,
+      "bw_mbs": 469.37,
+      "p50_us": 1875.97,
+      "p99_us": 5537.79,
+      "p999_us": 19529.73
+    },
+    "rand_write_8k": {
+      "iops": 10808.78,
+      "bw_mbs": 84.44,
+      "p50_us": 5996.54,
+      "p99_us": 154140.67,
+      "p999_us": 666894.34
+    },
+    "mixed_8k": {
+      "iops": 23163.93,
+      "bw_mbs": 180.97,
+      "p50_us": 1630.21,
+      "p99_us": 8978.43,
+      "p999_us": 51118.08
+    },
+    "wal_fsync": {
+      "iops": 86.26,
+      "avg_us": 10593.17,
+      "p50_us": 7700.48,
+      "p99_us": 60030.98,
+      "p999_us": 258998.27,
+      "max_us": 285864.52
+    },
+    "steady_state": {
+      "duration_s": 1800,
+      "first_min_iops": 37868.83,
+      "last_min_iops": 33292.8,
+      "degradation_pct": 12.08,
+      "p99_us_first_min": 9132.35,
+      "p99_us_last_min": 10466.98
+    }
+  },
+  "host": {
+    "virt": "kvm",
+    "vcpu": 4,
+    "ram_mb": 11991,
+    "cpu_model": "Intel(R) Xeon(R) Gold 6126 CPU @ 2.60GHz",
+    "cpu_governor": null,
+    "numa_nodes": 2,
+    "ecc_claimed": "Multi-bit ECC",
+    "ecc_verifiable": false,
+    "kernel": "6.12.95+deb13-amd64",
+    "distro": "debian-13"
+  },
+  "network": {
+    "reachable": true,
+    "target_list_version": "1",
+    "targets": [
+      {
+        "id": "hetzner-fsn1",
+        "reachable": true,
+        "mbps": 1166.93,
+        "ttfb_ms": 77.599,
+        "dns_ms": 1.894,
+        "rtt_p50_ms": 16.9,
+        "rtt_p99_ms": 17.1,
+        "loss_pct": 0
+      },
+      {
+        "id": "hetzner-hel1",
+        "reachable": true,
+        "mbps": 467.22,
+        "ttfb_ms": 148.647,
+        "dns_ms": 22.442,
+        "rtt_p50_ms": 29.4,
+        "rtt_p99_ms": 29.5,
+        "loss_pct": 0
+      },
+      {
+        "id": "ovh-gra",
+        "reachable": false,
+        "mbps": 0.01,
+        "ttfb_ms": 96.994,
+        "dns_ms": 1.708,
+        "rtt_p50_ms": 21.0,
+        "rtt_p99_ms": 21.1,
+        "loss_pct": 0
+      },
+      {
+        "id": "hetzner-ash",
+        "reachable": true,
+        "mbps": 181.52,
+        "ttfb_ms": 470.997,
+        "dns_ms": 1.616,
+        "rtt_p50_ms": 93.5,
+        "rtt_p99_ms": 93.6,
+        "loss_pct": 0
+      }
+    ],
+    "ookla": null
+  },
+  "ram": {
+    "configured_speed": "Unknown",
+    "type": "RAM",
+    "populated_slots": 1,
+    "bw_read_mbs": 37063.72,
+    "bw_block_bytes": 134217728,
+    "seq_read_mbs": 77010.8,
+    "seq_write_mbs": 46157.04,
+    "rnd_read_mbs": 8068.23,
+    "rnd_write_mbs": 761.88,
+    "numa_local_mbs": 4137.85,
+    "numa_remote_mbs": 4319.14
+  },
+  "grades": {
+    "bands_version": "2.0",
+    "storage_class": "degraded",
+    "categories": {
+      "disk": {
+        "grade": "F",
+        "bound_by": "disk.wal_fsync.p999_us",
+        "metrics": {
+          "disk.wal_fsync.p999_us": {
+            "value": 258998.27,
+            "grade": "F"
+          },
+          "disk.wal_fsync.iops": {
+            "value": 86.26,
+            "grade": "F"
+          },
+          "disk.rand_read_8k.p99_us": {
+            "value": 5537.79,
+            "grade": "D"
+          },
+          "disk.rand_read_8k.iops": {
+            "value": 60078.86,
+            "grade": "B"
+          },
+          "disk.rand_write_8k.iops": {
+            "value": 10808.78,
+            "grade": "C"
+          },
+          "disk.seq_write.bw_mbs": {
+            "value": 575.08,
+            "grade": "B"
+          },
+          "disk.seq_read.bw_mbs": {
+            "value": 3286.52,
+            "grade": "A"
+          },
+          "disk.steady_state.degradation_pct": {
+            "value": 12.08,
+            "grade": "B"
+          }
+        }
+      },
+      "cpu": {
+        "grade": "F",
+        "bound_by": "cpu.single_thread_eps",
+        "metrics": {
+          "cpu.single_thread_eps": {
+            "value": 397.99,
+            "grade": "F"
+          },
+          "cpu.scaling_efficiency": {
+            "value": 0.979,
+            "grade": "A"
+          },
+          "cpu.steal_pct_under_load": {
+            "value": null,
+            "grade": "?"
+          },
+          "cpu.stall_p999_us": {
+            "value": null,
+            "grade": "?"
+          },
+          "cpu.steady_state.degradation_pct": {
+            "value": -1.0,
+            "grade": "A"
+          },
+          "cpu.tls_verify_s": {
+            "value": 9835.0,
+            "grade": "C"
+          }
+        }
+      },
+      "ram": {
+        "grade": "B",
+        "bound_by": "ram.bw_read_mbs",
+        "metrics": {
+          "ram.bw_read_mbs": {
+            "value": 37063.72,
+            "grade": "B"
+          }
+        }
+      },
+      "network": {
+        "grade": "A",
+        "bound_by": "network.loss_pct",
+        "metrics": {
+          "network.loss_pct": {
+            "value": 0,
+            "grade": "A"
+          },
+          "network.rtt_jitter_ratio": {
+            "value": 1.0118343195266273,
+            "grade": "A"
+          }
+        }
+      }
+    },
+    "profiles": {
+      "postgres_oltp": {
+        "grade": "F",
+        "bound_by": "disk.wal_fsync.p999_us"
+      },
+      "timescale_ingest": {
+        "grade": "F",
+        "bound_by": "disk.wal_fsync.p999_us"
+      },
+      "patroni_member": {
+        "grade": "F",
+        "bound_by": "disk.wal_fsync.p999_us",
+        "network_half_unmeasured": true
+      },
+      "redis_sentinel": {
+        "grade": "F",
+        "bound_by": "cpu.single_thread_eps",
+        "network_half_unmeasured": true
+      },
+      "worker_probe": {
+        "grade": "F",
+        "bound_by": "cpu.single_thread_eps"
+      },
+      "playwright_node": {
+        "grade": "F",
+        "bound_by": "cpu.single_thread_eps"
+      },
+      "nuxt_ssr": {
+        "grade": "F",
+        "bound_by": "cpu.single_thread_eps"
+      }
+    }
+  }
+}

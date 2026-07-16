@@ -3,4 +3,79 @@
 
 # Results
 
-No results submitted yet. See [CONTRIBUTING.md](CONTRIBUTING.md).
+1 runs across 1 machines at 1 provider.
+
+*Every number below is a measurement of specific machines at specific times. Providers vary by region, by hardware generation within a region, and by who else is on the host. Read [METHODOLOGY.md](METHODOLOGY.md) before drawing conclusions, and [THRESHOLDS.md](THRESHOLDS.md) before disagreeing with a grade.*
+
+Per-provider detail: [windcloud](results/windcloud/README.md). Machine-readable export:
+[data/index.json](data/index.json) / [data/index.csv](data/index.csv).
+
+## How to read this table
+
+One row per product and region. `fsync p99.9 worst` is the number that
+decides whether a database is viable here: your slowest commits are the
+ones users notice, so worst matters more than median here.
+
+Grades are **A-F, the worst across all runs** for that product. A machine
+that grades A at 03:00 and F at 18:00 is a machine that grades F.
+
+**`?` is unmeasured, not bad.** Most `cpu` cells and every `ram` cell
+read `?` on this corpus because those hosts predate the stages that
+measure `cpu.stall_*`, `cpu.steady_state`, `cpu.tls_verify_s`, and
+`ram.bw_read_mbs` -- re-running with today's tooling replaces a `?` with a
+real grade, it is not a rebanding. See
+[THRESHOLDS.md](THRESHOLDS.md#provisional-bands).
+
+`disk`/`cpu`/`ram`/`net` are the four measured categories; `pg` through
+`nuxt` are the seven workload profiles graded from them. `net` stays
+informational here too -- only `worker_probe` (`probe`) and
+`playwright_node` (`pw`) actually grade the network, so a bad `net` cell
+on any other profile's row is context, not a cause.
+
+## Index
+
+| Provider | Region | Product | Class | Machines | Runs | fsync p99.9 worst | disk | cpu | ram | net | pg | ts | patroni | redis | probe | pw | nuxt |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| windcloud | enge-sande | `VPS-L` | degraded | 1 | 1 | 259.0 ms | F | F | B | A | F | F | F | F | F | F | F |
+
+## Network
+
+Throughput and latency to the **same fixed reference targets** are
+measured on every run but not summarized in this index -- every host
+measures the same targets, so that per-target detail is worth a table
+of its own, and it lives on each provider's page (with a packet-loss
+callout wherever loss exceeds ~0.05%): [windcloud](results/windcloud/README.md). **Only `worker_probe`
+and `playwright_node` grade any of it** (`loss_pct`, `rtt_jitter_ratio`)
+-- for those two profiles the network *is* the workload. Everyone
+else's `net` column stays informational. See
+[THRESHOLDS.md](THRESHOLDS.md#known-gaps).
+
+## Why runs failed
+
+Computed from [schema/thresholds.yaml](schema/thresholds.yaml), not written
+by hand. Each profile names the metric that bound its grade -- disagree with
+a grade? The thing to argue about is the threshold, in
+[THRESHOLDS.md](THRESHOLDS.md).
+
+| Binding constraint | Runs affected |
+|---|---|
+| [postgres_oltp] disk.wal_fsync.p999_us | 1 |
+| [timescale_ingest] disk.wal_fsync.p999_us | 1 |
+| [patroni_member] disk.wal_fsync.p999_us | 1 |
+| [redis_sentinel] cpu.single_thread_eps | 1 |
+| [worker_probe] cpu.single_thread_eps | 1 |
+| [playwright_node] cpu.single_thread_eps | 1 |
+| [nuxt_ssr] cpu.single_thread_eps | 1 |
+
+---
+
+## Raw data
+
+Every number above comes from a JSON file under [`results/`](results/),
+laid out as `results/<provider>/<region>/`. Nothing here is hand-written.
+If a number looks wrong, open the file and check it. Per-run detail --
+per-machine tables, host and time variance, binding constraints -- lives
+on each provider's page: [windcloud](results/windcloud/README.md).
+
+`host_id` is a salted hash of the machine's `/etc/machine-id`. It links runs
+on the same VM together and carries no significance outside this dataset.
