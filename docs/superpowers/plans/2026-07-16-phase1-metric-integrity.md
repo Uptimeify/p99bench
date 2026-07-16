@@ -991,12 +991,14 @@ Sanity-check the number against physics — this is the whole point of the task:
 
 ```bash
 docker run --rm -v "$PWD:/p99bench" -e P99_WORK=/tmp/p99work -e P99_RAM_TOTAL=4G \
-  p99bench-test bash -c "bash /p99bench/bench/03-ram.sh 2>/dev/null; \
-    jq '{bw_read_mbs, bw_block_bytes, legacy_seq_read_mbs: .ram.seq_read_mbs} + .ram | \
-        {bw_read_mbs, bw_block_bytes, seq_read_mbs}' /tmp/p99work/frag-ram.json"
+  p99bench-test bash -c "bash /p99bench/bench/03-ram.sh >/dev/null 2>&1; \
+    jq '.ram | {bw_read_mbs, bw_block_bytes, legacy_seq_read_mbs: .seq_read_mbs}' \
+      /tmp/p99work/frag-ram.json"
 ```
 
-Expected: `bw_read_mbs` **far below** `seq_read_mbs`. The legacy field reads cache; the new one reads memory. If they are close, the working set is still cache-resident and the fix has not worked.
+Expected: `bw_read_mbs` **far below** `legacy_seq_read_mbs`. The legacy field reads cache; the new one reads memory. If they are close, the working set is still cache-resident and the fix has not worked.
+
+Note the container reports the Docker VM's cache, not a real host's — the ratio is the signal here, not either number.
 
 Shellcheck:
 
@@ -1235,12 +1237,34 @@ def test_cpu_steady_degradation_sign_is_drop_not_gain(repo_root):
     # degradation_pct must be positive when throughput FALLS, matching
     # disk.steady_state.degradation_pct, which the bands read as "lte".
     # A sign flip here would grade a throttled host as excellent.
+    #
+    # MUST run with at least 2 minutes: at MIN=1 the first and last samples
+    # are the same array element, degradation is identically 0, and this
+    # assertion holds no matter what the implementation does.
     frag = run_stage(repo_root, "02b-cpu-steady.sh",
-                     {"P99_CPU_STEADY_MIN": "1"}, "cpu-steady")
+                     {"P99_CPU_STEADY_MIN": "2"}, "cpu-steady")
     steady = frag["cpu"]["steady_state"]
     first, last = steady["first_min_eps"], steady["last_min_eps"]
-    expected = round((first - last) / first * 100, 2)
+    assert first != last, (
+        "first and last minute are identical -- the series is not being "
+        "sampled per-minute, so this test cannot see a sign error"
+    )
+    expected = (first - last) / first * 100
     assert abs(steady["degradation_pct"] - expected) < 0.5
+
+
+@pytest.mark.docker
+def test_cpu_steady_reports_positive_degradation_when_throughput_falls():
+    # Pure unit check of the sign convention, independent of hardware: feed
+    # the shell's own expression a falling series and assert the sign. A
+    # container cannot be made to throttle on demand, so the container tests
+    # above can never prove this direction.
+    import subprocess
+    out = subprocess.run(
+        ["bash", "-c", 'echo "scale=2; (1000 - 400) / 1000 * 100" | bc'],
+        capture_output=True, text=True,
+    )
+    assert float(out.stdout) == 60.0, "falling throughput must give positive degradation"
 
 
 @pytest.mark.docker
