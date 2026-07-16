@@ -644,9 +644,13 @@ metric is how the current state arose.
 3. Fix RAM working set to exceed LLC; emit `ram.bw_read_mbs`.
 4. Add `cpu.tls_handshakes_s` via `openssl speed ecdsap256`.
 5. New stage `02b-cpu-steady.sh` (15 min); wire into `run-all.sh`.
-6. Derive and emit `storage_class`.
 
 **Phase 2 — grading engine** (`tools/`, `schema/`)
+6. Derive `storage_class` in `tools/`, not `bench/`. It is a *derived* value
+   (`1e6 / disk.wal_fsync.iops`), not a measurement, and §4.5/§8 require it for
+   the 10 existing results — which were produced by v1 scripts and can never
+   emit a new field. Computing it alongside grades covers every result, old and
+   new, and keeps derived values out of the raw record (§9.1).
 7. `schema/thresholds.yaml` v2: bands, categories, profiles.
 8. Rewrite `tools/verdict.py` -> band lookup, worst-wins rollup, binding
    constraint, `?` on missing required.
