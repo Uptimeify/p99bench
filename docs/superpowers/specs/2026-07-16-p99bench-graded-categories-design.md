@@ -192,13 +192,36 @@ the precise failure this project exists to prevent.
 **`required` semantics carry over from v1 unchanged.** Each rule keeps its
 `required: true|false` flag:
 
-- missing value on a `required: true` rule -> the whole category/profile grades
-  `?`. It never grades by omission.
+- missing value on a `required: true` rule -> the category/profile grades `?`.
+  It never grades by omission.
 - missing value on a `required: false` rule -> that rule is skipped; the rollup
   proceeds over the remaining rules.
 
 This is what lets a profile survive a metric that a given tool version did not
 collect (§9.3), and it is why the advisory-only rules of v1 stay advisory.
+
+**Precedence: `F` beats `?`.** When a rule grades `F` *and* another required
+rule is missing, the result is `F`, not `?`. Ordering:
+
+1. any rule grades `F` -> **F**
+2. else any `required: true` rule missing -> **?**
+3. else -> the worst band present
+
+This refines v1, which returned `unknown` whenever a required rule was missing
+even if another rule had already failed. Two reasons:
+
+- **It is more true.** A host with a 459 ms fsync p99.9 is F for `postgres_oltp`
+  whether or not its stall was measured. Grading is non-compensatory (§4.2), so
+  no unmeasured metric could rescue it. Reporting `?` there discards a fact we
+  hold.
+- **`?` must not be a hiding place.** If a missing metric outranked a measured
+  failure, skipping a stage would upgrade an F to a `?` — a strictly better-
+  looking cell in the index table, obtainable by running *less* of the suite.
+  A grading rule that rewards measuring less is a rule a submitter will
+  eventually notice.
+
+This is stricter than v1, not looser, so it stays consistent with "never grades
+by omission".
 
 ### 4.3 Bands are absolute, never a curve
 
