@@ -1,5 +1,27 @@
+import copy
+import json
+import sys
+from pathlib import Path
+
+import yaml
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
+from migrate_v1_v2 import MEASURED_SECTIONS, migrate  # noqa: E402
+
+THRESHOLDS = yaml.safe_load((ROOT / "schema" / "thresholds.yaml").read_text())
+
+# A frozen snapshot of results/hetzner/hel-1/2026-07-16T1012-cpx32.json as it
+# was BEFORE this task migrated it (schema_version "1.0", "verdict" present).
+# Deliberately NOT read from results/ at test time: this task's own migration
+# rewrites that file in place, so a live read would go v1 -> v2 the moment
+# `tools/migrate_v1_v2.py results/` is applied, and this test would then
+# assert `migrate() is True` against a document that is already migrated.
+# Freezing the pre-migration shape here keeps the test meaningful forever,
+# independent of the corpus's current on-disk state.
+V1_FIXTURE = json.loads(r"""
 {
-  "schema_version": "2.0",
+  "schema_version": "1.0",
   "run": {
     "timestamp_utc": "2026-07-16T10:12:50Z",
     "host_id": "ffe9c660efdd",
@@ -154,143 +176,49 @@
     "numa_local_mbs": null,
     "numa_remote_mbs": null
   },
-  "grades": {
-    "bands_version": "2.0",
-    "storage_class": "net-fast",
-    "categories": {
-      "disk": {
-        "grade": "C",
-        "bound_by": "disk.rand_read_8k.p99_us",
-        "metrics": {
-          "disk.wal_fsync.p999_us": {
-            "value": 1875.97,
-            "grade": "B"
-          },
-          "disk.wal_fsync.iops": {
-            "value": 1386.21,
-            "grade": "B"
-          },
-          "disk.rand_read_8k.p99_us": {
-            "value": 2506.75,
-            "grade": "C"
-          },
-          "disk.rand_read_8k.iops": {
-            "value": 79240.2,
-            "grade": "B"
-          },
-          "disk.rand_write_8k.iops": {
-            "value": 68172.38,
-            "grade": "A"
-          },
-          "disk.seq_write.bw_mbs": {
-            "value": 5493.2,
-            "grade": "A"
-          },
-          "disk.seq_read.bw_mbs": {
-            "value": 7439.39,
-            "grade": "A"
-          },
-          "disk.steady_state.degradation_pct": {
-            "value": 0.43,
-            "grade": "A"
-          }
-        }
-      },
-      "cpu": {
-        "grade": "?",
-        "bound_by": "cpu.stall_p999_us",
-        "metrics": {
-          "cpu.single_thread_eps": {
-            "value": 1661.19,
-            "grade": "A"
-          },
-          "cpu.scaling_efficiency": {
-            "value": 0.977,
-            "grade": "A"
-          },
-          "cpu.steal_pct_under_load": {
-            "value": 0.0,
-            "grade": "A"
-          },
-          "cpu.stall_p999_us": {
-            "value": null,
-            "grade": "?"
-          },
-          "cpu.steady_state.degradation_pct": {
-            "value": null,
-            "grade": "?"
-          },
-          "cpu.tls_verify_s": {
-            "value": null,
-            "grade": "?"
-          }
-        }
-      },
-      "ram": {
-        "grade": "?",
-        "bound_by": "ram.bw_read_mbs",
-        "metrics": {
-          "ram.bw_read_mbs": {
-            "value": null,
-            "grade": "?"
-          }
-        }
-      },
-      "network": {
-        "grade": "D",
-        "bound_by": "network.dns_ms",
-        "metrics": {
-          "network.loss_pct": {
-            "value": 0,
-            "grade": "A"
-          },
-          "network.dns_ms": {
-            "value": 58.475,
-            "grade": "D"
-          },
-          "network.rtt_jitter_ratio": {
-            "value": 1.449367088607595,
-            "grade": "B"
-          }
-        }
-      }
-    },
-    "profiles": {
-      "postgres_oltp": {
-        "grade": "C",
-        "bound_by": "disk.rand_read_8k.p99_us"
-      },
-      "timescale_ingest": {
-        "grade": "B",
-        "bound_by": "disk.wal_fsync.p999_us"
-      },
-      "patroni_member": {
-        "grade": "?",
-        "bound_by": "cpu.stall_p999_us",
-        "reason": "needs re-run (tool >= 0.2.0)",
-        "network_half_unmeasured": true
-      },
-      "redis_sentinel": {
-        "grade": "?",
-        "bound_by": "cpu.stall_p999_us",
-        "reason": "needs re-run (tool >= 0.2.0)",
-        "network_half_unmeasured": true
-      },
-      "worker_probe": {
-        "grade": "?",
-        "bound_by": "cpu.stall_p999_us",
-        "reason": "needs re-run (tool >= 0.2.0)"
-      },
-      "playwright_node": {
-        "grade": "?",
-        "bound_by": "cpu.steady_state.degradation_pct",
-        "reason": "needs re-run (tool >= 0.2.0)"
-      },
-      "nuxt_ssr": {
-        "grade": "?",
-        "bound_by": "cpu.stall_p999_us",
-        "reason": "needs re-run (tool >= 0.2.0)"
-      }
-    }
+  "verdict": {
+    "reasons": [
+      "[postgres_oltp] disk.wal_fsync.iops = 1386.21 < 5000",
+      "[postgres_oltp] disk.rand_read_8k.p99_us = 2506.75 (marginal, want <= 1000)",
+      "[postgres_oltp] disk.rand_read_8k.iops = 79240.2 (marginal, want >= 100000)",
+      "[redis_aof] cpu.intrinsic_latency_max_us = 1642 > 1000",
+      "[nuxt_ssr] cpu.intrinsic_latency_max_us = 1642 (marginal, want <= 1000)"
+    ],
+    "postgres_oltp": "fail",
+    "timescale_ingest": "pass",
+    "redis_aof": "fail",
+    "nuxt_ssr": "marginal"
   }
 }
+""")
+
+
+def _v1():
+    return copy.deepcopy(V1_FIXTURE)
+
+
+def test_migrate_replaces_verdict_with_grades_and_bumps_version():
+    doc = _v1()
+    assert migrate(doc, THRESHOLDS) is True
+    assert doc["schema_version"] == "2.0"
+    assert "verdict" not in doc
+    assert doc["grades"]["bands_version"] == THRESHOLDS["bands_version"]
+
+
+def test_migrate_changes_no_measured_number():
+    # The contract of spec 9.1: measurements are immutable, grades are derived.
+    # A migration that quietly edited a measured value would destroy the one
+    # thing this repo is for.
+    before = _v1()
+    after = copy.deepcopy(before)
+    migrate(after, THRESHOLDS)
+    for section in MEASURED_SECTIONS:
+        assert after.get(section) == before.get(section), f"{section} was altered"
+
+
+def test_migrate_is_idempotent():
+    doc = _v1()
+    migrate(doc, THRESHOLDS)
+    once = copy.deepcopy(doc)
+    assert migrate(doc, THRESHOLDS) is False
+    assert doc == once

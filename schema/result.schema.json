@@ -18,7 +18,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "1.0"
+      "const": "2.0"
     },
     "run": {
       "type": "object",
@@ -828,48 +828,62 @@
         }
       }
     },
-    "verdict": {
-      "type": [
-        "object",
-        "null"
-      ],
-      "description": "COMPUTED by tools/verdict.py from THRESHOLDS.md. Never hand-written.",
+    "grades": {
+      "type": ["object", "null"],
+      "description": "COMPUTED by tools/grade.py from schema/thresholds.yaml. Never hand-written; CI recomputes and rejects any file whose block differs.",
       "additionalProperties": false,
+      "required": ["bands_version", "categories", "profiles"],
       "properties": {
-        "postgres_oltp": {
-          "$ref": "#/$defs/verdictValue"
+        "bands_version": { "type": "string" },
+        "storage_class": {
+          "type": ["string", "null"],
+          "enum": ["local-nvme", "net-fast", "net-slow", "degraded", null],
+          "description": "Derived from measured fsync latency-per-op. A facet, never a curve: it explains a grade, it never softens one."
         },
-        "timescale_ingest": {
-          "$ref": "#/$defs/verdictValue"
+        "categories": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["grade", "bound_by", "metrics"],
+            "additionalProperties": false,
+            "properties": {
+              "grade": { "$ref": "#/$defs/gradeValue" },
+              "bound_by": { "type": ["string", "null"] },
+              "metrics": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "value": { "type": ["number", "null"] },
+                    "grade": { "$ref": "#/$defs/gradeValue" }
+                  }
+                }
+              }
+            }
+          }
         },
-        "redis_aof": {
-          "$ref": "#/$defs/verdictValue"
-        },
-        "nuxt_ssr": {
-          "$ref": "#/$defs/verdictValue"
-        },
-        "reasons": {
-          "type": "array",
-          "items": {
-            "type": "string"
+        "profiles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["grade"],
+            "additionalProperties": false,
+            "properties": {
+              "grade": { "$ref": "#/$defs/gradeValue" },
+              "bound_by": { "type": ["string", "null"] },
+              "reason": { "type": "string" },
+              "network_half_unmeasured": { "type": "boolean" }
+            }
           }
         }
       }
     }
   },
   "$defs": {
-    "verdictValue": {
-      "type": [
-        "string",
-        "null"
-      ],
-      "enum": [
-        "pass",
-        "marginal",
-        "fail",
-        "unknown",
-        null
-      ]
+    "gradeValue": {
+      "type": ["string", "null"],
+      "enum": ["A", "B", "C", "D", "F", "?", null]
     },
     "ioResult": {
       "type": [

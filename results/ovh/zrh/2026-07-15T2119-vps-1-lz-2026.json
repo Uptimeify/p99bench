@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "run": {
     "timestamp_utc": "2026-07-15T21:19:15Z",
     "host_id": "c7d6f796cf06",
@@ -154,24 +154,139 @@
     "numa_local_mbs": null,
     "numa_remote_mbs": null
   },
-  "verdict": {
-    "reasons": [
-      "[postgres_oltp] disk.wal_fsync.p999_us = 117964.8 > 5000",
-      "[postgres_oltp] disk.wal_fsync.iops = 213.97 < 5000",
-      "[postgres_oltp] disk.rand_read_8k.p99_us = 17956.86 > 5000",
-      "[postgres_oltp] disk.rand_read_8k.iops = 7512.42 < 30000",
-      "[postgres_oltp] disk.rand_write_8k.iops = 6199.88 < 15000",
-      "[timescale_ingest] disk.wal_fsync.p999_us = 117964.8 > 5000",
-      "[timescale_ingest] disk.seq_write.bw_mbs = 300.48 (marginal, want >= 500)",
-      "[timescale_ingest] disk.seq_read.bw_mbs = 300.5 < 500",
-      "[timescale_ingest] disk.rand_write_8k.iops = 6199.88 < 15000",
-      "[redis_aof] cpu.intrinsic_latency_max_us = 2455 > 1000",
-      "[redis_aof] disk.wal_fsync.p999_us = 117964.8 > 5000",
-      "[nuxt_ssr] cpu.intrinsic_latency_max_us = 2455 (marginal, want <= 1000)"
-    ],
-    "postgres_oltp": "fail",
-    "timescale_ingest": "fail",
-    "redis_aof": "fail",
-    "nuxt_ssr": "marginal"
+  "grades": {
+    "bands_version": "2.0",
+    "storage_class": "net-slow",
+    "categories": {
+      "disk": {
+        "grade": "F",
+        "bound_by": "disk.wal_fsync.p999_us",
+        "metrics": {
+          "disk.wal_fsync.p999_us": {
+            "value": 117964.8,
+            "grade": "F"
+          },
+          "disk.wal_fsync.iops": {
+            "value": 213.97,
+            "grade": "D"
+          },
+          "disk.rand_read_8k.p99_us": {
+            "value": 17956.86,
+            "grade": "F"
+          },
+          "disk.rand_read_8k.iops": {
+            "value": 7512.42,
+            "grade": "D"
+          },
+          "disk.rand_write_8k.iops": {
+            "value": 6199.88,
+            "grade": "D"
+          },
+          "disk.seq_write.bw_mbs": {
+            "value": 300.48,
+            "grade": "C"
+          },
+          "disk.seq_read.bw_mbs": {
+            "value": 300.5,
+            "grade": "D"
+          },
+          "disk.steady_state.degradation_pct": {
+            "value": 0.35,
+            "grade": "A"
+          }
+        }
+      },
+      "cpu": {
+        "grade": "?",
+        "bound_by": "cpu.stall_p999_us",
+        "metrics": {
+          "cpu.single_thread_eps": {
+            "value": 1679.84,
+            "grade": "A"
+          },
+          "cpu.scaling_efficiency": {
+            "value": 0.953,
+            "grade": "A"
+          },
+          "cpu.steal_pct_under_load": {
+            "value": 0.16,
+            "grade": "A"
+          },
+          "cpu.stall_p999_us": {
+            "value": null,
+            "grade": "?"
+          },
+          "cpu.steady_state.degradation_pct": {
+            "value": null,
+            "grade": "?"
+          },
+          "cpu.tls_verify_s": {
+            "value": null,
+            "grade": "?"
+          }
+        }
+      },
+      "ram": {
+        "grade": "?",
+        "bound_by": "ram.bw_read_mbs",
+        "metrics": {
+          "ram.bw_read_mbs": {
+            "value": null,
+            "grade": "?"
+          }
+        }
+      },
+      "network": {
+        "grade": "F",
+        "bound_by": "network.loss_pct",
+        "metrics": {
+          "network.loss_pct": {
+            "value": 10,
+            "grade": "F"
+          },
+          "network.dns_ms": {
+            "value": 9.293,
+            "grade": "B"
+          },
+          "network.rtt_jitter_ratio": {
+            "value": 1.0186915887850467,
+            "grade": "A"
+          }
+        }
+      }
+    },
+    "profiles": {
+      "postgres_oltp": {
+        "grade": "F",
+        "bound_by": "disk.wal_fsync.p999_us"
+      },
+      "timescale_ingest": {
+        "grade": "F",
+        "bound_by": "disk.wal_fsync.p999_us"
+      },
+      "patroni_member": {
+        "grade": "F",
+        "bound_by": "disk.wal_fsync.p999_us",
+        "network_half_unmeasured": true
+      },
+      "redis_sentinel": {
+        "grade": "F",
+        "bound_by": "disk.wal_fsync.p999_us",
+        "network_half_unmeasured": true
+      },
+      "worker_probe": {
+        "grade": "F",
+        "bound_by": "network.loss_pct"
+      },
+      "playwright_node": {
+        "grade": "F",
+        "bound_by": "network.loss_pct"
+      },
+      "nuxt_ssr": {
+        "grade": "?",
+        "bound_by": "cpu.stall_p999_us",
+        "reason": "needs re-run (tool >= 0.2.0)"
+      }
+    }
   }
 }

@@ -26,7 +26,7 @@ from validate import SCHEMA  # noqa: E402
 # Mirrors the shape of a real file (see results/ovh/zrh/2026-07-15T2119-*.json)
 # so this exercises the same required-field skeleton real submissions use.
 RESULT_020 = {
-    "schema_version": "1.0",
+    "schema_version": "2.0",
     "run": {
         "timestamp_utc": "2026-07-16T10:00:00Z",
         "host_id": "abcdef012345",
@@ -125,7 +125,7 @@ RESULT_020 = {
         "bw_read_mbs": 42000.0,
         "bw_block_bytes": 134217728,
     },
-    "verdict": None,
+    "grades": None,
 }
 
 
