@@ -3,7 +3,7 @@
 
 # Results
 
-3 runs across 3 machines at 2 providers.
+6 runs across 3 machines at 2 providers.
 
 *Every number below is a measurement of specific machines at specific times. Providers vary by region, by hardware generation within a region, and by who else is on the host. Read [METHODOLOGY.md](METHODOLOGY.md) before drawing conclusions, and [THRESHOLDS.md](THRESHOLDS.md) before disagreeing with a verdict.*
 
@@ -15,9 +15,9 @@ median: your slowest commits are the ones users notice.
 
 | Provider | Region | Product | Machines | Runs | fsync p99.9 med | fsync p99.9 worst | stall worst | pg | ts | redis | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| hetzner | hel1 | `CPX32` | 1 | 1 | - | 2.9 ms | 2.5 ms | fail | marginal | fail | marginal |
-| ovh | prg | `vps-1-lz-2026` | 1 | 1 | - | 8.4 ms | 5.1 ms | fail | fail | fail | fail |
-| ovh | zrh | `vps-1-lz-2026` | 1 | 1 | - | 118.0 ms | 2.5 ms | fail | fail | fail | marginal |
+| hetzner | hel1 | `CPX32` | 1 | 2 | - | 2.9 ms | 2.5 ms | fail | marginal | fail | marginal |
+| ovh | prg | `vps-1-lz-2026` | 1 | 2 | - | 12.5 ms | 6.2 ms | fail | fail | fail | fail |
+| ovh | zrh | `vps-1-lz-2026` | 1 | 2 | - | 118.0 ms | 5.4 ms | fail | fail | fail | fail |
 
 Verdicts are the **worst** across all runs for that product. A machine that
 passes at 03:00 and fails at 18:00 is a machine that fails.
@@ -26,40 +26,55 @@ passes at 03:00 and fails at 18:00 is a machine that fails.
 
 ### hetzner / hel1 / `CPX32`
 
-1 run - 1 machine - 42.23 EUR/mo - **boot volume**
+2 runs - 1 machine - 42.23 EUR/mo - **boot volume**
+
+**Machine `177b79`** - 2 runs at 09h, 22h
+
+Fewer than 3 runs, so no spread is computed. Worst fsync p99.9 seen: 2.9 ms.
 
 <details>
-<summary>All 1 run</summary>
+<summary>All 2 runs</summary>
 
 | Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | redis | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `177b79` | 2026-07-15 | 22h | 2.9 ms | 2.4 ms | 0.0% | 2.5 ms | 2.0% | fail | marginal | fail | marginal |
+| `177b79` | 2026-07-16 | 09h | 2.2 ms | 2.5 ms | 0.0% | 2.3 ms | 0.5% | fail | marginal | fail | marginal |
 
 </details>
 
 ### ovh / prg / `vps-1-lz-2026`
 
-1 run - 1 machine - 7.49 EUR/mo - **boot volume**
+2 runs - 1 machine - 7.49 EUR/mo - **boot volume**
+
+**Machine `1d0480`** - 2 runs at 09h, 22h
+
+Fewer than 3 runs, so no spread is computed. Worst fsync p99.9 seen: 12.5 ms.
 
 <details>
-<summary>All 1 run</summary>
+<summary>All 2 runs</summary>
 
 | Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | redis | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `1d0480` | 2026-07-15 | 22h | 8.4 ms | 18.2 ms | 0.1% | 5.1 ms | 0.0% | fail | fail | fail | fail |
+| `1d0480` | 2026-07-16 | 09h | 12.5 ms | 18.2 ms | 0.2% | 6.2 ms | 0.0% | fail | fail | fail | fail |
 
 </details>
 
 ### ovh / zrh / `vps-1-lz-2026`
 
-1 run - 1 machine - 7.49 EUR/mo - **boot volume**
+2 runs - 1 machine - 7.49 EUR/mo - **boot volume**
+
+**Machine `c7d6f7`** - 2 runs at 09h, 22h
+
+Fewer than 3 runs, so no spread is computed. Worst fsync p99.9 seen: 118.0 ms.
 
 <details>
-<summary>All 1 run</summary>
+<summary>All 2 runs</summary>
 
 | Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | redis | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `c7d6f7` | 2026-07-15 | 22h | 118.0 ms | 18.0 ms | 0.2% | 2.5 ms | 0.3% | fail | fail | fail | marginal |
+| `c7d6f7` | 2026-07-16 | 09h | 109.6 ms | 18.2 ms | 0.2% | 5.4 ms | 0.4% | fail | fail | fail | fail |
 
 </details>
 
@@ -77,9 +92,9 @@ rather than from taste.
 
 | Provider | Region | Product | hetzner-fsn1 | hetzner-hel1 | ovh-gra | hetzner-ash |
 |---|---|---|---|---|---|---|
-| hetzner | hel1 | `CPX32` | 756 Mb/s / 25ms | 5.98 Gb/s / 0ms | 0 Mb/s / 29ms | 184 Mb/s / 103ms |
-| ovh | prg | `vps-1-lz-2026` | 341 Mb/s / 14ms | 311 Mb/s / 29ms | - | 176 Mb/s / 96ms |
-| ovh | zrh | `vps-1-lz-2026` | 353 Mb/s / 11ms | 333 Mb/s / 26ms | - | 188 Mb/s / 98ms |
+| hetzner | hel1 | `CPX32` | 774 Mb/s / 25ms | 5.75 Gb/s / 0ms | 0 Mb/s / 29ms | 194 Mb/s / 103ms |
+| ovh | prg | `vps-1-lz-2026` | 337 Mb/s / 14ms | 317 Mb/s / 29ms | - | 176 Mb/s / 96ms |
+| ovh | zrh | `vps-1-lz-2026` | 351 Mb/s / 11ms | 330 Mb/s / 26ms | - | 181 Mb/s / 97ms |
 
 Median throughput / median RTT p50 per target. 
 
@@ -98,18 +113,18 @@ by hand. Disagree with a verdict? The thing to argue about is the threshold.
 
 | Failing rule | Runs affected |
 |---|---|
-| [postgres_oltp] disk.wal_fsync.p999_us | 3 |
-| [postgres_oltp] disk.wal_fsync.iops | 3 |
-| [postgres_oltp] disk.rand_read_8k.p99_us | 3 |
-| [postgres_oltp] disk.rand_read_8k.iops | 3 |
-| [timescale_ingest] disk.wal_fsync.p999_us | 3 |
-| [redis_aof] cpu.intrinsic_latency_max_us | 3 |
-| [redis_aof] disk.wal_fsync.p999_us | 3 |
-| [nuxt_ssr] cpu.intrinsic_latency_max_us | 3 |
-| [postgres_oltp] disk.rand_write_8k.iops | 2 |
-| [timescale_ingest] disk.seq_write.bw_mbs | 2 |
-| [timescale_ingest] disk.seq_read.bw_mbs | 2 |
-| [timescale_ingest] disk.rand_write_8k.iops | 2 |
+| [postgres_oltp] disk.wal_fsync.p999_us | 6 |
+| [postgres_oltp] disk.wal_fsync.iops | 6 |
+| [postgres_oltp] disk.rand_read_8k.p99_us | 6 |
+| [postgres_oltp] disk.rand_read_8k.iops | 6 |
+| [timescale_ingest] disk.wal_fsync.p999_us | 6 |
+| [redis_aof] cpu.intrinsic_latency_max_us | 6 |
+| [redis_aof] disk.wal_fsync.p999_us | 6 |
+| [nuxt_ssr] cpu.intrinsic_latency_max_us | 6 |
+| [postgres_oltp] disk.rand_write_8k.iops | 4 |
+| [timescale_ingest] disk.seq_write.bw_mbs | 4 |
+| [timescale_ingest] disk.seq_read.bw_mbs | 4 |
+| [timescale_ingest] disk.rand_write_8k.iops | 4 |
 
 ---
 
