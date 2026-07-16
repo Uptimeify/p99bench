@@ -35,6 +35,28 @@ THRESHOLDS = yaml.safe_load((ROOT / "schema" / "thresholds.yaml").read_text())
 
 FILENAME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{4}-[a-z0-9-]+\.json$")
 
+# The sustained tests only mean anything at their standard duration, and results
+# measured at different durations cannot share a table -- the same reason
+# network-targets.yaml is frozen behind a list_version.
+#
+# 1800s (30 min) for disk is not a round number picked for comfort. Cloud burst
+# credits outlast short tests by design: an AWS gp2 volume holds 5.4M I/O credits
+# draining at (burst - baseline), so a 100 GiB volume bursts at full speed for
+# ~33 minutes and a 500 GiB one for ~60. Azure premium bursting caps at 30. A
+# 10-minute run leaves a gp2 with ~70% of its credits unspent, so it reads fast
+# and reports "no throttling" about a disk that throttles 10x an hour later --
+# the exact false negative this stage exists to prevent.
+#
+# 900s (15 min) for CPU: those credit schemes are granted in seconds-to-minutes,
+# so 15 exhausts them at half the disk stage's cost.
+#
+# These must match the defaults in bench/01b-steady.sh and bench/02b-cpu-steady.sh.
+# tests/test_fresh_run_validates.py pins that they do -- when tools/ and bench/
+# drift, every fresh run is rejected, which is exactly how the schema_version bug
+# reached main.
+STANDARD_DISK_STEADY_S = 1800
+STANDARD_CPU_STEADY_S = 900
+
 
 def check_policy(path: Path, data: dict, results_dir: Path = RESULTS_DIR) -> list[str]:
     errs: list[str] = []
@@ -87,6 +109,29 @@ def check_policy(path: Path, data: dict, results_dir: Path = RESULTS_DIR) -> lis
             "disk.steady_state.degradation_pct missing -- run without --skip-steady. "
             "A 60s run cannot see burst throttling."
         )
+
+    # A steady test at a non-standard duration is not comparable with anything.
+    # Reject it rather than publish it beside 30-minute runs as if it measured the
+    # same thing. Silent incomparability is worse than a rejected PR.
+    if steady and steady.get("duration_s") is not None:
+        got = steady["duration_s"]
+        if got != STANDARD_DISK_STEADY_S:
+            errs.append(
+                f"disk.steady_state.duration_s is {got}s but the standard is "
+                f"{STANDARD_DISK_STEADY_S}s. Cloud burst credits outlast short "
+                f"tests -- a 100 GiB AWS gp2 bursts ~33 min -- so a shorter run "
+                f"reports 'no throttling' about a disk that throttles. Re-run "
+                f"without P99_STEADY_DURATION."
+            )
+
+    cpu_steady = data.get("cpu", {}).get("steady_state")
+    if cpu_steady and cpu_steady.get("duration_s") is not None:
+        got = cpu_steady["duration_s"]
+        if got != STANDARD_CPU_STEADY_S:
+            errs.append(
+                f"cpu.steady_state.duration_s is {got}s but the standard is "
+                f"{STANDARD_CPU_STEADY_S}s. Re-run without P99_CPU_STEADY_MIN."
+            )
 
     # fsync is the headline metric. Without it there is no grade worth having.
     if data.get("disk", {}).get("wal_fsync", {}).get("p999_us") is None:
