@@ -145,7 +145,7 @@ META=$(jq -n \
   --argjson price "$PRICE" --argjson billing "$BILLING" \
   --arg tier "$TIER" \
   '{
-    schema_version: "1.0",
+    schema_version: "2.0",
     run: {
       timestamp_utc: $ts, host_id: $hid, local_hour: $hour, duration_s: $dur,
       tool_version: $ver,
