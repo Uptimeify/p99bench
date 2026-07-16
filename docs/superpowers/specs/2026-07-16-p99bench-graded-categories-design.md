@@ -491,8 +491,35 @@ at one check per minute, **1.4 false alarms per day**. The corpus contains
 exactly this case — `ovh/zrh -> hetzner-ash` at 10% loss — which currently
 appears only as a footnote and will now grade F.
 
-**`network.dns_ms`** — A <= 5 · B <= 20 · C <= 50 · D <= 100 · F > 100. Every
-HEAD/GET check pays DNS before it starts.
+**`network.dns_ms`** — **not graded. Informational only.**
+
+Every HEAD/GET check does pay DNS before it starts, so this *ought* to be a
+worker_probe input. The problem is what `06-network.sh` currently measures: one
+`curl -w '%{time_namelookup}'` per target — a single, uncached, first lookup of
+one hostname, n=1, no warming and no repetition. `reduce_network` then takes the
+worst across four targets, so the graded number would be
+*worst-of-four-cold-first-lookups*.
+
+The corpus shows that is not a property of the host. ovh/waw, one run, one
+resolver:
+
+```
+hetzner-fsn1     1.86 ms
+ovh-gra         81.07 ms
+hetzner-ash    109.60 ms
+hetzner-hel1   149.45 ms   <- would bind the grade at F
+```
+
+An 80x spread across four hostnames on one resolver is authoritative-NS distance
+and cache state, not the machine. A probe checking a target every minute pays the
+*cached* lookup essentially always. Grading this would repeat the mistake §5.1
+exists to correct: an extreme-value statistic over single samples, labelled as
+something it is not.
+
+Grading it needs a real measurement first — repeated lookups, warm and cold
+separated, against a fixed resolver — which is a `bench/` change and therefore a
+later phase. Until then the field is recorded and left to the reader, exactly as
+throughput is (§6.5). A band we cannot honestly derive is not a band.
 
 **`network.rtt_jitter_ratio`** (`rtt_p99_ms / rtt_p50_ms`) — A <= 1.1 · B <= 1.5
 · C <= 2.0 · D <= 5.0 · F > 5.0.
@@ -530,8 +557,8 @@ identical `fail` rows.
 | `timescale_ingest` | fsync p99.9, seq read/write, rw iops, ram bw, steal, disk steady | rebanded |
 | `patroni_member` | fsync p99.9, steal (TTL), stall p99.9, 1-thr, cpu steady | network half unmeasured (§7.3) |
 | `redis_sentinel` | stall p99.9, 1-thr, fsync p99.9, steal, cpu steady | replaces `redis_aof`; network half unmeasured |
-| `worker_probe` | 1-thr, stall p99.9, cpu steady, tls_verify_s, dns_ms, loss_pct, jitter | HEAD/GET/SSL/ICMP/SMTP/SSH/FTP/TCP |
-| `playwright_node` | multi-thr, scaling_eff, cpu steady, host.ram_mb, ram bw, stall, 1-thr, loss_pct, dns_ms | the Prague profile (§2.6). Reads network per §6.5 — a browser check is still a network check — but not `rtt_jitter_ratio`: a page load spans seconds, so per-packet jitter is noise at that timescale |
+| `worker_probe` | 1-thr, stall p99.9, cpu steady, tls_verify_s, loss_pct, jitter | HEAD/GET/SSL/ICMP/SMTP/SSH/FTP/TCP. `dns_ms` is recorded but not graded — see §6.5 |
+| `playwright_node` | multi-thr, scaling_eff, cpu steady, host.ram_mb, ram bw, stall, 1-thr, loss_pct | the Prague profile (§2.6). Reads network per §6.5 — a browser check is still a network check — but not `rtt_jitter_ratio`: a page load spans seconds, so per-packet jitter is noise at that timescale |
 | `nuxt_ssr` | 1-thr, stall p99.9, steal | unchanged intent |
 
 ### 7.1 `redis_sentinel` replaces `redis_aof`
