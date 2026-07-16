@@ -397,6 +397,14 @@ D >= 3,000 · F < 3,000.
 **`disk.seq_write.bw_mbs`** — A >= 1,000 · B >= 500 · C >= 200 · D >= 100 ·
 F < 100.
 
+**`disk.seq_read.bw_mbs`** — A >= 2,000 · B >= 1,000 · C >= 500 · D >= 200 ·
+F < 200. Continuous aggregate refresh reads whole chunks. Confidence: **Low —
+advisory**; these are generational markers rather than a figure derived from a
+workload requirement, which is why `timescale_ingest` reads the rule as
+`required: false`. Corpus check (§4.4): produces **A and D** — Hetzner and
+ovh/waw clear 5.7–7.4 GB/s while ovh/prg and ovh/zrh sit pinned at 300 MB/s. It
+discriminates, so it is neither broken nor quiet and needs no label.
+
 **`disk.steady_state.degradation_pct`** — A <= 5 · B <= 15 · C <= 30 · D <= 50 ·
 F > 50. Quiet metric in the current corpus (all A).
 

@@ -87,7 +87,13 @@ metrics:
     unit: MB/s
     bands: { A: 2000, B: 1000, C: 500, D: 200 }
     confidence: low
-    why: "Continuous aggregate refresh reads whole chunks. Advisory."
+    why: >
+      Continuous aggregate refresh reads whole chunks. Advisory: a generational
+      marker rather than a figure derived from a workload requirement, which is
+      why timescale_ingest reads it as required: false. Corpus check (spec 4.4):
+      produces A and D -- hetzner and ovh/waw clear 5.7-7.4 GB/s while ovh/prg
+      and ovh/zrh sit pinned at 300 MB/s. It discriminates, so it is neither
+      broken nor quiet and needs no label.
 
   disk.steady_state.degradation_pct:
     op: lte
@@ -185,7 +191,7 @@ metrics:
       PROVISIONAL -- and it cannot be calibrated from the existing corpus at
       all: those 10 numbers were measured with a 1M working set that sat in L2,
       so they describe cache, not memory, and cannot calibrate their own
-      replacement. Anchored to DDR generation instead: DDR4-3200 dual ~40 GB/s,
+      replacement. Anchored to DDR generation instead: DDR4-2666 dual ~43 GB/s,
       DDR5-4800 dual ~76 GB/s; single channel halves it. Recalibrate (spec 11).
 
   host.ram_mb:
