@@ -77,8 +77,19 @@ Refactor first, prove it is inert, *then* change the output. Doing both at once 
 **Files:**
 - Create: `tools/aggregate.py`
 - Modify: `tools/render.py`
+- Modify: `tests/test_render.py` (it imports the functions you are moving — see below)
 - Create: `tests/test_aggregate.py`
 - Create: `tests/test_render_check.py`
+
+**`tests/test_render.py` already exists and will break.** It does `import render as R`
+and calls `R.spread(...)` and `R.render_run_row(...)`. Moving `spread` into
+`aggregate.py` breaks the first immediately; Task 3 moves `render_run_row` into
+`writers.py` and breaks the second.
+
+Repoint its imports as the functions move. **Do not delete or weaken those tests** —
+they exist because Phase 2's final whole-branch review caught `render.py` feeding the
+"stall" column from `cpu.intrinsic_latency_max_us`, the metric spec §5.1 killed, under
+the new name's label. They are the guard on that fix.
 
 **Interfaces:**
 - Consumes: nothing new.
@@ -298,7 +309,7 @@ Expected: the new tests pass; 81 + 10 pass overall.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add tools/aggregate.py tools/render.py tests/test_aggregate.py tests/test_render_check.py RESULTS.md
+git add tools/aggregate.py tools/render.py tests/test_aggregate.py tests/test_render_check.py tests/test_render.py RESULTS.md
 git commit -m "refactor: split aggregation out of render, add --check
 
 Refactor first, prove it inert, then change the output -- otherwise a diff in
@@ -492,6 +503,8 @@ ignore the check."
 **Files:**
 - Modify: `tools/writers.py`, `tools/render.py`
 - Modify: `tests/test_writers.py`
+- Modify: `tests/test_render.py` (`render_run_row` moves here — repoint its import; do
+  not weaken those tests, they guard the stall-column fix from Phase 2's final review)
 - Create (generated): `results/<provider>/README.md`
 
 **Interfaces:**
@@ -586,7 +599,7 @@ head -40 results/ovh/README.md
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tools/writers.py tools/render.py tests/test_writers.py results/
+git add tools/writers.py tools/render.py tests/test_writers.py tests/test_render.py results/
 git commit -m "feat: generated per-provider pages
 
 Detail moves out of RESULTS.md so a threshold change touches one provider's
