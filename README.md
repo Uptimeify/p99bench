@@ -13,8 +13,8 @@ never the numbers in the marketing material:
 | "up to 200,000 IOPS" | fsync latency at QD1 | Every `COMMIT` waits on one `fdatasync`. Queue depth cannot hide it. |
 | "NVMe SSD" | p99.9 latency, not mean | The mean is fine on almost every host. Your tail transactions are not. |
 | "4 vCPU" | steal time under full load | A vCPU you do not get is not a vCPU. |
-| 60-second benchmark results | 30-minute sustained load | Burst credits cover the first minute. Your database runs longer than that. |
-| "dedicated resources" | scheduler stall worst case | Redis and Node are single-threaded. A 10 ms stall is 10 ms of frozen service. |
+| 60-second benchmark results | 30-minute sustained load | An AWS gp2 volume bursts at full speed for ~33 minutes. Every short benchmark passes; your database runs longer than that. |
+| "dedicated resources" | scheduler stall p99.9 | Redis and Node are single-threaded. A 10 ms stall is 10 ms of frozen service. A *max* only grows with runtime, so it measures "is this a VM?"; a percentile converges. |
 | "1 Gbit/s uplink" | throughput to *fixed* targets | A nearest-server speedtest measures a different path per host. Same targets everywhere, or the numbers cannot share a table. |
 
 ## Quickstart
@@ -161,7 +161,7 @@ provider. Three runs at different hours is the bar before anything gets a spread
 
 ## No Redis or Postgres needed
 
-Every metric that drives a verdict is measured on a bare machine. This is
+Every metric that drives a grade is measured on a bare machine. This is
 deliberate: a benchmark that requires Redis to be installed cannot tell you
 whether to install Redis.
 
@@ -196,7 +196,8 @@ procurement.
 
 - **[METHODOLOGY.md](METHODOLOGY.md)** — why these metrics, why `--direct=1`,
   why 30 minutes, and what this benchmark cannot tell you
-- **[THRESHOLDS.md](THRESHOLDS.md)** — where every pass/fail number comes from
+- **[THRESHOLDS.md](THRESHOLDS.md)** — where every A–F band comes from, with a
+  confidence level on each, and which four are provisional
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — how to submit a result
 
 ## Contributing results
@@ -220,6 +221,6 @@ Apache-2.0. See [LICENSE](LICENSE).
 ---
 
 Started at [Uptimeify](https://uptimeify.io) because we needed it for our own
-provider selection and could not find it. Sponsorship does not buy a verdict —
-the thresholds are in a file you can read, and so is our own hardware's row in
-the results table.
+provider selection and could not find it. Sponsorship does not buy a grade —
+the bands are in a file you can read, the grade is a pure function of them, and
+our own hardware gets graded by the same bands as everyone else's.
