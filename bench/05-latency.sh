@@ -17,12 +17,22 @@
 # what a single-threaded process actually feels, and unlike max it converges
 # rather than drifting upward with runtime.
 #
-# WHY SCHED_OTHER (-p 0) AND NOT RT PRIORITY
-# ------------------------------------------
+# WHY --policy=other AND NOT RT PRIORITY (AND NOT -p 0!)
+# --------------------------------------------------------
 # cyclictest is usually run at -p 99 to characterise RT kernels. That would
 # measure the hypervisor's best case. Redis and Node run at normal priority,
 # so normal priority is what we measure - same scheduling class the old
 # redis-cli loop ran in.
+#
+# -p 0 does NOT get you SCHED_OTHER. cyclictest is a real-time testing tool:
+# it defaults to SCHED_FIFO and clamps whatever -p value you give it upward,
+# so -p 0 still starts the measuring thread at SCHED_FIFO priority 2 (verified
+# live with `chrt -p` against the measuring thread's tid, not the main
+# thread). A SCHED_FIFO thread preempts exactly the contention this stage
+# exists to detect, so it silently understates stalls - the hypervisor's best
+# case again, just reached by a different door. --policy=other is the only
+# flag that actually puts the measuring thread in SCHED_OTHER, confirmed by
+# the same chrt check. Do not "simplify" this back to -p 0.
 set -uo pipefail
 cd "$(dirname "$0")" || exit 1
 source ./lib.sh
@@ -52,9 +62,10 @@ fi
 log "Scheduler stalls: ${DURATION}s cyclictest histogram (no Redis server required)"
 
 # -q quiet, -m mlockall (keep our pages resident so we measure the scheduler
-# and not a page fault), -p 0 normal priority, -t 1 one thread (a
-# single-threaded process is the thing under study), -h histogram ceiling.
-OUT=$(cyclictest -q -m -p 0 -t 1 -i "$INTERVAL" -D "$DURATION" -h "$HIST_MAX" 2>&1 || true)
+# and not a page fault), --policy=other normal priority (see comment above -
+# -p 0 is NOT the same thing), -t 1 one thread (a single-threaded process is
+# the thing under study), -h histogram ceiling.
+OUT=$(cyclictest -q -m --policy=other -t 1 -i "$INTERVAL" -D "$DURATION" -h "$HIST_MAX" 2>&1 || true)
 
 # Histogram lines are "<bucket_us> <count>"; trailing summary lines start '#'.
 # Percentiles come from the cumulative distribution. Overflows are counted
