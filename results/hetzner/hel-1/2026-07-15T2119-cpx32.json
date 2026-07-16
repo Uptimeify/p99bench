@@ -12,7 +12,7 @@
   "provider": {
     "name": "hetzner",
     "product": "CPX32",
-    "region": "hel1",
+    "region": "hel-1",
     "price_eur_month": 42.23,
     "billing": "monthly",
     "storage_tier": null
