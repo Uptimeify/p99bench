@@ -107,22 +107,6 @@ def fmt_rtt_ms(v) -> str:
 # schema/thresholds.yaml itself is out of scope for this task and stays
 # untouched; only the rendered prose is paraphrased.
 # --------------------------------------------------------------------------
-_MEAN_COMPOUND = re.compile(r"\bmean-", re.IGNORECASE)
-_MEANS_VERB = re.compile(r"\bmeans\b", re.IGNORECASE)
-_MEANING_NOUN = re.compile(r"\bmeaning\b", re.IGNORECASE)
-_MEAN_NOUN = re.compile(r"\bmean\b", re.IGNORECASE)
-_AVERAGES_VERB = re.compile(r"\baverages\b", re.IGNORECASE)
-_AVERAGE_WORD = re.compile(r"\baverage\b", re.IGNORECASE)
-
-
-def _no_mean(text: str) -> str:
-    text = _MEAN_COMPOUND.sub("typical-", text)
-    text = _MEANS_VERB.sub("indicates", text)
-    text = _MEANING_NOUN.sub("sense", text)
-    text = _MEAN_NOUN.sub("typical value", text)
-    text = _AVERAGES_VERB.sub("rolls up", text)
-    text = _AVERAGE_WORD.sub("blended figure", text)
-    return text
 
 
 def fmt_metric_value(value, unit) -> str:
@@ -260,7 +244,7 @@ def print_category_metrics(rs: list[dict], category: str) -> None:
         print(f"| {metric_cell} | {value_cell} | {grade_cell} | {fmt_bands(mdef)} | {explain} |")
         why = (mdef.get("why") or "").strip()
         if why:
-            why_lines.append(f"- `{path}`: {_no_mean(why)}")
+            why_lines.append(f"- `{path}`: {why}")
     print()
 
     if has_provisional:

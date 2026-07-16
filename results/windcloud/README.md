@@ -40,8 +40,8 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 <details>
 <summary>Why these `disk` metrics</summary>
 
-- `disk.wal_fsync.p999_us`: The flagship. Every COMMIT waits on one fdatasync, alone, with no queue to hide behind. p99.9 is what the slowest transactions feel; the typical value describes a commit nobody complains about.
-- `disk.wal_fsync.iops`: Latency-anchored, not IOPS-anchored: at QD1 this is ~1/typical-latency, so it describes the typical commit where p99.9 describes the tail. Bounds are 200us / 1ms / 3ms / 10ms per durable write.
+- `disk.wal_fsync.p999_us`: The flagship. Every COMMIT waits on one fdatasync, alone, with no queue to hide behind. p99.9 is what the slowest transactions feel; the mean describes a commit nobody complains about.
+- `disk.wal_fsync.iops`: Latency-anchored, not IOPS-anchored: at QD1 this is ~1/mean-latency, so it describes the typical commit where p99.9 describes the tail. Bounds are 200us / 1ms / 3ms / 10ms per durable write.
 - `disk.rand_read_8k.p99_us`: 8k is the Postgres page size; index lookups are random reads. A query doing 100 lookups at 5ms p99 has a real chance of one slow read.
 - `disk.rand_read_8k.iops`: Generational marker rather than a workload requirement. Advisory.
 - `disk.rand_write_8k.iops`: Checkpoint flush rate. Advisory.
@@ -68,7 +68,7 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 <summary>Why these `cpu` metrics</summary>
 
 - `cpu.single_thread_eps`: Redis, each Node worker, and each Postgres backend are bounded by one core. Contemporary server silicon lands ~1600-1800. This metric already caught a 4.7x starvation on ovh/waw (356 vs ~1600) that steal time missed.
-- `cpu.scaling_efficiency`: multi / (single * cores). ~0.9 indicates physical cores; ~0.6 indicates SMT siblings sold as cores; well below indicates sharing physical cores with other tenants. Quiet in the current corpus -- all 10 backfilled values fall in 0.953-1.018, i.e. all A, because every host measured so far hands out physical cores. 0.70 and 0.40 are reachable on SMT-sold-as- cores or oversubscribed hosts; this band is insurance for that host, not a dead threshold.
+- `cpu.scaling_efficiency`: multi / (single * cores). ~0.9 means physical cores; ~0.6 means SMT siblings sold as cores; well below means sharing physical cores with other tenants. Quiet in the current corpus -- all 10 backfilled values fall in 0.953-1.018, i.e. all A, because every host measured so far hands out physical cores. 0.70 and 0.40 are reachable on SMT-sold-as- cores or oversubscribed hosts; this band is insurance for that host, not a dead threshold.
 - `cpu.steal_pct_under_load`: C is a correctness line, not a performance one: past ~5% Patroni heartbeats start missing TTLs and a failover fires because the host was busy, not because anything was wrong. Quiet in the current corpus (0.0-0.24%) -- these hosts genuinely do not steal. Keep it: it is insurance that fires on an oversubscribed host, and its silence is itself a finding.
 - `cpu.stall_p999_us`: PROVISIONAL -- no corpus. Redis is one thread; each Node worker is one event loop. A stall is dead time for every client, with no other core to absorb it. Measured at SCHED_OTHER because that is the class Redis and Node actually run in. Recalibrate once real data exists (spec 11).
 - `cpu.steady_state.degradation_pct`: PROVISIONAL -- no corpus. CPU burst credits, the same trap the disk steady test exists for. This is the metric that catches a node pinned at a throttled baseline -- the Prague failure mode, which steal time did not see. Recalibrate once real data exists (spec 11).
@@ -102,7 +102,7 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 <summary>Why these `network` metrics</summary>
 
 - `network.loss_pct`: DERIVED, not chosen. An ICMP check sending 3 packets and declaring "down" on total loss false-alarms at rate p^3. At p=10% that is 1-in-1000 checks; at one check per minute, 1.4 false alarms per day. The corpus contains exactly this case: ovh/zrh -> hetzner-ash at 10% loss.
-- `network.rtt_jitter_ratio`: rtt_p99 / rtt_p50. Timing-sensitive checks care about the spread, not the typical value.
+- `network.rtt_jitter_ratio`: rtt_p99 / rtt_p50. Timing-sensitive checks care about the spread, not the mean.
 
 </details>
 

@@ -87,13 +87,34 @@ def test_provider_page_covers_every_region_and_machine():
     assert "c7d6f7" in page
 
 
+def _reportable(body: str) -> str:
+    """A page minus the quoted reasoning blocks.
+
+    The no-mean rule forbids REPORTING a mean -- median and worst, never an
+    average, because a mean over a machine that is fine at 03:00 and unusable at
+    18:00 describes a machine that does not exist. It does not forbid the WORD.
+
+    thresholds.yaml's own reasoning says "the mean describes a commit nobody
+    complains about" -- that sentence IS the argument for not using means, and an
+    earlier version of this test was crude enough that the renderer silently
+    paraphrased it to "the typical value describes...". Editorialising the
+    project's reasoning to satisfy a test is worse than the test failing: the
+    exact words are the argument.
+
+    So: strip the <details> blocks that quote thresholds.yaml, and assert on what
+    the page actually REPORTS.
+    """
+    import re
+    return re.sub(r"<details>.*?</details>", "", body, flags=re.S)
+
+
 def test_provider_page_reports_variance_separately():
     runs = load_corpus()
     page = write_provider_page("ovh", [r for r in runs if r["provider"]["name"] == "ovh"])
     low = page.lower()
     assert "machine" in low
     assert "worst" in low
-    assert "mean" not in low, "a mean leaked into a provider page"
+    assert "mean" not in _reportable(low), "a mean leaked into a provider page"
 
 
 def test_provider_page_names_the_binding_constraint():
@@ -155,8 +176,8 @@ def test_index_shows_waw_and_zrh_as_different_machines():
 def test_index_carries_no_mean():
     from writers import write_index_md
     body = write_index_md(index_rows(load_corpus())).lower()
-    assert "mean" not in body
-    assert "average" not in body
+    assert "mean" not in _reportable(body)
+    assert "average" not in _reportable(body)
 
 
 # --------------------------------------------------------------------------
@@ -209,8 +230,8 @@ def test_provider_page_network_table_has_no_mean():
     runs = load_corpus()
     page = write_provider_page("ovh", [r for r in runs if r["provider"]["name"] == "ovh"])
     low = page.lower()
-    assert "mean" not in low
-    assert "average" not in low
+    assert "mean" not in _reportable(low)
+    assert "average" not in _reportable(low)
 
 
 def _load_windcloud_run():
@@ -288,8 +309,8 @@ def test_category_metric_table_has_no_mean_or_average():
     run = _load_windcloud_run()
     page = write_provider_page("windcloud", [run])
     low = page.lower()
-    assert "mean" not in low
-    assert "average" not in low
+    assert "mean" not in _reportable(low)
+    assert "average" not in _reportable(low)
 
 
 def test_results_md_network_pointer_is_true():
