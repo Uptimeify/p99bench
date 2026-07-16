@@ -14,11 +14,24 @@ costs nothing and preserves both questions.
 CI checks that the directory names match `provider.name` and `provider.region`
 inside each file.
 
+## This directory is currently empty
+
+No results have been submitted since the 2026-07-16 graded-categories redesign
+shipped. The 10 results measured with tool 0.1.0 (real submissions, not
+examples) were moved to `tests/fixtures/corpus/` — same layout, same files —
+where they now serve as calibration evidence and as the test data behind the
+band doctrine, storage-class regime, and provider-comparison tests. See
+`tests/conftest.py` for why they live there instead of here.
+
+This directory fills back up as new results come in on tool >= 0.2.0. See
+[CONTRIBUTING.md](../CONTRIBUTING.md) to submit one.
+
 ## These are real submissions
 
-Every file here is a real measurement of a real machine. They are not examples
-and must not be deleted. Results are immutable: grades are recomputed from
-`schema/thresholds.yaml` on every render, but the measured numbers never change.
+Every file that lands here is a real measurement of a real machine, never an
+example, and must not be deleted. Results are immutable: grades are
+recomputed from `schema/thresholds.yaml` on every render, but the measured
+numbers never change.
 
 ## Why old results show `?`
 
