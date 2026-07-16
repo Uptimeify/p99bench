@@ -177,13 +177,23 @@ done
 OUT="$OUTDIR/$BASENAME.json"
 echo "$RESULT" | jq . > "$OUT"
 
-# --- verdict ---------------------------------------------------------------
-if command -v python3 >/dev/null 2>&1 && [[ -f ../tools/verdict.py ]]; then
-  if python3 ../tools/verdict.py "$OUT" --in-place 2>/dev/null; then
-    log "verdict computed"
-  else
-    warn "verdict computation failed (pip install pyyaml)"
-  fi
+# --- grades ------------------------------------------------------------
+# A result with no grades block still passes validate.py's schema layer if
+# nobody is watching (see tools/validate.py's trust check), so any way this
+# can fail must WARN LOUDLY rather than quietly skip. Silence here is how a
+# submitter ends up shipping a result CI then rejects for a block it never
+# had a chance to see.
+if ! command -v python3 >/dev/null 2>&1; then
+  warn "python3 not found - $OUT has NO grades block"
+  warn "install python3 + pyyaml and run: python3 tools/grade.py $OUT --in-place"
+elif [[ ! -f ../tools/grade.py ]]; then
+  warn "../tools/grade.py not found - $OUT has NO grades block"
+  warn "this checkout looks incomplete; do not submit this result"
+elif python3 ../tools/grade.py "$OUT" --in-place 2>/dev/null; then
+  log "grades computed"
+else
+  warn "grade computation failed (pip install pyyaml jsonschema) - $OUT has NO grades block"
+  warn "do not submit this result until it has been graded successfully"
 fi
 
 echo
@@ -192,16 +202,23 @@ echo " Result: $OUT"
 echo " Log:    $LOGFILE"
 echo "=============================================="
 jq -r '
-  if .verdict then
-    .verdict |
-    "postgres_oltp:    \(.postgres_oltp)",
-    "timescale_ingest: \(.timescale_ingest)",
-    "redis_aof:        \(.redis_aof)",
-    "nuxt_ssr:         \(.nuxt_ssr)",
+  if .grades then
+    "storage_class: \(.grades.storage_class // "?")",
     "",
-    (if (.reasons | length) > 0 then "reasons:" else "no failing rules" end),
-    (.reasons[]? | "  - \(.)")
-  else "no verdict computed" end
+    "category grades (what binds them):",
+    (.grades.categories | to_entries[] |
+      "  \(.key): \(.value.grade)" +
+      (if .value.bound_by then " <- \(.value.bound_by)" else "" end)),
+    "",
+    "profile grades (what binds them):",
+    (.grades.profiles | to_entries[] |
+      "  \(.key): \(.value.grade)" +
+      (if .value.bound_by then " <- \(.value.bound_by)" else "" end) +
+      (if .value.reason then " (\(.value.reason))" else "" end))
+  else
+    "NO GRADES COMPUTED. Do not submit this result - see the warnings above " +
+    "and run tools/grade.py by hand to see the real error."
+  end
 ' "$OUT"
 echo
 echo "host_id: $HOST_ID  (stable for this VM; links your runs together)"
