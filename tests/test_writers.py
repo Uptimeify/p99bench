@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 import aggregate  # noqa: E402
 from writers import index_rows, write_index_csv, write_index_json  # noqa: E402
+from writers import write_provider_page  # noqa: E402
 
 PROFILES = ["postgres_oltp", "timescale_ingest", "patroni_member",
             "redis_sentinel", "worker_probe", "playwright_node", "nuxt_ssr"]
@@ -71,3 +72,50 @@ def test_export_lives_outside_results_tree():
     # picked up and fail validation as a malformed result.
     from writers import DATA_DIR
     assert "results" not in DATA_DIR.parts
+
+
+def test_provider_page_covers_every_region_and_machine():
+    runs = aggregate.load_all()
+    page = write_provider_page("ovh", [r for r in runs if r["provider"]["name"] == "ovh"])
+    for region in ("prg", "waw", "zrh"):
+        assert region in page
+    # host_id links runs on one VM together; the page must expose it, because
+    # "this machine is inconsistent" and "this provider's machines are
+    # inconsistent" are different findings.
+    assert "c7d6f7" in page
+
+
+def test_provider_page_reports_variance_separately():
+    runs = aggregate.load_all()
+    page = write_provider_page("ovh", [r for r in runs if r["provider"]["name"] == "ovh"])
+    low = page.lower()
+    assert "machine" in low
+    assert "worst" in low
+    assert "mean" not in low, "a mean leaked into a provider page"
+
+
+def test_provider_page_names_the_binding_constraint():
+    # A grade without its binding constraint is a letter with no lead. The page
+    # must say WHAT bound it, which is the information the old single-word
+    # verdict could never carry.
+    runs = aggregate.load_all()
+    page = write_provider_page("ovh", [r for r in runs if r["provider"]["name"] == "ovh"])
+    assert "wal_fsync.p999_us" in page   # binds zrh
+    assert "single_thread_eps" in page   # binds waw
+
+
+def test_provider_pages_land_beside_the_raw_data():
+    from writers import provider_pages
+    pages = provider_pages(aggregate.load_all())
+    paths = {str(p.relative_to(ROOT)) for p in pages}
+    assert "results/ovh/README.md" in paths
+    assert "results/hetzner/README.md" in paths
+
+
+def test_provider_pages_are_invisible_to_the_result_glob():
+    # README.md inside results/ is safe precisely because the validator globs
+    # *.json. Being in-tree is the point: GitHub renders it when browsing the
+    # directory.
+    assert not list((ROOT / "results").rglob("README.md*.json"))
+    from writers import provider_pages
+    assert all(p.name == "README.md" for p in provider_pages(aggregate.load_all()))

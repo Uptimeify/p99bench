@@ -55,10 +55,6 @@ DISCLAIMER = (
 fmt_us = aggregate.fmt_us
 
 
-def fmt_pct(v) -> str:
-    return "-" if v is None else f"{v:.1f}%"
-
-
 def fmt_mbps(v) -> str:
     if v is None:
         return "-"
@@ -69,7 +65,6 @@ def fmt_mbps(v) -> str:
 
 dig = aggregate.dig
 load_all = aggregate.load_all
-profile_grade = aggregate.profile_grade
 worst_grade = aggregate.worst_grade
 spread = aggregate.spread
 MIN_RUNS_FOR_SPREAD = aggregate.MIN_RUNS_FOR_SPREAD
@@ -91,20 +86,6 @@ def hour_range(runs: list[dict]) -> str:
     hours = sorted({r["run"]["local_hour"] for r in runs
                     if dig(r, "run.local_hour") is not None})
     return ", ".join(f"{h:02d}h" for h in hours) if hours else "?"
-
-
-def render_run_row(r: dict) -> str:
-    cells = [
-        f"`{r['run']['host_id'][:6]}`",
-        r["run"]["timestamp_utc"][:10],
-        f"{r['run']['local_hour']:02d}h",
-        fmt_us(dig(r, "disk.wal_fsync.p999_us")),
-        fmt_us(dig(r, "disk.rand_read_8k.p99_us")),
-        fmt_pct(dig(r, "cpu.steal_pct_under_load")),
-        fmt_us(dig(r, "cpu.stall_p999_us")),
-        fmt_pct(dig(r, "disk.steady_state.degradation_pct")),
-    ] + [MARK[profile_grade(r, p)] for p in PROFILES]
-    return "| " + " | ".join(cells) + " |"
 
 
 def render_results_md(runs: list[dict]) -> str:
@@ -247,7 +228,7 @@ def _print_results_md(runs: list[dict]) -> None:
         print("| " + " | ".join(run_cols) + " |")
         print("|" + "---|" * len(run_cols))
         for r in sorted(rs, key=lambda x: x["run"]["timestamp_utc"]):
-            print(render_run_row(r))
+            print(writers.render_run_row(r))
         print()
         notes = [(r["run"]["host_id"][:6], r["run"]["timestamp_utc"][:10], r["run"]["notes"])
                  for r in sorted(rs, key=lambda x: x["run"]["timestamp_utc"])
@@ -420,11 +401,13 @@ def build_all(runs: list[dict]) -> dict[Path, str]:
     each new one only touches this function.
     """
     rows = writers.index_rows(runs)
-    return {
+    artifacts = {
         ROOT / "RESULTS.md": render_results_md(runs),
         writers.DATA_DIR / "index.json": writers.write_index_json(rows),
         writers.DATA_DIR / "index.csv": writers.write_index_csv(rows),
     }
+    artifacts.update(writers.provider_pages(runs))
+    return artifacts
 
 
 def main() -> int:
