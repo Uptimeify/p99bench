@@ -12,4 +12,4 @@
 #   apt install python3-jsonschema python3-yaml
 
 jsonschema>=4.0     # tools/validate.py - schema checks against schema/result.schema.json
-pyyaml>=6.0         # tools/verdict.py  - reads schema/thresholds.yaml
+pyyaml>=6.0         # tools/grade.py    - reads schema/thresholds.yaml

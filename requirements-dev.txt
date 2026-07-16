@@ -1,3 +1,10 @@
 # Test-only deps. The benchmark scripts in bench/ need none of this --
 # see requirements.txt for why that separation matters.
+#
+# The tests import tools/ modules (grade.py, validate.py, aggregate.py), so they
+# need the runtime deps too. Pulling requirements.txt in rather than restating it
+# keeps the two from drifting -- CI installed only pytest once, and every test
+# that touches grade.py died on `pyyaml required`.
+-r requirements.txt
+
 pytest>=8.0
