@@ -294,7 +294,7 @@ has AES-NI. It is a "is this hardware ancient" check, not a grade input. Keep
 recording it; remove it from grading.
 
 For TLS-handshake-bound workloads (SSL checks), bulk crypto throughput is the
-wrong metric entirely — see `cpu.tls_handshakes_s` in §6.3.
+wrong metric entirely — see `cpu.tls_verify_s` in §6.3.
 
 ### 5.5 New stage: CPU sustained load (15 min)
 
@@ -397,10 +397,31 @@ C <= 30 · D <= 50 · F > 50.
 
 ### 6.3 New CPU metric: TLS handshakes
 
-**`cpu.tls_handshakes_s`** — from `openssl speed ecdsap256`, runs in seconds.
+**`cpu.tls_verify_s`** (primary) and **`cpu.tls_sign_s`** (context) — from
+`openssl speed ecdsap256`, runs in seconds.
 
-SSL checks are handshake-bound (ECDSA sign/verify), not bulk-crypto-bound. This
-is the metric `aes_256_gcm_mbs` was standing in for and getting wrong.
+SSL checks are handshake-bound (ECDSA verify), not bulk-crypto-bound. This is
+the metric `aes_256_gcm_mbs` was standing in for and getting wrong.
+
+**Verify, not sign — the profile grades `tls_verify_s`.** A `worker_probe` making
+outbound HTTPS checks is the TLS *client*. In a standard (non-mTLS) handshake the
+**server signs and the client verifies**, and the client verifies more than once:
+the server's `CertificateVerify` plus each signature in the presented chain. So
+verification is the work a probe actually performs.
+
+It is also the expensive half, which is the reverse of the RSA intuition. ECDSA
+signing is one scalar multiplication; verification is two. Measured on P-256:
+
+```
+256 bits ecdsa (nistp256)   sign/s 104980.9   verify/s 34887.5
+```
+
+Signing is ~3x *faster*. An earlier draft of this spec graded `sign/s` and
+described it as "the expensive half and the one a client waits on" — wrong on
+both counts, and wrong in the same way `aes_256_gcm_mbs` was wrong: a
+plausible-looking number standing in for the thing that actually costs. Both
+values are recorded because a host may later be graded as a TLS *server*
+(where signing is what it pays), but no current profile reads `tls_sign_s`.
 
 Bands provisional until first corpus.
 
@@ -478,7 +499,7 @@ identical `fail` rows.
 | `timescale_ingest` | fsync p99.9, seq read/write, rw iops, ram bw, steal, disk steady | rebanded |
 | `patroni_member` | fsync p99.9, steal (TTL), stall p99.9, 1-thr, cpu steady | network half unmeasured (§7.3) |
 | `redis_sentinel` | stall p99.9, 1-thr, fsync p99.9, steal, cpu steady | replaces `redis_aof`; network half unmeasured |
-| `worker_probe` | 1-thr, stall p99.9, cpu steady, tls_handshakes_s, dns_ms, loss_pct, jitter | HEAD/GET/SSL/ICMP/SMTP/SSH/FTP/TCP |
+| `worker_probe` | 1-thr, stall p99.9, cpu steady, tls_verify_s, dns_ms, loss_pct, jitter | HEAD/GET/SSL/ICMP/SMTP/SSH/FTP/TCP |
 | `playwright_node` | multi-thr, scaling_eff, cpu steady, host.ram_mb, ram bw, stall, 1-thr | the Prague profile (§2.6) |
 | `nuxt_ssr` | 1-thr, stall p99.9, steal | unchanged intent |
 
@@ -599,7 +620,7 @@ They are real measurements; deleting them would be the actual data loss.
 | all `disk.*` | valid, fully graded — measurement unchanged |
 | `cpu.single_thread_eps`, `multi_thread_eps`, `steal` | valid, fully graded |
 | `cpu.scaling_efficiency` | **backfillable without re-running** — inputs already in the files (§5.3) |
-| `cpu.stall_*`, `cpu.steady_state`, `cpu.tls_handshakes_s`, `ram.bw_read_mbs` | `?` — needs re-run on tool >= 0.2.0 |
+| `cpu.stall_*`, `cpu.steady_state`, `cpu.tls_verify_s`, `ram.bw_read_mbs` | `?` — needs re-run on tool >= 0.2.0 |
 
 Net effect, per profile:
 
@@ -609,7 +630,7 @@ Net effect, per profile:
 | `timescale_ingest` | **fully graded** | only `ram.bw_read_mbs` is missing, and it stays `required: false`, so the rollup proceeds (§4.2) |
 | `patroni_member` | `?` | `stall_p999`, `cpu.steady_state` required, absent |
 | `redis_sentinel` | `?` | `stall_p999` required, absent |
-| `worker_probe` | `?` | `stall_p999`, `cpu.steady_state`, `tls_handshakes_s` required, absent |
+| `worker_probe` | `?` | `stall_p999`, `cpu.steady_state`, `tls_verify_s` required, absent |
 | `playwright_node` | `?` | `cpu.steady_state` required, absent |
 | `nuxt_ssr` | `?` | `stall_p999` required, absent |
 
@@ -642,7 +663,7 @@ metric is how the current state arose.
 2. Replace `05-latency.sh` with cyclictest; emit `stall_p99/p999/max`. Add
    `rt-tests` to README install line and CI.
 3. Fix RAM working set to exceed LLC; emit `ram.bw_read_mbs`.
-4. Add `cpu.tls_handshakes_s` via `openssl speed ecdsap256`.
+4. Add `cpu.tls_verify_s` + `cpu.tls_sign_s` via `openssl speed ecdsap256`.
 5. New stage `02b-cpu-steady.sh` (15 min); wire into `run-all.sh`.
 
 **Phase 2 — grading engine** (`tools/`, `schema/`)
@@ -682,7 +703,7 @@ sin.
 |---|---|
 | `cpu.stall_p999_us` | new tool; no corpus |
 | `cpu.steady_state.degradation_pct` | new stage; no corpus |
-| `cpu.tls_handshakes_s` | new metric; no corpus |
+| `cpu.tls_verify_s` | new metric; no corpus |
 | `ram.bw_read_mbs` | **the LLC fix invalidates all 10 existing RAM numbers** — they measured cache, so they cannot calibrate the fixed metric |
 
 ## 12. What this design does not do
