@@ -20,23 +20,30 @@ Every file here is a real measurement of a real machine. They are not examples
 and must not be deleted. Results are immutable: grades are recomputed from
 `schema/thresholds.yaml` on every render, but the measured numbers never change.
 
-Results measured with tool_version < 0.2.0 predate the metric-integrity fixes
-and carry no `cpu.stall_*`, `cpu.steady_state`, `cpu.tls_verify_s` or
-`ram.bw_read_mbs`. No profile reads those newer metrics yet — rebanding
-`schema/thresholds.yaml` to use them is separate follow-up work, not yet
-done. Today, every result (old and new tool_version alike) still grades
-`postgres_oltp` and `timescale_ingest` fully, because those profiles' rules
-don't touch the new fields.
+## Why old results show `?`
 
-`redis_aof` and `nuxt_ssr` are the exception, and it currently bites *new*
-runs, not just old ones: `thresholds.yaml` still keys them off
-`cpu.intrinsic_latency_max_us`, which `05-latency.sh` now always emits as
-`null` (the tool that produced it, `redis-cli --intrinsic-latency`, was
-removed as a metric no machine could pass). A run made with today's code
-therefore grades `redis_aof` and `nuxt_ssr` as `unknown` — `verdict.py`'s
-actual output word for "the input the rule needs is missing," not `?`. This
-is expected until thresholds.yaml is rebanded onto `cpu.stall_p999_us`; it is
-not a bug and not something a re-run will fix on its own.
+Every result carries a `grades` block, computed by `tools/grade.py` from
+`schema/thresholds.yaml`: A–F for each of the four categories (`disk`, `cpu`,
+`ram`, `network`) and for each of the seven profiles
+(`postgres_oltp`, `timescale_ingest`, `patroni_member`, `redis_sentinel`,
+`worker_probe`, `playwright_node`, `nuxt_ssr`). `?` means "not measured," not
+"failing" — it is the rollup's answer when a required metric is absent
+(spec 4.2). CI recomputes every stored `grades` block and rejects a result
+whose block doesn't match; grades are never hand-written.
+
+Results measured with `tool_version` < 0.2.0 predate Phase 1's
+metric-integrity stages and carry no `cpu.stall_*`, `cpu.steady_state`,
+`cpu.tls_verify_s`, or `ram.bw_read_mbs`. Five of the seven profiles
+(`patroni_member`, `redis_sentinel`, `worker_probe`, `playwright_node`,
+`nuxt_ssr`) require at least one of those fields, so every v1 result grades
+`?` on those profiles, and the `cpu`/`ram` categories grade `?` too. That is
+correct, not a bug: the host was genuinely never put through the newer
+stages. `postgres_oltp` and `timescale_ingest` still grade fully on v1
+results, because neither profile's rules touch the newer fields.
+
+The fix is not a rebanding — it is re-running the host with today's
+`bench/run-all.sh`, which measures every field above. Submit that result and
+`tools/grade.py` produces a real grade instead of `?`.
 
 ## host_id
 

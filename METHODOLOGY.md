@@ -120,7 +120,9 @@ comparable and partly because Ookla's CLI is licensed for personal,
 non-commercial use, and this project explicitly invites submissions from
 providers.
 
-No verdict reads any network field. See THRESHOLDS.md for why.
+`worker_probe` and `playwright_node` grade `network.loss_pct` and
+`network.rtt_jitter_ratio`; every other profile reads no network field. See
+THRESHOLDS.md for why.
 
 ## Measurement decisions
 
@@ -202,7 +204,7 @@ three runs across different times.
 
 ## Why the verdict is code
 
-Verdicts are computed by `tools/verdict.py` from `schema/thresholds.yaml`. They
+Verdicts are computed by `tools/grade.py` from `schema/thresholds.yaml`. They
 are never written by hand, and CI rejects any result file whose stored verdict
 does not match what the thresholds compute.
 
