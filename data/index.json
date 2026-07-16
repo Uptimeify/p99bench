@@ -1,0 +1,136 @@
+{
+  "bands_version": "2.0",
+  "generated_from": "results/",
+  "results": [
+    {
+      "provider": "hetzner",
+      "region": "hel-1",
+      "product": "CPX32",
+      "storage_class": "net-fast",
+      "machines": 2,
+      "runs": 3,
+      "fsync_p999_us_median": 2179.07,
+      "fsync_p999_us_worst": 2867.2,
+      "price_eur_month": 42.23,
+      "categories": {
+        "disk": "C",
+        "cpu": "?",
+        "ram": "?",
+        "network": "C"
+      },
+      "profiles": {
+        "postgres_oltp": "C",
+        "timescale_ingest": "B",
+        "patroni_member": "?",
+        "redis_sentinel": "?",
+        "worker_probe": "?",
+        "playwright_node": "?",
+        "nuxt_ssr": "?"
+      }
+    },
+    {
+      "provider": "ovh",
+      "region": "prg",
+      "product": "vps-1-lz-2026",
+      "storage_class": "net-slow",
+      "machines": 1,
+      "runs": 2,
+      "fsync_p999_us_median": null,
+      "fsync_p999_us_worst": 12517.38,
+      "price_eur_month": 7.49,
+      "categories": {
+        "disk": "F",
+        "cpu": "?",
+        "ram": "?",
+        "network": "A"
+      },
+      "profiles": {
+        "postgres_oltp": "F",
+        "timescale_ingest": "D",
+        "patroni_member": "?",
+        "redis_sentinel": "?",
+        "worker_probe": "?",
+        "playwright_node": "?",
+        "nuxt_ssr": "?"
+      }
+    },
+    {
+      "provider": "ovh",
+      "region": "waw",
+      "product": "vps-1-lz-2026",
+      "storage_class": "net-fast",
+      "machines": 1,
+      "runs": 1,
+      "fsync_p999_us_median": null,
+      "fsync_p999_us_worst": 2211.84,
+      "price_eur_month": 7.49,
+      "categories": {
+        "disk": "D",
+        "cpu": "F",
+        "ram": "?",
+        "network": "A"
+      },
+      "profiles": {
+        "postgres_oltp": "D",
+        "timescale_ingest": "C",
+        "patroni_member": "F",
+        "redis_sentinel": "F",
+        "worker_probe": "F",
+        "playwright_node": "F",
+        "nuxt_ssr": "F"
+      }
+    },
+    {
+      "provider": "ovh",
+      "region": "zrh",
+      "product": "vps-1-lz-2026",
+      "storage_class": "net-slow",
+      "machines": 2,
+      "runs": 3,
+      "fsync_p999_us_median": 117964.8,
+      "fsync_p999_us_worst": 137363.46,
+      "price_eur_month": 7.49,
+      "categories": {
+        "disk": "F",
+        "cpu": "?",
+        "ram": "?",
+        "network": "F"
+      },
+      "profiles": {
+        "postgres_oltp": "F",
+        "timescale_ingest": "F",
+        "patroni_member": "F",
+        "redis_sentinel": "F",
+        "worker_probe": "F",
+        "playwright_node": "F",
+        "nuxt_ssr": "?"
+      }
+    },
+    {
+      "provider": "windcloud",
+      "region": "enge-sande",
+      "product": "VPS-L",
+      "storage_class": "degraded",
+      "machines": 1,
+      "runs": 1,
+      "fsync_p999_us_median": null,
+      "fsync_p999_us_worst": 459276.29,
+      "price_eur_month": 19.0,
+      "categories": {
+        "disk": "F",
+        "cpu": "?",
+        "ram": "?",
+        "network": "A"
+      },
+      "profiles": {
+        "postgres_oltp": "F",
+        "timescale_ingest": "F",
+        "patroni_member": "F",
+        "redis_sentinel": "F",
+        "worker_probe": "?",
+        "playwright_node": "?",
+        "nuxt_ssr": "?"
+      }
+    }
+  ]
+}

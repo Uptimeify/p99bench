@@ -23,6 +23,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import aggregate
+import writers
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -414,13 +415,16 @@ def _print_results_md(runs: list[dict]) -> None:
 def build_all(runs: list[dict]) -> dict[Path, str]:
     """Every artifact this tool publishes, keyed by the path it belongs at.
 
-    Just RESULTS.md for now -- the per-provider pages, the machine-readable
-    export, and the compact index are added in later tasks. Keeping the
-    return type a dict from the start means this task's refactor is inert:
-    the CLI below already knows how to write or check N artifacts, so adding
-    the rest later touches only this function.
+    Keeping the return type a dict from the start means adding artifacts is
+    inert: the CLI below already knows how to write or check N artifacts, so
+    each new one only touches this function.
     """
-    return {ROOT / "RESULTS.md": render_results_md(runs)}
+    rows = writers.index_rows(runs)
+    return {
+        ROOT / "RESULTS.md": render_results_md(runs),
+        writers.DATA_DIR / "index.json": writers.write_index_json(rows),
+        writers.DATA_DIR / "index.csv": writers.write_index_csv(rows),
+    }
 
 
 def main() -> int:
