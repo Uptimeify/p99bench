@@ -119,3 +119,39 @@ def test_provider_pages_are_invisible_to_the_result_glob():
     assert not list((ROOT / "results").rglob("README.md*.json"))
     from writers import provider_pages
     assert all(p.name == "README.md" for p in provider_pages(aggregate.load_all()))
+
+
+def test_index_is_compact_and_links_to_provider_pages():
+    from writers import write_index_md
+    body = write_index_md(index_rows(aggregate.load_all()))
+    assert "results/ovh/README.md" in body or "results/ovh" in body
+    # The index must not carry per-run detail -- that is what made one flat file
+    # unreviewable at scale.
+    assert "<details>" not in body
+
+
+def test_index_row_shows_categories_profiles_and_class():
+    from writers import write_index_md
+    body = write_index_md(index_rows(aggregate.load_all()))
+    for col in ("disk", "cpu", "ram", "net", "Class"):
+        assert col in body
+
+
+def test_index_shows_waw_and_zrh_as_different_machines():
+    # The acceptance test for the whole redesign, at the index layer. Under v1
+    # these two rows -- same product, same price -- both read `fail fail fail
+    # fail`. If the index cannot separate them, nothing downstream can.
+    from writers import write_index_md
+    body = write_index_md(index_rows(aggregate.load_all()))
+    rows = [ln for ln in body.splitlines() if "vps-1-lz-2026" in ln]
+    waw = next(ln for ln in rows if "| waw " in ln)
+    zrh = next(ln for ln in rows if "| zrh " in ln)
+    assert waw != zrh
+    assert "net-fast" in waw and "net-slow" in zrh
+
+
+def test_index_carries_no_mean():
+    from writers import write_index_md
+    body = write_index_md(index_rows(aggregate.load_all())).lower()
+    assert "mean" not in body
+    assert "average" not in body
