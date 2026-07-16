@@ -166,7 +166,7 @@ def render_run_row(r: dict) -> str:
         fmt_us(dig(r, "disk.wal_fsync.p999_us")),
         fmt_us(dig(r, "disk.rand_read_8k.p99_us")),
         fmt_pct(dig(r, "cpu.steal_pct_under_load")),
-        fmt_us(dig(r, "cpu.intrinsic_latency_max_us")),
+        fmt_us(dig(r, "cpu.stall_p999_us")),
         fmt_pct(dig(r, "disk.steady_state.degradation_pct")),
     ] + [MARK[profile_grade(r, p)] for p in PROFILES]
     return "| " + " | ".join(cells) + " |"
@@ -205,14 +205,14 @@ def main() -> int:
     print("median: your slowest commits are the ones users notice.")
     print()
     summary_cols = (["Provider", "Region", "Product", "Storage", "Machines", "Runs",
-                      "fsync p99.9 med", "fsync p99.9 worst", "stall worst"]
+                      "fsync p99.9 med", "fsync p99.9 worst", "stall p99.9 worst"]
                      + [PROFILE_ABBR[p] for p in PROFILES])
     print("| " + " | ".join(summary_cols) + " |")
     print("|" + "---|" * len(summary_cols))
     for (name, region, product), rs in sorted(by_product.items()):
         n_hosts = len({r["run"]["host_id"] for r in rs})
         med, worst = spread(rs, "disk.wal_fsync.p999_us")
-        _, stall = spread(rs, "cpu.intrinsic_latency_max_us")
+        _, stall = spread(rs, "cpu.stall_p999_us")
         cells = [name, region, f"`{product}`", storage_classes(rs), str(n_hosts), str(len(rs)),
                  med, worst, stall] + [MARK[worst_grade(rs, p)] for p in PROFILES]
         print("| " + " | ".join(cells) + " |")
@@ -300,7 +300,7 @@ def main() -> int:
         print(f"<summary>All {len(rs)} run{'s' if len(rs) != 1 else ''}</summary>")
         print()
         run_cols = (["Machine", "Date", "Hour", "fsync p99.9", "rand-read p99", "steal",
-                     "stall max", "steady drop"] + [PROFILE_ABBR[p] for p in PROFILES])
+                     "stall p99.9", "steady drop"] + [PROFILE_ABBR[p] for p in PROFILES])
         print("| " + " | ".join(run_cols) + " |")
         print("|" + "---|" * len(run_cols))
         for r in sorted(rs, key=lambda x: x["run"]["timestamp_utc"]):
