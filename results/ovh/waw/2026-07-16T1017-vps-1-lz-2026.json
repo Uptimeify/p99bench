@@ -1,0 +1,177 @@
+{
+  "schema_version": "1.0",
+  "run": {
+    "timestamp_utc": "2026-07-16T10:17:38Z",
+    "host_id": "99ba7e30ec33",
+    "local_hour": 11,
+    "duration_s": 2567,
+    "tool_version": "0.1.0",
+    "submitter": "uptimeify",
+    "notes": null
+  },
+  "provider": {
+    "name": "ovh",
+    "product": "vps-1-lz-2026",
+    "region": "waw",
+    "price_eur_month": 7.49,
+    "billing": "monthly",
+    "storage_tier": null
+  },
+  "app": null,
+  "cpu": {
+    "single_thread_eps": 356.25,
+    "multi_thread_eps": 1364.38,
+    "scaling_efficiency": null,
+    "clock_idle_mhz": 2400,
+    "clock_under_load_mhz": 2400,
+    "steal_pct_under_load": 0.1,
+    "aes_256_gcm_mbs": 9739.58,
+    "sha256_mbs": 1303.36,
+    "intrinsic_latency_max_us": 5883,
+    "intrinsic_latency_avg_us": 0.0577
+  },
+  "disk": {
+    "device_model": "QEMU HARDDISK",
+    "scheduler": "none",
+    "rotational": true,
+    "target_fs": "ext4",
+    "is_boot_volume": true,
+    "seq_read": {
+      "bw_mbs": 5697.05,
+      "iops": 5697.05,
+      "p99_us": 12255.23
+    },
+    "seq_write": {
+      "bw_mbs": 2596.05,
+      "iops": 2596.05,
+      "p99_us": 26345.47
+    },
+    "rand_read_8k": {
+      "iops": 20033.06,
+      "bw_mbs": 156.51,
+      "p50_us": 6389.76,
+      "p99_us": 6914.05,
+      "p999_us": 11075.58
+    },
+    "rand_write_8k": {
+      "iops": 17512.92,
+      "bw_mbs": 136.82,
+      "p50_us": 6782.98,
+      "p99_us": 17956.86,
+      "p999_us": 40108.03
+    },
+    "mixed_8k": {
+      "iops": 20032.95,
+      "bw_mbs": 156.51,
+      "p50_us": 6324.22,
+      "p99_us": 6717.44,
+      "p999_us": 8716.29
+    },
+    "wal_fsync": {
+      "iops": 1587.81,
+      "avg_us": 567.98,
+      "p50_us": 544.77,
+      "p99_us": 905.22,
+      "p999_us": 2211.84,
+      "max_us": 8152.77
+    },
+    "steady_state": {
+      "duration_s": 1800,
+      "first_min_iops": 28673.25,
+      "last_min_iops": 28592.8,
+      "degradation_pct": 0.28,
+      "p99_us_first_min": 6466.35,
+      "p99_us_last_min": 6468.86
+    }
+  },
+  "host": {
+    "virt": "kvm",
+    "vcpu": 4,
+    "ram_mb": 7757,
+    "cpu_model": "Intel Core Processor (Haswell, no TSX)",
+    "cpu_governor": null,
+    "numa_nodes": 1,
+    "ecc_claimed": "Multi-bit ECC",
+    "ecc_verifiable": false,
+    "kernel": "6.12.95+deb13-cloud-amd64",
+    "distro": "debian-13"
+  },
+  "network": {
+    "reachable": true,
+    "target_list_version": "1",
+    "targets": [
+      {
+        "id": "hetzner-fsn1",
+        "reachable": true,
+        "mbps": 312.79,
+        "ttfb_ms": 113.139,
+        "dns_ms": 1.86,
+        "rtt_p50_ms": 26.3,
+        "rtt_p99_ms": 26.5,
+        "loss_pct": 0
+      },
+      {
+        "id": "hetzner-hel1",
+        "reachable": true,
+        "mbps": 306.49,
+        "ttfb_ms": 322.895,
+        "dns_ms": 149.452,
+        "rtt_p50_ms": 41.3,
+        "rtt_p99_ms": 41.5,
+        "loss_pct": 0
+      },
+      {
+        "id": "ovh-gra",
+        "reachable": false,
+        "mbps": 0,
+        "ttfb_ms": 196.156,
+        "dns_ms": 81.072,
+        "rtt_p50_ms": 26.2,
+        "rtt_p99_ms": 26.4,
+        "loss_pct": 0
+      },
+      {
+        "id": "hetzner-ash",
+        "reachable": true,
+        "mbps": 173.72,
+        "ttfb_ms": 562.333,
+        "dns_ms": 109.601,
+        "rtt_p50_ms": 112,
+        "rtt_p99_ms": 113,
+        "loss_pct": 0
+      }
+    ],
+    "ookla": null
+  },
+  "ram": {
+    "configured_speed": "Unknown",
+    "type": "RAM",
+    "populated_slots": 1,
+    "seq_read_mbs": 74696.31,
+    "seq_write_mbs": 42920.17,
+    "rnd_read_mbs": 6714.66,
+    "rnd_write_mbs": 836.5,
+    "numa_local_mbs": null,
+    "numa_remote_mbs": null
+  },
+  "verdict": {
+    "reasons": [
+      "[postgres_oltp] disk.wal_fsync.p999_us = 2211.84 (marginal, want <= 2000)",
+      "[postgres_oltp] disk.wal_fsync.iops = 1587.81 < 5000",
+      "[postgres_oltp] disk.rand_read_8k.p99_us = 6914.05 > 5000",
+      "[postgres_oltp] disk.rand_read_8k.iops = 20033.06 < 30000",
+      "[postgres_oltp] disk.rand_write_8k.iops = 17512.92 (marginal, want >= 50000)",
+      "[timescale_ingest] disk.wal_fsync.p999_us = 2211.84 (marginal, want <= 2000)",
+      "[timescale_ingest] disk.rand_write_8k.iops = 17512.92 (marginal, want >= 50000)",
+      "[redis_aof] cpu.intrinsic_latency_max_us = 5883 > 1000",
+      "[redis_aof] cpu.single_thread_eps = 356.25 < 600",
+      "[redis_aof] disk.wal_fsync.p999_us = 2211.84 (marginal, want <= 2000)",
+      "[nuxt_ssr] cpu.single_thread_eps = 356.25 < 600",
+      "[nuxt_ssr] cpu.intrinsic_latency_max_us = 5883 > 5000"
+    ],
+    "postgres_oltp": "fail",
+    "timescale_ingest": "marginal",
+    "redis_aof": "fail",
+    "nuxt_ssr": "fail"
+  }
+}
