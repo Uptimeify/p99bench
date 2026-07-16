@@ -21,7 +21,7 @@
   "cpu": {
     "single_thread_eps": 403.83,
     "multi_thread_eps": 1608.17,
-    "scaling_efficiency": null,
+    "scaling_efficiency": 0.995,
     "clock_idle_mhz": 2593,
     "clock_under_load_mhz": 2593,
     "steal_pct_under_load": null,
