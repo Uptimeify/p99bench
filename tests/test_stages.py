@@ -154,6 +154,52 @@ def test_ram_working_set_exceeds_llc(repo_root):
 
 
 @pytest.mark.docker
+def test_ram_working_set_tracks_llc_via_fixture(repo_root):
+    # The assertion above (>= 128M) is satisfied by the hardcoded floor
+    # alone: this container's real sysfs exposes no cache/index*/size files,
+    # so llc_bytes() always takes its 32M fallback, and 4 * 32M == 128M
+    # exactly -- it would pass even if llc_bytes() returned 0 or inverted
+    # its unit maths. Driving llc_bytes() with a fixture LLC (64M) whose
+    # 4x product (256M) does NOT collide with the floor actually proves the
+    # multiply ran, end to end through the real script.
+    fixture = "/p99bench/tests/fixtures/cache/64m"
+    ram = run_stage(repo_root, "03-ram.sh", {
+        "P99_RAM_TOTAL": "2G",
+        "P99_CACHE_ROOT": fixture,
+        # Generous and decoupled from the container's real specs, so this
+        # test is purely about the LLC->block sizing, not the RAM cap
+        # (Finding 1's cap-interaction is covered by a separate test below).
+        "P99_RAM_BYTES": str(64 * 1024 ** 3),
+        "P99_CORES": "1",
+    }, "ram")["ram"]
+    assert ram["bw_block_bytes"] == 64 * 1024 * 1024 * 4
+
+
+@pytest.mark.docker
+def test_ram_bandwidth_null_when_cap_forces_working_set_below_cache(repo_root):
+    # The RAM-fraction cap exists so the working set can't swap, but on a
+    # small/many-core host it can shrink BLOCK back down until it fits in
+    # cache again -- silently recreating the exact bug this script exists to
+    # fix (a cache number reported as RAM bandwidth). 8 vCPU / 2 GiB is a
+    # common budget-VPS shape: RAM_BYTES/4/CORES caps the working set at 64M,
+    # which cannot clear a (fixture) 64M LLC. The script must refuse to
+    # report a bandwidth number it knows is wrong.
+    fixture = "/p99bench/tests/fixtures/cache/64m"
+    ram = run_stage(repo_root, "03-ram.sh", {
+        "P99_RAM_TOTAL": "2G",
+        "P99_CACHE_ROOT": fixture,
+        "P99_RAM_BYTES": str(2 * 1024 ** 3),
+        "P99_CORES": "8",
+    }, "ram")["ram"]
+    assert ram["bw_read_mbs"] is None, (
+        "bw_read_mbs came back as a number with the working set capped "
+        "below 2x LLC -- this is reporting cache bandwidth as RAM bandwidth"
+    )
+    # bw_block_bytes must still show what was actually attempted.
+    assert ram["bw_block_bytes"] == 64 * 1024 * 1024
+
+
+@pytest.mark.docker
 def test_ram_stage_retains_legacy_fields(repo_root):
     # Spec 9.2: the old cache-resident number keeps its name and meaning so
     # published results stay readable. It is simply no longer banded.

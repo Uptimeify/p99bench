@@ -111,6 +111,50 @@ jstr() {
 # Falls back to a hash of DMI identifiers where machine-id is absent, and to a
 # random value as a last resort (a random id is honest: it says "we could not
 # prove this is the same machine" rather than falsely claiming it is).
+# llc_bytes - largest last-level-cache size in bytes, read from sysfs.
+#
+# Lives here (not in 03-ram.sh, the only current caller) so it can be unit
+# tested without a container: sysbench's --memory-block-size IS the
+# per-thread working set, so a benchmark block that fits in cache measures
+# cache, not RAM. Getting this parse right is the difference between a real
+# bandwidth number and a cache number wearing a RAM label.
+#
+# P99_CACHE_ROOT is an injection seam for tests - point it at a fixture
+# directory laid out like a real .../cache dir (index0/size, index1/size,
+# ...) to drive this deterministically. Real runs never set it, so they read
+# the actual sysfs path.
+#
+# Falls back to a pessimistic 32M when sysfs has nothing readable (e.g. this
+# repo's own test container), which is larger than most LLCs and therefore
+# still safely out of cache.
+llc_bytes() {
+  : "${P99_CACHE_ROOT:=/sys/devices/system/cpu/cpu0/cache}"
+  local biggest=0 size unit v
+  for f in "$P99_CACHE_ROOT"/index*/size; do
+    [[ -r "$f" ]] || continue
+    size=$(cat "$f")                 # e.g. "32768K", "32M", "1G"
+    [[ -z "$size" ]] && continue
+    unit="${size: -1}"
+    v="${size%?}"
+    case "$unit" in
+      K) [[ "$v" =~ ^[0-9]+$ ]] || continue; v=$((v * 1024));;
+      M) [[ "$v" =~ ^[0-9]+$ ]] || continue; v=$((v * 1024 * 1024));;
+      G) [[ "$v" =~ ^[0-9]+$ ]] || continue; v=$((v * 1024 * 1024 * 1024));;
+      *)
+        # An unrecognized unit used to fall through to stripping non-digits,
+        # e.g. "32KB" -> 32 (should be 32768) - a silently too-small value.
+        # Ignore the entry instead of guessing; stock Linux always emits
+        # "%zuK" so this branch is unreachable on a real host.
+        warn "llc_bytes: unrecognized cache size unit in '$size' ($f) - ignoring this entry rather than under-computing"
+        continue
+        ;;
+    esac
+    (( v > biggest )) && biggest=$v
+  done
+  (( biggest == 0 )) && biggest=$((32 * 1024 * 1024))
+  printf '%s' "$biggest"
+}
+
 host_id() {
   local seed=""
   if [[ -r /etc/machine-id ]]; then

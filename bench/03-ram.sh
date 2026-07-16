@@ -8,7 +8,10 @@ source ./lib.sh
 need sysbench
 need jq
 
-CORES=$(nproc)
+# P99_CORES/P99_RAM_BYTES are injection seams for tests: they let a test
+# simulate a host shape (e.g. 8 vCPU / 2 GiB) without needing that actual
+# hardware. Real runs never set them, so they read the real host.
+CORES="${P99_CORES:-$(nproc)}"
 
 SPEED=$(dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed/{gsub(/^ +/,"",$2); print $2; exit}' || echo "")
 MTYPE=$(dmidecode -t memory 2>/dev/null | awk -F: '/^\tType:/{gsub(/^ +/,"",$2); print $2; exit}' || echo "")
@@ -21,49 +24,45 @@ mem() {
     | awk '/MiB\/sec/ {gsub(/[()]/,"",$4); print $4; exit}'
 }
 
-# Last-level cache size in bytes. sysbench's --memory-block-size IS the
-# per-thread working set, so a block that fits in cache measures cache. The
-# old 1M block reported 207 GB/s on a single-channel DDR5 host whose theoretical
-# peak is ~38 GB/s - that was L2 bandwidth wearing a RAM label, and it is why
-# the >=15 GB/s threshold never failed anything.
-#
-# Read the largest cache index sysfs exposes; fall back to a pessimistic 32M,
-# which is larger than most LLCs and therefore still safely out of cache.
-llc_bytes() {
-  local biggest=0 size unit v
-  for f in /sys/devices/system/cpu/cpu0/cache/index*/size; do
-    [[ -r "$f" ]] || continue
-    size=$(cat "$f")                 # e.g. "32768K", "32M"
-    unit="${size: -1}"
-    v="${size%?}"
-    case "$unit" in
-      K) v=$((v * 1024));;
-      M) v=$((v * 1024 * 1024));;
-      *) v="${size//[!0-9]/}";;
-    esac
-    (( v > biggest )) && biggest=$v
-  done
-  (( biggest == 0 )) && biggest=$((32 * 1024 * 1024))
-  printf '%s' "$biggest"
-}
-
+# sysbench's --memory-block-size IS the per-thread working set, so a block
+# that fits in cache measures cache. The old 1M block reported 207 GB/s on a
+# single-channel DDR5 host whose theoretical peak is ~38 GB/s - that was L2
+# bandwidth wearing a RAM label, and it is why the >=15 GB/s threshold never
+# failed anything. llc_bytes() (in lib.sh) reads the real LLC size from
+# sysfs so we can size around it instead.
 LLC=$(llc_bytes)
 # 4x LLC so the working set cannot be held even with a generous replacement
 # policy, floored at 128M for hosts that under-report cache. Capped so that
 # BLOCK * threads stays under a quarter of RAM - this must not swap, and a
 # swapping run measures the disk.
-RAM_BYTES=$(awk '/MemTotal/ {print $2 * 1024; exit}' /proc/meminfo)
+RAM_BYTES="${P99_RAM_BYTES:-$(awk '/MemTotal/ {print $2 * 1024; exit}' /proc/meminfo)}"
 BLOCK=$((LLC * 4))
 (( BLOCK < 134217728 )) && BLOCK=134217728
 MAX_BLOCK=$((RAM_BYTES / 4 / CORES))
 (( BLOCK > MAX_BLOCK )) && BLOCK=$MAX_BLOCK
 
+# The RAM cap above exists so the run cannot swap, but on a small/many-core
+# host (8 vCPU / 2G is a common budget VPS) it can shrink BLOCK back down
+# until it fits in cache again - silently recreating the exact bug this
+# script exists to fix, just via the cap instead of the original hardcoded
+# 1M. A block that cannot clear at least 2x LLC is measuring cache no matter
+# how it got small, so refuse to report it as RAM bandwidth: null the metric
+# and warn loudly, while still emitting bw_block_bytes so the reader can see
+# what was attempted (doctrine in lib.sh: null loses one metric, a wrong
+# number loses the whole run's credibility).
+CACHE_CLEAR_FLOOR=$((LLC * 2))
+
 # Total bytes moved. Must be well above BLOCK*threads or the run is over
 # before the memory subsystem reaches steady state.
 RAM_TOTAL="${P99_RAM_TOTAL:-50G}"
 
-log "RAM: bandwidth (working set ${BLOCK}B/thread, LLC ${LLC}B)"
-BW_R=$(mem read seq "$BLOCK" "$CORES" "$RAM_TOTAL")
+if (( BLOCK < CACHE_CLEAR_FLOOR )); then
+  warn "RAM: working set capped to ${BLOCK}B/thread (RAM_BYTES=${RAM_BYTES}, CORES=${CORES}), below 2x LLC (${CACHE_CLEAR_FLOOR}B) - this host shape cannot clear cache within a safe (non-swapping) working set. Recording bw_read_mbs as null instead of reporting cache bandwidth as RAM bandwidth."
+  BW_R=""
+else
+  log "RAM: bandwidth (working set ${BLOCK}B/thread, LLC ${LLC}B)"
+  BW_R=$(mem read seq "$BLOCK" "$CORES" "$RAM_TOTAL")
+fi
 
 log "RAM: sequential read"
 SEQ_R=$(mem read seq 1M "$CORES" 100G)
