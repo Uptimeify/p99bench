@@ -59,9 +59,12 @@ warns, and no spread is computed from it.
 
 ### Open the PR
 
+`run-all.sh` already names the file the way `results/` expects, so this is a
+copy and never a rename:
+
 ```bash
 mkdir -p results/hetzner/fsn1
-cp bench/results-local/hetzner-CPX41-fsn1-*.json results/hetzner/fsn1/
+scp root@yourhost:'~/p99bench/bench/results-local/*.json' results/hetzner/fsn1/
 
 python3 tools/validate.py results/
 python3 tools/render.py > RESULTS.md

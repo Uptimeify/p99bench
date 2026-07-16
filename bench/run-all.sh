@@ -58,11 +58,22 @@ fi
 rm -rf "$P99_WORK"; mkdir -p "$P99_WORK"
 rm -rf "$P99_TARGET"
 
-STAMP=$(date -u +%Y-%m-%dT%H%M%SZ)
+# Filename is exactly what results/ expects, so submitting is a copy and never
+# a rename. The layout lives in tools/validate.py (FILENAME_RE); if you change
+# one, change the other.
+#
+#   results/<provider>/<region>/YYYY-MM-DDThhmm-<product-slug>.json
+#
+# The product slug is lowercased and stripped of anything outside [a-z0-9-],
+# because it goes in a path: "Standard_D4s_v5" -> "standard-d4s-v5".
+STAMP=$(date -u +%Y-%m-%dT%H%M)
+PRODUCT_SLUG=$(printf '%s' "$PRODUCT" | tr '[:upper:]' '[:lower:]' \
+               | sed 's/[^a-z0-9-]\+/-/g; s/^-\+//; s/-\+$//')
+BASENAME="$STAMP-$PRODUCT_SLUG"
 START=$(date +%s)
 OUTDIR="./results-local"
 mkdir -p "$OUTDIR"
-LOGFILE="$OUTDIR/$PROVIDER-$PRODUCT-$REGION-$STAMP.log"
+LOGFILE="$OUTDIR/$BASENAME.log"
 
 log "p99bench $P99BENCH_VERSION"
 log "Target: $P99_TARGET | size ${P99_SIZE}/job | log: $LOGFILE"
@@ -141,7 +152,7 @@ for f in "$P99_WORK"/frag-*.json; do
   RESULT=$(jq -n --argjson a "$RESULT" --argjson b "$(cat "$f")" '$a * $b')
 done
 
-OUT="$OUTDIR/$PROVIDER-$PRODUCT-$REGION-$STAMP.json"
+OUT="$OUTDIR/$BASENAME.json"
 echo "$RESULT" | jq . > "$OUT"
 
 # --- verdict ---------------------------------------------------------------
@@ -173,9 +184,8 @@ jq -r '
 echo
 echo "host_id: $HOST_ID  (stable for this VM; links your runs together)"
 echo
-echo "To submit:"
-echo "  mkdir -p results/$PROVIDER/$REGION"
-echo "  cp $OUT results/$PROVIDER/$REGION/"
+echo "To submit - the filename is already the one results/ expects, just copy it:"
+echo "  scp <this-host>:$(pwd)/$OUT results/$PROVIDER/$REGION/"
 echo
 echo "A single run is a data point about this VM at this hour, not a statement"
 echo "about $PROVIDER. Please run this at least 3 times at different hours -"

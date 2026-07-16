@@ -3,4 +3,121 @@
 
 # Results
 
-No results submitted yet. See [CONTRIBUTING.md](CONTRIBUTING.md).
+3 runs across 3 machines at 2 providers.
+
+*Every number below is a measurement of specific machines at specific times. Providers vary by region, by hardware generation within a region, and by who else is on the host. Read [METHODOLOGY.md](METHODOLOGY.md) before drawing conclusions, and [THRESHOLDS.md](THRESHOLDS.md) before disagreeing with a verdict.*
+
+## Summary
+
+One row per product and region. `fsync p99.9` is the number that decides
+whether a database is viable here, and the worst case matters more than the
+median: your slowest commits are the ones users notice.
+
+| Provider | Region | Product | Machines | Runs | fsync p99.9 med | fsync p99.9 worst | stall worst | pg | ts | redis | nuxt |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| hetzner | hel1 | `CPX32` | 1 | 1 | - | 2.9 ms | 2.5 ms | fail | marginal | fail | marginal |
+| ovh | prg | `vps-1-lz-2026` | 1 | 1 | - | 8.4 ms | 5.1 ms | fail | fail | fail | fail |
+| ovh | zrh | `vps-1-lz-2026` | 1 | 1 | - | 118.0 ms | 2.5 ms | fail | fail | fail | marginal |
+
+Verdicts are the **worst** across all runs for that product. A machine that
+passes at 03:00 and fails at 18:00 is a machine that fails.
+
+## Detail
+
+### hetzner / hel1 / `CPX32`
+
+1 run - 1 machine - 42.23 EUR/mo - **boot volume**
+
+<details>
+<summary>All 1 run</summary>
+
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | redis | nuxt |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `177b79` | 2026-07-15 | 22h | 2.9 ms | 2.4 ms | 0.0% | 2.5 ms | 2.0% | fail | marginal | fail | marginal |
+
+</details>
+
+### ovh / prg / `vps-1-lz-2026`
+
+1 run - 1 machine - 7.49 EUR/mo - **boot volume**
+
+<details>
+<summary>All 1 run</summary>
+
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | redis | nuxt |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `1d0480` | 2026-07-15 | 22h | 8.4 ms | 18.2 ms | 0.1% | 5.1 ms | 0.0% | fail | fail | fail | fail |
+
+</details>
+
+### ovh / zrh / `vps-1-lz-2026`
+
+1 run - 1 machine - 7.49 EUR/mo - **boot volume**
+
+<details>
+<summary>All 1 run</summary>
+
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | redis | nuxt |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `c7d6f7` | 2026-07-15 | 22h | 118.0 ms | 18.0 ms | 0.2% | 2.5 ms | 0.3% | fail | fail | fail | marginal |
+
+</details>
+
+## Network
+
+Throughput and latency to the **same fixed targets** from every host
+([schema/network-targets.yaml](schema/network-targets.yaml)). Nearest-server
+speedtests measure a different path per host and cannot be compared in one
+table; these can. Distance is a known constant here, so a low number points
+at the provider's peering rather than at geography.
+
+**No verdict reads these numbers.** See [THRESHOLDS.md](THRESHOLDS.md#known-gaps)
+for why: nobody can yet justify a pass/fail line from a workload requirement
+rather than from taste.
+
+| Provider | Region | Product | hetzner-fsn1 | hetzner-hel1 | ovh-gra | hetzner-ash |
+|---|---|---|---|---|---|---|
+| hetzner | hel1 | `CPX32` | 756 Mb/s / 25ms | 5.98 Gb/s / 0ms | 0 Mb/s / 29ms | 184 Mb/s / 103ms |
+| ovh | prg | `vps-1-lz-2026` | 341 Mb/s / 14ms | 311 Mb/s / 29ms | - | 176 Mb/s / 96ms |
+| ovh | zrh | `vps-1-lz-2026` | 353 Mb/s / 11ms | 333 Mb/s / 26ms | - | 188 Mb/s / 98ms |
+
+Median throughput / median RTT p50 per target. 
+
+**Packet loss observed**
+
+| Provider | Region | Target | Loss |
+|---|---|---|---|
+| ovh | zrh | hetzner-ash | 10.00% |
+
+Sustained loss above ~0.05% will hurt TCP throughput and replication.
+
+## Why runs failed
+
+Computed from [schema/thresholds.yaml](schema/thresholds.yaml), not written
+by hand. Disagree with a verdict? The thing to argue about is the threshold.
+
+| Failing rule | Runs affected |
+|---|---|
+| [postgres_oltp] disk.wal_fsync.p999_us | 3 |
+| [postgres_oltp] disk.wal_fsync.iops | 3 |
+| [postgres_oltp] disk.rand_read_8k.p99_us | 3 |
+| [postgres_oltp] disk.rand_read_8k.iops | 3 |
+| [timescale_ingest] disk.wal_fsync.p999_us | 3 |
+| [redis_aof] cpu.intrinsic_latency_max_us | 3 |
+| [redis_aof] disk.wal_fsync.p999_us | 3 |
+| [nuxt_ssr] cpu.intrinsic_latency_max_us | 3 |
+| [postgres_oltp] disk.rand_write_8k.iops | 2 |
+| [timescale_ingest] disk.seq_write.bw_mbs | 2 |
+| [timescale_ingest] disk.seq_read.bw_mbs | 2 |
+| [timescale_ingest] disk.rand_write_8k.iops | 2 |
+
+---
+
+## Raw data
+
+Every number above comes from a JSON file under [`results/`](results/),
+laid out as `results/<provider>/<region>/`. Nothing here is hand-written.
+If a number looks wrong, open the file and check it.
+
+`host_id` is a salted hash of the machine's `/etc/machine-id`. It links runs
+on the same VM together and means nothing outside this dataset.
