@@ -244,10 +244,6 @@
             "value": 10,
             "grade": "F"
           },
-          "network.dns_ms": {
-            "value": 9.293,
-            "grade": "B"
-          },
           "network.rtt_jitter_ratio": {
             "value": 1.0186915887850467,
             "grade": "A"

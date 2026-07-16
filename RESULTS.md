@@ -13,13 +13,13 @@ One row per product and region. `fsync p99.9` is the number that decides
 whether a database is viable here, and the worst case matters more than the
 median: your slowest commits are the ones users notice.
 
-| Provider | Region | Product | Storage | Machines | Runs | fsync p99.9 med | fsync p99.9 worst | stall worst | pg | ts | patroni | redis | probe | pw | nuxt |
+| Provider | Region | Product | Storage | Machines | Runs | fsync p99.9 med | fsync p99.9 worst | stall p99.9 worst | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| hetzner | hel-1 | `CPX32` | net-fast | 2 | 3 | 2.2 ms | 2.9 ms | 2.5 ms | C | B | ? | ? | ? | ? | ? |
-| ovh | prg | `vps-1-lz-2026` | net-slow | 1 | 2 | - | 12.5 ms | 6.2 ms | F | D | ? | ? | ? | ? | ? |
-| ovh | waw | `vps-1-lz-2026` | net-fast | 1 | 1 | - | 2.2 ms | 5.9 ms | D | C | F | F | F | F | F |
-| ovh | zrh | `vps-1-lz-2026` | net-slow | 2 | 3 | 118.0 ms | 137.4 ms | 6.5 ms | F | F | F | F | F | F | ? |
-| windcloud | enge-sande | `VPS-L` | degraded | 1 | 1 | - | 459.3 ms | 2.7 ms | F | F | F | F | ? | ? | ? |
+| hetzner | hel-1 | `CPX32` | net-fast | 2 | 3 | 2.2 ms | 2.9 ms | - | C | B | ? | ? | ? | ? | ? |
+| ovh | prg | `vps-1-lz-2026` | net-slow | 1 | 2 | - | 12.5 ms | - | F | D | ? | ? | ? | ? | ? |
+| ovh | waw | `vps-1-lz-2026` | net-fast | 1 | 1 | - | 2.2 ms | - | D | C | F | F | F | F | F |
+| ovh | zrh | `vps-1-lz-2026` | net-slow | 2 | 3 | 118.0 ms | 137.4 ms | - | F | F | F | F | F | F | ? |
+| windcloud | enge-sande | `VPS-L` | degraded | 1 | 1 | - | 459.3 ms | - | F | F | F | F | ? | ? | ? |
 
 Grades are the **worst** across all runs for that product. A machine that
 grades A at 03:00 and F at 18:00 is a machine that grades F. `?` on
@@ -44,11 +44,11 @@ Worst fsync p99.9 per machine ranges 1.9 ms to 2.9 ms (1.5x spread).
 <details>
 <summary>All 3 runs</summary>
 
-| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `177b79` | 2026-07-15 | 22h | 2.9 ms | 2.4 ms | 0.0% | 2.5 ms | 2.0% | C | B | ? | ? | ? | ? | ? |
-| `177b79` | 2026-07-16 | 09h | 2.2 ms | 2.5 ms | 0.0% | 2.3 ms | 0.5% | C | B | ? | ? | ? | ? | ? |
-| `ffe9c6` | 2026-07-16 | 10h | 1.9 ms | 2.5 ms | 0.0% | 1.6 ms | 0.4% | C | B | ? | ? | ? | ? | ? |
+| `177b79` | 2026-07-15 | 22h | 2.9 ms | 2.4 ms | 0.0% | - | 2.0% | C | B | ? | ? | ? | ? | ? |
+| `177b79` | 2026-07-16 | 09h | 2.2 ms | 2.5 ms | 0.0% | - | 0.5% | C | B | ? | ? | ? | ? | ? |
+| `ffe9c6` | 2026-07-16 | 10h | 1.9 ms | 2.5 ms | 0.0% | - | 0.4% | C | B | ? | ? | ? | ? | ? |
 
 </details>
 
@@ -63,10 +63,10 @@ Fewer than 3 runs, so no spread is computed. Worst fsync p99.9 seen: 12.5 ms.
 <details>
 <summary>All 2 runs</summary>
 
-| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `1d0480` | 2026-07-15 | 22h | 8.4 ms | 18.2 ms | 0.1% | 5.1 ms | 0.0% | F | D | ? | ? | ? | ? | ? |
-| `1d0480` | 2026-07-16 | 09h | 12.5 ms | 18.2 ms | 0.2% | 6.2 ms | 0.0% | F | D | ? | ? | ? | ? | ? |
+| `1d0480` | 2026-07-15 | 22h | 8.4 ms | 18.2 ms | 0.1% | - | 0.0% | F | D | ? | ? | ? | ? | ? |
+| `1d0480` | 2026-07-16 | 09h | 12.5 ms | 18.2 ms | 0.2% | - | 0.0% | F | D | ? | ? | ? | ? | ? |
 
 </details>
 
@@ -77,9 +77,9 @@ Fewer than 3 runs, so no spread is computed. Worst fsync p99.9 seen: 12.5 ms.
 <details>
 <summary>All 1 run</summary>
 
-| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `99ba7e` | 2026-07-16 | 11h | 2.2 ms | 6.9 ms | 0.1% | 5.9 ms | 0.3% | D | C | F | F | F | F | F |
+| `99ba7e` | 2026-07-16 | 11h | 2.2 ms | 6.9 ms | 0.1% | - | 0.3% | D | C | F | F | F | F | F |
 
 </details>
 
@@ -98,11 +98,11 @@ Worst fsync p99.9 per machine ranges 118.0 ms to 137.4 ms.
 <details>
 <summary>All 3 runs</summary>
 
-| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `c7d6f7` | 2026-07-15 | 22h | 118.0 ms | 18.0 ms | 0.2% | 2.5 ms | 0.3% | F | F | F | F | F | F | ? |
-| `c7d6f7` | 2026-07-16 | 09h | 109.6 ms | 18.2 ms | 0.2% | 5.4 ms | 0.4% | F | F | F | F | ? | ? | ? |
-| `759286` | 2026-07-16 | 11h | 137.4 ms | 18.2 ms | 0.1% | 6.5 ms | 0.4% | F | F | F | F | ? | ? | ? |
+| `c7d6f7` | 2026-07-15 | 22h | 118.0 ms | 18.0 ms | 0.2% | - | 0.3% | F | F | F | F | F | F | ? |
+| `c7d6f7` | 2026-07-16 | 09h | 109.6 ms | 18.2 ms | 0.2% | - | 0.4% | F | F | F | F | ? | ? | ? |
+| `759286` | 2026-07-16 | 11h | 137.4 ms | 18.2 ms | 0.1% | - | 0.4% | F | F | F | F | ? | ? | ? |
 
 </details>
 
@@ -113,9 +113,9 @@ Worst fsync p99.9 per machine ranges 118.0 ms to 137.4 ms.
 <details>
 <summary>All 1 run</summary>
 
-| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `3637eb` | 2026-07-16 | 10h | 459.3 ms | 6.8 ms | - | 2.7 ms | 0.0% | F | F | F | F | ? | ? | ? |
+| `3637eb` | 2026-07-16 | 10h | 459.3 ms | 6.8 ms | - | - | 0.0% | F | F | F | F | ? | ? | ? |
 
 </details>
 
@@ -128,10 +128,11 @@ table; these can. Distance is a known constant here, so a low number points
 at the provider's peering rather than at geography.
 
 **Only `worker_probe` and `playwright_node` grade any of this** (`loss_pct`,
-`dns_ms`, `rtt_jitter_ratio`) -- because for those two profiles the network
-*is* the workload. See [THRESHOLDS.md](THRESHOLDS.md#known-gaps). Throughput
-(`mbps`, shown below) stays ungraded everywhere: no workload requirement
-yields a Mbit/s floor.
+`rtt_jitter_ratio`) -- because for those two profiles the network *is* the
+workload. See [THRESHOLDS.md](THRESHOLDS.md#known-gaps). Throughput (`mbps`,
+shown below) and `dns_ms` stay ungraded everywhere: throughput because no
+workload requirement yields a Mbit/s floor, `dns_ms` because it is currently
+measured as a single uncached lookup and cannot be honestly banded yet.
 
 | Provider | Region | Product | hetzner-fsn1 | hetzner-hel1 | ovh-gra | hetzner-ash |
 |---|---|---|---|---|---|---|

@@ -237,16 +237,12 @@
         }
       },
       "network": {
-        "grade": "D",
-        "bound_by": "network.dns_ms",
+        "grade": "A",
+        "bound_by": "network.loss_pct",
         "metrics": {
           "network.loss_pct": {
             "value": 0,
             "grade": "A"
-          },
-          "network.dns_ms": {
-            "value": 93.757,
-            "grade": "D"
           },
           "network.rtt_jitter_ratio": {
             "value": 1.0095238095238095,
