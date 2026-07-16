@@ -10,12 +10,22 @@ need jq
 
 CORES=$(nproc)
 
+# Container/CI runs only need to prove the parsers work. A real run must not
+# use this - 5s of sysbench measures noise.
+SB_TIME=30
+STRESS_TIME=65
+if [[ -n "${P99_CPU_QUICK:-}" ]]; then
+  warn "P99_CPU_QUICK set - runtimes cut to seconds. NOT a measurement."
+  SB_TIME=2
+  STRESS_TIME=6
+fi
+
 log "CPU: single thread"
-ST=$(sysbench cpu --cpu-max-prime=20000 --threads=1 --time=30 run 2>/dev/null \
+ST=$(sysbench cpu --cpu-max-prime=20000 --threads=1 --time="$SB_TIME" run 2>/dev/null \
      | awk '/events per second/ {print $4}')
 
 log "CPU: $CORES threads"
-MT=$(sysbench cpu --cpu-max-prime=20000 --threads="$CORES" --time=30 run 2>/dev/null \
+MT=$(sysbench cpu --cpu-max-prime=20000 --threads="$CORES" --time="$SB_TIME" run 2>/dev/null \
      | awk '/events per second/ {print $4}')
 
 # Perfect scaling would be single * cores. Real silicon gives ~0.9 on physical
@@ -29,10 +39,10 @@ CLOCK_IDLE=$(awk '/cpu MHz/ {s+=$4; n++} END {if(n) printf "%.0f", s/n}' /proc/c
 
 log "CPU: clock + steal under full load (60s)"
 if command -v stress-ng >/dev/null 2>&1; then
-  stress-ng --cpu "$CORES" --timeout 65s >/dev/null 2>&1 &
+  stress-ng --cpu "$CORES" --timeout "${STRESS_TIME}s" >/dev/null 2>&1 &
 else
   warn "stress-ng missing, using sysbench to generate load"
-  sysbench cpu --cpu-max-prime=20000 --threads="$CORES" --time=65 run >/dev/null 2>&1 &
+  sysbench cpu --cpu-max-prime=20000 --threads="$CORES" --time="$STRESS_TIME" run >/dev/null 2>&1 &
 fi
 STRESS_PID=$!
 sleep 5
@@ -81,6 +91,32 @@ if command -v openssl >/dev/null 2>&1; then
   [[ -n "$SHAK" ]] && SHA=$(echo "scale=2; $SHAK / 1000" | bc 2>/dev/null || echo "")
 fi
 
+# TLS handshake rate. SSL/HTTPS checks are bound by the asymmetric handshake
+# (ECDSA sign + verify), not by bulk cipher throughput - a probe node opens a
+# new connection per check and almost never transfers enough bytes for
+# aes_256_gcm_mbs to matter. P-256 because it is what essentially every modern
+# certificate uses.
+#
+# Single-threaded on purpose: this feeds worker_probe, where the question is
+# how fast one check can complete, not how many cores can be thrown at it.
+#
+# openssl prints:
+#   sign    verify    sign/s verify/s
+#   0.0000s 0.0000s   45678.1  123456.7
+# Take sign/s ($3): signing is the expensive half and the one a client waits on.
+TLS=""
+if command -v openssl >/dev/null 2>&1; then
+  log "CPU: ECDSA P-256 handshakes (SSL check rate)"
+  TLS=$(openssl speed -seconds 3 ecdsap256 2>/dev/null \
+        | awk '/^ *256 bits ecdsa \(nistp256\)/ {print $(NF-1); exit}')
+  # Label and column layout have both moved across OpenSSL 1.1/3.x. Fall back
+  # to the generic ecdsa row rather than silently recording null.
+  if [[ -z "$TLS" ]]; then
+    TLS=$(openssl speed -seconds 3 ecdsap256 2>/dev/null \
+          | awk '/ecdsa/ && /nistp256/ {print $(NF-1); exit}')
+  fi
+fi
+
 emit_json cpu "$(jq -n \
   --argjson st "$(jnum "$ST")" \
   --argjson mt "$(jnum "$MT")" \
@@ -90,6 +126,7 @@ emit_json cpu "$(jq -n \
   --argjson steal "$(jnum "$STEAL")" \
   --argjson aes "$(jnum "$AES")" \
   --argjson sha "$(jnum "$SHA")" \
+  --argjson tls "$(jnum "$TLS")" \
   '{cpu: {
       single_thread_eps: $st,
       multi_thread_eps: $mt,
@@ -98,7 +135,8 @@ emit_json cpu "$(jq -n \
       clock_under_load_mhz: $cl,
       steal_pct_under_load: $steal,
       aes_256_gcm_mbs: $aes,
-      sha256_mbs: $sha
+      sha256_mbs: $sha,
+      tls_handshakes_s: $tls
   }}')"
 
 echo
@@ -110,6 +148,7 @@ jq -r --arg cores "$CORES" '.cpu |
   "clock idle:      \(.clock_idle_mhz // "n/a") MHz",
   "clock at load:   \(.clock_under_load_mhz // "n/a") MHz",
   "steal at load:   \(.steal_pct_under_load // "n/a") %   (>5 = host is oversold)",
-  "aes-256-gcm:     \(.aes_256_gcm_mbs // "n/a") MB/s",
+  "aes-256-gcm:     \(.aes_256_gcm_mbs // "n/a") MB/s   (context: absent AES-NI would be remarkable)",
+  "tls handshakes:  \(.tls_handshakes_s // "n/a") /s   (ECDSA P-256 sign, 1 thread)",
   "sha-256:         \(.sha256_mbs // "n/a") MB/s"
 ' "$P99_WORK/frag-cpu.json"

@@ -205,3 +205,19 @@ def test_ram_stage_retains_legacy_fields(repo_root):
     # published results stay readable. It is simply no longer banded.
     ram = run_stage(repo_root, "03-ram.sh", {"P99_RAM_TOTAL": "2G"}, "ram")["ram"]
     assert "seq_read_mbs" in ram
+
+
+@pytest.mark.docker
+def test_cpu_stage_emits_tls_handshakes(repo_root):
+    cpu = run_stage(repo_root, "02-cpu.sh", {"P99_CPU_QUICK": "1"}, "cpu")["cpu"]
+    assert cpu["tls_handshakes_s"] is not None
+    assert cpu["tls_handshakes_s"] > 0
+
+
+@pytest.mark.docker
+def test_cpu_stage_emits_scaling_efficiency(repo_root):
+    # Regression guard for the jnum bug fixed in Task 2: this was null in all
+    # 10 published results because bc prints ".977" and jnum rejected it.
+    cpu = run_stage(repo_root, "02-cpu.sh", {"P99_CPU_QUICK": "1"}, "cpu")["cpu"]
+    assert cpu["scaling_efficiency"] is not None
+    assert 0 < cpu["scaling_efficiency"] <= 1.5
