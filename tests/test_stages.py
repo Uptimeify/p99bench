@@ -57,6 +57,51 @@ def test_latency_percentiles_are_ordered(repo_root):
 
 
 @pytest.mark.docker
+def test_latency_overflow_counts_toward_percentile_denominator(repo_root):
+    # This is the one guard on the line that decides whether p99bench
+    # understates a bad host. cyclictest reports samples above the
+    # histogram ceiling on a separate "# Histogram Overflows:" line, and
+    # the parser MUST fold that count into the percentile denominator
+    # (grand = total + overflow in 05-latency.sh). Drop the overflow term
+    # and the denominator goes short: percentiles get computed against
+    # only the in-histogram samples, so a bad host with heavy tail stalls
+    # reads a deceptively low, "clean" p99 instead of the truth. That is
+    # exactly the failure this whole project exists to prevent.
+    #
+    # We force the bug's precondition -- real overflow -- by clamping the
+    # histogram ceiling (P99_STALL_HIST_MAX) to 600us, well under this
+    # container's typical stall (empirically ~850-900us here, and *very*
+    # bursty besides). Confirmed empirically over repeated runs at this
+    # ceiling: the in-histogram "# Total:" stays small but reliably
+    # nonzero (single digits to low tens out of ~5000 samples) while "#
+    # Histogram Overflows:" claims the rest (~99.6-99.9%). Both ends of
+    # that range matter. If overflow were only a percent or two (as it is
+    # at higher ceilings on this noisy VM), a good run could occasionally
+    # land its 99th percentile back inside the histogram even under a
+    # CORRECT parser, making the test flaky. If the ceiling were low
+    # enough to push the in-histogram total to exactly 0, a BROKEN parser
+    # would hit the unrelated "no data" branch and emit null anyway -- a
+    # false pass that proves nothing. At 600us, a CORRECT parser (grand =
+    # total + overflow) can never reach the 99th percentile inside the
+    # histogram and must emit null, while a BROKEN parser (grand = total
+    # alone, no overflow term) always has a nonzero total to compute
+    # against and returns a real bucket number instead -- silently. This
+    # test only asserts on that overflow behaviour (null vs. a number),
+    # never on a latency magnitude, since magnitudes measured in a
+    # container are noise.
+    cpu = run_stage(repo_root, "05-latency.sh",
+                    {"P99_LATENCY_DURATION": "5", "P99_STALL_HIST_MAX": "600"},
+                    "latency")["cpu"]
+    assert cpu["stall_p99_us"] is None, (
+        "stall_p99_us came back as a number under a deliberately tiny "
+        "histogram ceiling -- the overflow count is not reaching the "
+        "percentile denominator, so a bad host's tail stalls would be "
+        "silently dropped instead of reported"
+    )
+    assert cpu["stall_p999_us"] is None
+
+
+@pytest.mark.docker
 def test_latency_stage_retains_legacy_fields_as_null(repo_root):
     # Spec 9.2: legacy fields are retained so old and new results share a
     # schema, but the tool that produced them is gone, so they are null.

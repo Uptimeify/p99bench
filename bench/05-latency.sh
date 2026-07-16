@@ -72,10 +72,10 @@ OUT=$(cyclictest -q -m --policy=other -t 1 -i "$INTERVAL" -D "$DURATION" -h "$HI
 # separately by cyclictest and are, by definition, above HIST_MAX - they must
 # be added to the total or every percentile is computed against a short
 # denominator and reads optimistically low.
-read -r P99 P999 MAXV SAMPLES <<<"$(printf '%s' "$OUT" | awk -v hist_max="$HIST_MAX" '
+read -r P99 P999 MAXV SAMPLES <<<"$(printf '%s' "$OUT" | awk '
   /^[0-9]+[ \t]+[0-9]+/ { b[n] = $1 + 0; c[n] = $2 + 0; total += $2; n++ }
   /^# Histogram Overflows:/ { for (i = 4; i <= NF; i++) overflow += $i + 0 }
-  /^# Max Latencies:/       { for (i = 4; i <= NF; i++) if ($i + 0 > maxv) maxv = $i + 0 }
+  /^# Max Latencies:/       { for (i = 4; i <= NF; i++) { v = $i + 0; if (!gotmax || v > maxv) { maxv = v; gotmax = 1 } } }
   END {
     grand = total + overflow
     if (grand == 0) { print "  "; exit }
@@ -91,7 +91,8 @@ read -r P99 P999 MAXV SAMPLES <<<"$(printf '%s' "$OUT" | awk -v hist_max="$HIST_
     # than pinning it to the ceiling and understating a bad host.
     if (!got99)  p99  = "null"
     if (!got999) p999 = "null"
-    print p99, p999, (maxv ? maxv : "null"), grand
+    if (!gotmax) maxv = "null"
+    print p99, p999, maxv, grand
   }
 ')"
 
