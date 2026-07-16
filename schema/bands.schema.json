@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "p99bench band definitions",
+  "description": "Schema for schema/thresholds.yaml. A typo in a band bound is a silent mis-grade, so the rules file is validated like a result file is.",
+  "type": "object",
+  "required": ["bands_version", "metrics", "categories", "profiles"],
+  "additionalProperties": false,
+  "properties": {
+    "bands_version": { "type": "string" },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["op", "bands", "why", "confidence"],
+        "additionalProperties": false,
+        "properties": {
+          "op": { "enum": ["lte", "gte"] },
+          "bands": {
+            "type": "object",
+            "required": ["A", "B", "C", "D"],
+            "additionalProperties": false,
+            "properties": {
+              "A": { "type": "number" },
+              "B": { "type": "number" },
+              "C": { "type": "number" },
+              "D": { "type": "number" }
+            }
+          },
+          "unit": { "type": "string" },
+          "why": { "type": "string" },
+          "confidence": { "enum": ["high", "medium", "low"] },
+          "provisional": {
+            "type": "boolean",
+            "description": "No corpus behind these bands yet (spec 11). Exempt from the doctrine check in tests/test_band_doctrine.py until real data exists."
+          },
+          "quiet": {
+            "type": "boolean",
+            "description": "Reachable in both directions, but the current corpus happens to be clean, so it yields one grade. Declared per spec 4.4 -- the opposite of a broken threshold, which no machine can ever pass."
+          },
+          "means": {
+            "type": "object",
+            "description": "Optional per-grade plain-English meaning, rendered in reports.",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      }
+    },
+    "categories": {
+      "type": "object",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } }
+    },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["label", "rules"],
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string" },
+          "description": { "type": "string" },
+          "network_half_unmeasured": {
+            "type": "boolean",
+            "description": "Cluster profiles grade only what one host decides. Commit latency in a sync Patroni cluster is local fsync + inter-node RTT; we measure the first term only, and must say so (spec 7.3)."
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["metric", "required"],
+              "additionalProperties": false,
+              "properties": {
+                "metric": { "type": "string" },
+                "required": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

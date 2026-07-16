@@ -1,169 +1,255 @@
-# p99bench thresholds
+# p99bench bands
 #
-# This file is the single source of truth for verdicts.
-# THRESHOLDS.md documents the reasoning; this file is what the code reads.
-# Changing a number here changes every verdict on the next render.
+# Single source of truth for grades. THRESHOLDS.md documents the reasoning;
+# this file is what the code reads. Changing a number here changes every grade
+# on the next render, and CI will regenerate them all.
+#
+# Bands are a property of the METRIC, not of a profile: postgres_oltp and
+# redis_sentinel both read wal_fsync.p999_us and must agree on what a B means.
+# Profiles reference metrics by name, which is why adding a profile is a YAML
+# edit and needs no new measurement.
 #
 # Semantics:
-#   op: "gte" -> value must be >= pass to pass, >= marginal to be marginal, else fail
-#   op: "lte" -> value must be <= pass to pass, <= marginal to be marginal, else fail
-#   A missing/null value yields "unknown" for that rule and does not fail the profile,
-#   but a profile with any required rule unknown is reported as "unknown" overall.
+#   op: lte -> lower is better. value <= bands.A -> A, <= bands.B -> B, ... else F.
+#   op: gte -> higher is better. value >= bands.A -> A, >= bands.B -> B, ... else F.
+#   F is implicit: worse than the D bound.
+#
+# Rollup is worst-wins and never averages (spec 4.2). Precedence: any F -> F;
+# else any missing required rule -> ?; else the worst band present.
+#
+# Bands are ABSOLUTE, never a curve (spec 4.3). A grade must not depend on who
+# else submitted: if the whole field is bad, the best of a bad lot is still bad.
 
-version: "1.0"
+bands_version: "2.0"
 
-profiles:
+metrics:
 
-  postgres_oltp:
-    label: "PostgreSQL OLTP"
-    description: >
-      Classic transactional Postgres. Commit latency is bounded by fsync;
-      index lookups by random read; checkpoints by random write.
-    rules:
-      - path: disk.wal_fsync.p999_us
-        op: lte
-        pass: 2000
-        marginal: 5000
-        required: true
-        why: "Every COMMIT waits on fdatasync. p99.9 is what your slowest transactions feel."
-      - path: disk.wal_fsync.iops
-        op: gte
-        pass: 15000
-        marginal: 5000
-        required: true
-        why: "Ceiling on single-connection commit rate."
-      - path: disk.rand_read_8k.p99_us
-        op: lte
-        pass: 1000
-        marginal: 5000
-        required: true
-        why: "8k is the Postgres page size. Index lookups are random reads."
-      - path: disk.rand_read_8k.iops
-        op: gte
-        pass: 100000
-        marginal: 30000
-        required: false
-      - path: disk.rand_write_8k.iops
-        op: gte
-        pass: 50000
-        marginal: 15000
-        required: false
-      - path: cpu.steal_pct_under_load
-        op: lte
-        pass: 2
-        marginal: 5
-        required: true
-        why: "Steal time delays Patroni heartbeats and causes spurious failovers."
-      - path: disk.steady_state.degradation_pct
-        op: lte
-        pass: 10
-        marginal: 50
-        required: false
-        why: "Burst credits. A 60s benchmark cannot see this."
+  # --- disk ----------------------------------------------------------------
 
-  timescale_ingest:
-    label: "TimescaleDB ingest"
-    description: >
-      High-rate inserts plus background compression and continuous aggregates.
-      Sequential throughput and memory bandwidth matter more than for plain OLTP.
-    rules:
-      - path: disk.wal_fsync.p999_us
-        op: lte
-        pass: 2000
-        marginal: 5000
-        required: true
-      - path: disk.seq_write.bw_mbs
-        op: gte
-        pass: 500
-        marginal: 200
-        required: true
-        why: "Chunk writes and compression jobs are sequential and bulky."
-      - path: disk.seq_read.bw_mbs
-        op: gte
-        pass: 2000
-        marginal: 500
-        required: false
-        why: "Continuous aggregate refresh reads whole chunks."
-      - path: disk.rand_write_8k.iops
-        op: gte
-        pass: 50000
-        marginal: 15000
-        required: false
-      - path: ram.seq_read_mbs
-        op: gte
-        pass: 15000
-        marginal: 8000
-        required: false
-        why: "Aggregation over chunks is memory-bandwidth bound."
-      - path: cpu.steal_pct_under_load
-        op: lte
-        pass: 2
-        marginal: 5
-        required: true
-      - path: disk.steady_state.degradation_pct
-        op: lte
-        pass: 10
-        marginal: 50
-        required: false
+  disk.wal_fsync.p999_us:
+    op: lte
+    unit: us
+    bands: { A: 1000, B: 3000, C: 10000, D: 50000 }
+    confidence: high
+    why: >
+      The flagship. Every COMMIT waits on one fdatasync, alone, with no queue to
+      hide behind. p99.9 is what the slowest transactions feel; the mean
+      describes a commit nobody complains about.
+    means:
+      A: "local-NVMe/PLP class; tail invisible"
+      B: "solid VM; ~300+ commits/s single-writer"
+      C: "modest OLTP; 1-in-1000 commits stalls 10ms"
+      D: "batch only; not a transactional host"
+      F: "durability path broken"
 
-  redis_aof:
-    label: "Redis (AOF durable)"
-    description: >
-      Single-threaded, latency-critical, in-memory. Scheduler stalls translate
-      directly into request latency. AOF everysec/always adds an fsync path.
-      Needs no running Redis to evaluate.
-    rules:
-      - path: cpu.intrinsic_latency_max_us
-        op: lte
-        pass: 200
-        marginal: 1000
-        required: true
-        why: >
-          Redis is single-threaded. Any scheduler stall is dead time for every
-          client. This is measurable without a server via redis-cli --intrinsic-latency.
-      - path: cpu.single_thread_eps
-        op: gte
-        pass: 1000
-        marginal: 600
-        required: true
-        why: "Redis throughput is bounded by one core."
-      - path: disk.wal_fsync.p999_us
-        op: lte
-        pass: 2000
-        marginal: 5000
-        required: true
-        why: "appendfsync always/everysec blocks on the same fdatasync path as WAL."
-      - path: cpu.steal_pct_under_load
-        op: lte
-        pass: 2
-        marginal: 5
-        required: true
+  disk.wal_fsync.iops:
+    op: gte
+    unit: iops
+    bands: { A: 5000, B: 1000, C: 333, D: 100 }
+    confidence: medium
+    why: >
+      Latency-anchored, not IOPS-anchored: at QD1 this is ~1/mean-latency, so it
+      describes the typical commit where p99.9 describes the tail. Bounds are
+      200us / 1ms / 3ms / 10ms per durable write.
 
-  nuxt_ssr:
-    label: "Nuxt / Node SSR"
-    description: >
-      Single-threaded event loop per worker. Sensitive to scheduler stalls and
-      single-core speed; largely indifferent to disk.
-    rules:
-      - path: cpu.single_thread_eps
-        op: gte
-        pass: 1000
-        marginal: 600
-        required: true
-      - path: cpu.intrinsic_latency_max_us
-        op: lte
-        pass: 1000
-        marginal: 5000
-        required: true
-        why: "Event loop blocking. More tolerant than Redis, but not immune."
-      - path: cpu.steal_pct_under_load
-        op: lte
-        pass: 5
-        marginal: 10
-        required: false
-      - path: cpu.aes_256_gcm_mbs
-        op: gte
-        pass: 2000
-        marginal: 500
-        required: false
-        why: "TLS termination. Absent AES-NI is a red flag."
+  disk.rand_read_8k.p99_us:
+    op: lte
+    unit: us
+    bands: { A: 500, B: 2000, C: 5000, D: 15000 }
+    confidence: high
+    why: >
+      8k is the Postgres page size; index lookups are random reads. A query
+      doing 100 lookups at 5ms p99 has a real chance of one slow read.
+
+  disk.rand_read_8k.iops:
+    op: gte
+    unit: iops
+    bands: { A: 100000, B: 50000, C: 20000, D: 5000 }
+    confidence: low
+    why: "Generational marker rather than a workload requirement. Advisory."
+
+  disk.rand_write_8k.iops:
+    op: gte
+    unit: iops
+    bands: { A: 50000, B: 20000, C: 10000, D: 3000 }
+    confidence: low
+    why: "Checkpoint flush rate. Advisory."
+
+  disk.seq_write.bw_mbs:
+    op: gte
+    unit: MB/s
+    bands: { A: 1000, B: 500, C: 200, D: 100 }
+    confidence: medium
+    why: "Chunk writes and compression output are sequential and bulky."
+
+  disk.seq_read.bw_mbs:
+    op: gte
+    unit: MB/s
+    bands: { A: 2000, B: 1000, C: 500, D: 200 }
+    confidence: low
+    why: "Continuous aggregate refresh reads whole chunks. Advisory."
+
+  disk.steady_state.degradation_pct:
+    op: lte
+    unit: pct
+    bands: { A: 5, B: 15, C: 30, D: 50 }
+    confidence: medium
+    quiet: true
+    why: >
+      Burst credits. A 60s run measures the credit balance; 30 minutes measures
+      the machine you will actually run. Quiet in the current corpus (0.0-2.0%
+      across all 10 runs) -- reachable in both directions, the hosts simply do
+      not throttle. Contrast a broken threshold, which no machine can ever pass.
+
+  # --- cpu -----------------------------------------------------------------
+
+  cpu.single_thread_eps:
+    op: gte
+    unit: events/s
+    bands: { A: 1400, B: 1000, C: 700, D: 400 }
+    confidence: medium
+    why: >
+      Redis, each Node worker, and each Postgres backend are bounded by one
+      core. Contemporary server silicon lands ~1600-1800. This metric already
+      caught a 4.7x starvation on ovh/waw (356 vs ~1600) that steal time missed.
+
+  cpu.scaling_efficiency:
+    op: gte
+    unit: ratio
+    bands: { A: 0.85, B: 0.70, C: 0.55, D: 0.40 }
+    confidence: medium
+    why: >
+      multi / (single * cores). ~0.9 means physical cores; ~0.6 means SMT
+      siblings sold as cores; well below means sharing physical cores with
+      other tenants.
+
+  cpu.steal_pct_under_load:
+    op: lte
+    unit: pct
+    bands: { A: 0.5, B: 2, C: 5, D: 10 }
+    confidence: high
+    quiet: true
+    why: >
+      C is a correctness line, not a performance one: past ~5% Patroni
+      heartbeats start missing TTLs and a failover fires because the host was
+      busy, not because anything was wrong. Quiet in the current corpus
+      (0.0-0.24%) -- these hosts genuinely do not steal. Keep it: it is
+      insurance that fires on an oversubscribed host, and its silence is itself
+      a finding.
+
+  cpu.stall_p999_us:
+    op: lte
+    unit: us
+    bands: { A: 100, B: 500, C: 2000, D: 10000 }
+    confidence: low
+    provisional: true
+    why: >
+      PROVISIONAL -- no corpus. Redis is one thread; each Node worker is one
+      event loop. A stall is dead time for every client, with no other core to
+      absorb it. Measured at SCHED_OTHER because that is the class Redis and
+      Node actually run in. Recalibrate once real data exists (spec 11).
+
+  cpu.steady_state.degradation_pct:
+    op: lte
+    unit: pct
+    bands: { A: 5, B: 15, C: 30, D: 50 }
+    confidence: low
+    provisional: true
+    why: >
+      PROVISIONAL -- no corpus. CPU burst credits, the same trap the disk
+      steady test exists for. This is the metric that catches a node pinned at
+      a throttled baseline -- the Prague failure mode, which steal time did not
+      see. Recalibrate once real data exists (spec 11).
+
+  cpu.tls_verify_s:
+    op: gte
+    unit: ops/s
+    bands: { A: 30000, B: 15000, C: 7000, D: 3000 }
+    confidence: low
+    provisional: true
+    why: >
+      PROVISIONAL -- no corpus. SSL checks are handshake-bound. A probe is the
+      TLS CLIENT, and the client VERIFIES (the server signs) -- and verify is
+      the expensive half, 2 scalar mults vs 1, so it is ~3x slower than sign.
+      Do not swap this for tls_sign_s. Recalibrate once real data exists.
+
+  # --- ram -----------------------------------------------------------------
+
+  ram.bw_read_mbs:
+    op: gte
+    unit: MB/s
+    bands: { A: 40000, B: 25000, C: 15000, D: 8000 }
+    confidence: low
+    provisional: true
+    why: >
+      PROVISIONAL -- and it cannot be calibrated from the existing corpus at
+      all: those 10 numbers were measured with a 1M working set that sat in L2,
+      so they describe cache, not memory, and cannot calibrate their own
+      replacement. Anchored to DDR generation instead: DDR4-3200 dual ~40 GB/s,
+      DDR5-4800 dual ~76 GB/s; single channel halves it. Recalibrate (spec 11).
+
+  host.ram_mb:
+    op: gte
+    unit: MB
+    bands: { A: 16384, B: 8192, C: 4096, D: 2048 }
+    confidence: medium
+    why: >
+      Graded for playwright_node only. Each Chromium is ~300-500 MB, so a 2 GB
+      VPS cannot run 4 concurrent browsers regardless of core speed. A sizing
+      fact, and actionable.
+
+  # --- network (worker profiles only -- see spec 6.5) -----------------------
+
+  network.loss_pct:
+    op: lte
+    unit: pct
+    bands: { A: 0.01, B: 0.1, C: 0.5, D: 2 }
+    confidence: medium
+    why: >
+      DERIVED, not chosen. An ICMP check sending 3 packets and declaring "down"
+      on total loss false-alarms at rate p^3. At p=10% that is 1-in-1000 checks;
+      at one check per minute, 1.4 false alarms per day. The corpus contains
+      exactly this case: ovh/zrh -> hetzner-ash at 10% loss.
+
+  network.dns_ms:
+    op: lte
+    unit: ms
+    bands: { A: 5, B: 20, C: 50, D: 100 }
+    confidence: medium
+    why: "Every HEAD/GET check pays DNS before it starts."
+
+  network.rtt_jitter_ratio:
+    op: lte
+    unit: ratio
+    bands: { A: 1.1, B: 1.5, C: 2.0, D: 5.0 }
+    confidence: low
+    why: "rtt_p99 / rtt_p50. Timing-sensitive checks care about the spread, not the mean."
+
+categories:
+  disk:
+    - disk.wal_fsync.p999_us
+    - disk.wal_fsync.iops
+    - disk.rand_read_8k.p99_us
+    - disk.rand_read_8k.iops
+    - disk.rand_write_8k.iops
+    - disk.seq_write.bw_mbs
+    - disk.seq_read.bw_mbs
+    - disk.steady_state.degradation_pct
+  cpu:
+    - cpu.single_thread_eps
+    - cpu.scaling_efficiency
+    - cpu.steal_pct_under_load
+    - cpu.stall_p999_us
+    - cpu.steady_state.degradation_pct
+    - cpu.tls_verify_s
+  ram:
+    - ram.bw_read_mbs
+  network:
+    - network.loss_pct
+    - network.dns_ms
+    - network.rtt_jitter_ratio
+
+# profiles: populated by Task 4. Left as an empty object here so this file
+# already satisfies schema/bands.schema.json (which requires the key) without
+# pre-empting Task 4's content.
+profiles: {}
