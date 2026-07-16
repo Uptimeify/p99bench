@@ -44,14 +44,13 @@ jobs:
           done
           exit $fail
 
-      - name: Check RESULTS.md is up to date
+      - name: Check generated artifacts are current
+        # Generated files are never hand-edited: RESULTS.md, the per-provider
+        # pages and the data export are all a pure function of results/ plus
+        # schema/thresholds.yaml. --check names every stale file at once
+        # instead of failing on the first diff.
         run: |
-          python3 tools/render.py > /tmp/RESULTS.md
-          if ! diff -q RESULTS.md /tmp/RESULTS.md >/dev/null; then
-            echo "::error::RESULTS.md is stale. Run: python3 tools/render.py > RESULTS.md"
-            diff RESULTS.md /tmp/RESULTS.md || true
-            exit 1
-          fi
+          python3 tools/render.py --check
 
   shellcheck:
     runs-on: ubuntu-latest

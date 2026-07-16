@@ -27,3 +27,18 @@ def test_check_fails_and_names_the_file_when_an_artifact_is_stale(tmp_path):
         assert "RESULTS.md" in proc.stdout + proc.stderr, "did not name the stale file"
     finally:
         target.write_text(original)
+
+
+def test_ci_runs_render_check():
+    # The generated-files-are-never-hand-edited property is only real if CI
+    # enforces it. A workflow edit that drops this is a silent loss of the
+    # trust property, so pin it.
+    wf = (ROOT / ".github" / "workflows" / "validate.yml").read_text()
+    assert "render.py --check" in wf
+
+
+def test_ci_no_longer_uses_the_stdout_contract():
+    # render.py writes files now. `render.py > RESULTS.md` would produce an
+    # empty RESULTS.md and a passing diff against... nothing.
+    wf = (ROOT / ".github" / "workflows" / "validate.yml").read_text()
+    assert "render.py >" not in wf
