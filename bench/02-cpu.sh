@@ -14,10 +14,15 @@ CORES=$(nproc)
 # use this - 5s of sysbench measures noise.
 SB_TIME=30
 STRESS_TIME=65
+# mpstat sample count (1s per sample). Also gated by P99_CPU_QUICK below --
+# it is not scaled by SB_TIME/STRESS_TIME, so it needs its own cut or a
+# "quick" run still takes ~50s on this line alone.
+STEAL_SAMPLES=50
 if [[ -n "${P99_CPU_QUICK:-}" ]]; then
   warn "P99_CPU_QUICK set - runtimes cut to seconds. NOT a measurement."
   SB_TIME=2
   STRESS_TIME=6
+  STEAL_SAMPLES=3
 fi
 
 log "CPU: single thread"
@@ -57,7 +62,7 @@ CLOCK_LOAD=$(awk '/cpu MHz/ {s+=$4; n++} END {if(n) printf "%.0f", s/n}' /proc/c
 # header name rather than by position.
 STEAL=""
 if command -v mpstat >/dev/null 2>&1; then
-  STEAL=$(mpstat 1 50 2>/dev/null | awk '
+  STEAL=$(mpstat 1 "$STEAL_SAMPLES" 2>/dev/null | awk '
     /%steal/ && !col { for (i = 1; i <= NF; i++) if ($i == "%steal") col = i - 1 }
     /^Average/ && col { print $col; exit }
   ')
@@ -91,29 +96,43 @@ if command -v openssl >/dev/null 2>&1; then
   [[ -n "$SHAK" ]] && SHA=$(echo "scale=2; $SHAK / 1000" | bc 2>/dev/null || echo "")
 fi
 
-# TLS handshake rate. SSL/HTTPS checks are bound by the asymmetric handshake
-# (ECDSA sign + verify), not by bulk cipher throughput - a probe node opens a
-# new connection per check and almost never transfers enough bytes for
-# aes_256_gcm_mbs to matter. P-256 because it is what essentially every modern
-# certificate uses.
+# TLS sign/verify rate. SSL/HTTPS checks are bound by the asymmetric
+# handshake, not by bulk cipher throughput - a probe node opens a new
+# connection per check and almost never transfers enough bytes for
+# aes_256_gcm_mbs to matter. P-256 because it is what essentially every
+# modern certificate uses.
 #
 # Single-threaded on purpose: this feeds worker_probe, where the question is
 # how fast one check can complete, not how many cores can be thrown at it.
 #
-# openssl prints:
+# A worker_probe is the TLS *client*. In a standard (non-mTLS) handshake the
+# SERVER signs and the CLIENT verifies -- and the client verifies more than
+# once: the server's CertificateVerify, plus each signature in the presented
+# chain. So verification, not signing, is the work a probe actually pays
+# for. It is also the SLOWER half, which reverses the RSA intuition: ECDSA
+# sign is one scalar multiplication, verify is two, so verify runs at
+# roughly a third of sign's rate (measured: sign 104980/s vs verify 34887/s
+# on P-256). A future reader must NOT "simplify" this back to sign/s -- that
+# is precisely the bug this rewrite fixes; see the invariant test in
+# tests/test_stages.py (tls_verify_s < tls_sign_s on every platform).
+#
+# openssl prints one line for both, sign before verify, regardless of which
+# is faster:
 #   sign    verify    sign/s verify/s
-#   0.0000s 0.0000s   45678.1  123456.7
-# Take sign/s ($3): signing is the expensive half and the one a client waits on.
-TLS=""
+#   0.0000s 0.0000s   98131.3  34834.0
+# On the verified layout (NF=8): $(NF-1) is sign/s, $NF is verify/s.
+TLS_SIGN=""
+TLS_VERIFY=""
 if command -v openssl >/dev/null 2>&1; then
-  log "CPU: ECDSA P-256 handshakes (SSL check rate)"
-  TLS=$(openssl speed -seconds 3 ecdsap256 2>/dev/null \
-        | awk '/^ *256 bits ecdsa \(nistp256\)/ {print $(NF-1); exit}')
+  log "CPU: ECDSA P-256 sign/verify (SSL check rate)"
+  TLS_OUT=$(openssl speed -seconds 3 ecdsap256 2>/dev/null)
+  TLS_SIGN=$(awk '/^ *256 bits ecdsa \(nistp256\)/ {print $(NF-1); exit}' <<<"$TLS_OUT")
+  TLS_VERIFY=$(awk '/^ *256 bits ecdsa \(nistp256\)/ {print $NF; exit}' <<<"$TLS_OUT")
   # Label and column layout have both moved across OpenSSL 1.1/3.x. Fall back
   # to the generic ecdsa row rather than silently recording null.
-  if [[ -z "$TLS" ]]; then
-    TLS=$(openssl speed -seconds 3 ecdsap256 2>/dev/null \
-          | awk '/ecdsa/ && /nistp256/ {print $(NF-1); exit}')
+  if [[ -z "$TLS_SIGN" || -z "$TLS_VERIFY" ]]; then
+    TLS_SIGN=$(awk '/ecdsa/ && /nistp256/ {print $(NF-1); exit}' <<<"$TLS_OUT")
+    TLS_VERIFY=$(awk '/ecdsa/ && /nistp256/ {print $NF; exit}' <<<"$TLS_OUT")
   fi
 fi
 
@@ -126,7 +145,8 @@ emit_json cpu "$(jq -n \
   --argjson steal "$(jnum "$STEAL")" \
   --argjson aes "$(jnum "$AES")" \
   --argjson sha "$(jnum "$SHA")" \
-  --argjson tls "$(jnum "$TLS")" \
+  --argjson tlsv "$(jnum "$TLS_VERIFY")" \
+  --argjson tlss "$(jnum "$TLS_SIGN")" \
   '{cpu: {
       single_thread_eps: $st,
       multi_thread_eps: $mt,
@@ -136,7 +156,8 @@ emit_json cpu "$(jq -n \
       steal_pct_under_load: $steal,
       aes_256_gcm_mbs: $aes,
       sha256_mbs: $sha,
-      tls_handshakes_s: $tls
+      tls_verify_s: $tlsv,
+      tls_sign_s: $tlss
   }}')"
 
 echo
@@ -149,6 +170,7 @@ jq -r --arg cores "$CORES" '.cpu |
   "clock at load:   \(.clock_under_load_mhz // "n/a") MHz",
   "steal at load:   \(.steal_pct_under_load // "n/a") %   (>5 = host is oversold)",
   "aes-256-gcm:     \(.aes_256_gcm_mbs // "n/a") MB/s   (context: absent AES-NI would be remarkable)",
-  "tls handshakes:  \(.tls_handshakes_s // "n/a") /s   (ECDSA P-256 sign, 1 thread)",
+  "tls verify:      \(.tls_verify_s // "n/a") /s   (ECDSA P-256, 1 thread -- what a probe pays)",
+  "tls sign:        \(.tls_sign_s // "n/a") /s   (ECDSA P-256, 1 thread -- context only)",
   "sha-256:         \(.sha256_mbs // "n/a") MB/s"
 ' "$P99_WORK/frag-cpu.json"

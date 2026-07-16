@@ -208,10 +208,36 @@ def test_ram_stage_retains_legacy_fields(repo_root):
 
 
 @pytest.mark.docker
-def test_cpu_stage_emits_tls_handshakes(repo_root):
+def test_cpu_stage_emits_tls_verify_s(repo_root):
+    # tls_verify_s is the PRIMARY metric: a worker_probe is the TLS client,
+    # and the client verifies (see bench/02-cpu.sh for the full argument).
+    # Shape only -- this container may be arm64, where the magnitude is
+    # meaningless.
     cpu = run_stage(repo_root, "02-cpu.sh", {"P99_CPU_QUICK": "1"}, "cpu")["cpu"]
-    assert cpu["tls_handshakes_s"] is not None
-    assert cpu["tls_handshakes_s"] > 0
+    assert cpu["tls_verify_s"] is not None
+    assert cpu["tls_verify_s"] > 0
+
+
+@pytest.mark.docker
+def test_cpu_stage_emits_tls_sign_s(repo_root):
+    # tls_sign_s is recorded as context only (no profile grades it today) --
+    # a host might later be graded as a TLS *server*, where signing is what
+    # it pays. Shape only, same reasoning as above.
+    cpu = run_stage(repo_root, "02-cpu.sh", {"P99_CPU_QUICK": "1"}, "cpu")["cpu"]
+    assert cpu["tls_sign_s"] is not None
+    assert cpu["tls_sign_s"] > 0
+
+
+@pytest.mark.docker
+def test_cpu_stage_tls_verify_is_slower_than_sign(repo_root):
+    # Tripwire for the exact bug this fix addresses: ECDSA verify is two
+    # scalar multiplications, sign is one, so verify/s must always be LOWER
+    # than sign/s on every platform. If someone later swaps the awk columns
+    # back (e.g. "simplifies" this to sign/s under the old, wrong belief
+    # that signing is the expensive half), this test catches it -- it is a
+    # real algorithmic invariant, not a magnitude assertion.
+    cpu = run_stage(repo_root, "02-cpu.sh", {"P99_CPU_QUICK": "1"}, "cpu")["cpu"]
+    assert cpu["tls_verify_s"] < cpu["tls_sign_s"]
 
 
 @pytest.mark.docker
