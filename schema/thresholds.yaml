@@ -124,10 +124,15 @@ metrics:
     unit: ratio
     bands: { A: 0.85, B: 0.70, C: 0.55, D: 0.40 }
     confidence: medium
+    quiet: true
     why: >
       multi / (single * cores). ~0.9 means physical cores; ~0.6 means SMT
       siblings sold as cores; well below means sharing physical cores with
-      other tenants.
+      other tenants. Quiet in the current corpus -- all 10 backfilled values
+      fall in 0.953-1.018, i.e. all A, because every host measured so far
+      hands out physical cores. 0.70 and 0.40 are reachable on SMT-sold-as-
+      cores or oversubscribed hosts; this band is insurance for that host,
+      not a dead threshold.
 
   cpu.steal_pct_under_load:
     op: lte
