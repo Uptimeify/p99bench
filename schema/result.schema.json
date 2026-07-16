@@ -407,6 +407,96 @@
           ],
           "minimum": 0
         },
+        "stall_p99_us": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "cyclictest scheduler-stall histogram, 99th percentile, --policy=other. Replaces intrinsic_latency_*."
+        },
+        "stall_p999_us": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "cyclictest scheduler-stall histogram, 99.9th percentile. What a single-threaded process actually feels."
+        },
+        "stall_max_us": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Context only, not banded -- an extreme-value statistic that grows with runtime."
+        },
+        "stall_samples": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "In-histogram + overflow sample count backing the percentiles above."
+        },
+        "tls_verify_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "openssl speed ecdsap256, verify/sec, 1 thread -- what a probe pays."
+        },
+        "tls_sign_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "openssl speed ecdsap256, sign/sec, 1 thread. Context only."
+        },
+        "steady_state": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "15-minute sustained single-thread CPU load. Exposes burst credit throttling.",
+          "additionalProperties": false,
+          "properties": {
+            "duration_s": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "first_min_eps": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "last_min_eps": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "degradation_pct": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "Percent drop from first minute to last minute. Same sign convention as disk.steady_state.degradation_pct."
+            },
+            "steal_pct": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "description": "Mean %steal from mpstat during the sustained load."
+            }
+          }
+        },
         "aes_256_gcm_mbs": {
           "type": [
             "number",
@@ -445,6 +535,22 @@
             "integer",
             "null"
           ]
+        },
+        "bw_read_mbs": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Read bandwidth from a working set sized to clear LLC. Null when the host shape cannot clear cache within a safe (non-swapping) working set -- see bw_block_bytes."
+        },
+        "bw_block_bytes": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Per-thread working-set size actually used for bw_read_mbs, in bytes."
         },
         "seq_read_mbs": {
           "type": [

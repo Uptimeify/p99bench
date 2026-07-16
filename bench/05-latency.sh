@@ -73,6 +73,17 @@ OUT=$(cyclictest -q -m --policy=other -t 1 -i "$INTERVAL" -D "$DURATION" -h "$HI
 # be added to the total or every percentile is computed against a short
 # denominator and reads optimistically low.
 read -r P99 P999 MAXV SAMPLES <<<"$(printf '%s' "$OUT" | awk '
+  # n=0 here looks like a no-op (an uninitialised awk variable already reads
+  # as 0 in numeric context) but it is not: array subscripting uses a
+  # variables STRING value, and an untouched n has string value "" until
+  # arithmetic has run on it at least once. Without this line, the FIRST
+  # histogram row (bucket 0) writes to b[""]/c[""] instead of b[0]/c[0], and
+  # the cumulative loop below (for i = 0; i < n; i++) reads integer
+  # subscripts "0", "1", ... and so never sees bucket 0 again - it silently
+  # drops out of every percentile. total is unaffected (it is a scalar, not
+  # an array), so the bug is invisible in sample counts and only shows up as
+  # percentiles reading short. Do not "simplify" this away.
+  BEGIN { n = 0 }
   /^[0-9]+[ \t]+[0-9]+/ { b[n] = $1 + 0; c[n] = $2 + 0; total += $2; n++ }
   /^# Histogram Overflows:/ { for (i = 4; i <= NF; i++) overflow += $i + 0 }
   /^# Max Latencies:/       { for (i = 4; i <= NF; i++) { v = $i + 0; if (!gotmax || v > maxv) { maxv = v; gotmax = 1 } } }

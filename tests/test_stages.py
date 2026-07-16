@@ -101,6 +101,74 @@ def test_latency_overflow_counts_toward_percentile_denominator(repo_root):
     assert cpu["stall_p999_us"] is None
 
 
+def _extract_latency_awk(repo_root) -> str:
+    """Pull the percentile-parsing awk program straight out of 05-latency.sh.
+
+    Extracting the real program (rather than hand-copying it into the test)
+    means this test breaks the moment the shipped parser regresses, instead
+    of silently testing a stale mirror of it.
+    """
+    script = (repo_root / "bench" / "05-latency.sh").read_text()
+    m = re.search(r"\| awk '(.*?)'\)\"", script, re.S)
+    assert m, "could not locate the percentile-parsing awk program in 05-latency.sh"
+    return m.group(1)
+
+
+def test_latency_awk_does_not_lose_histogram_bucket_zero(repo_root):
+    # Not @pytest.mark.docker: this feeds a synthetic cyclictest-shaped
+    # histogram straight to the real awk program via a plain `awk` subprocess
+    # -- no cyclictest, no container.
+    #
+    # Regression test for the b[n]/c[n] subscript bug: on the very first
+    # matching histogram line awk's uninitialised `n` has numeric value 0 but
+    # STRING value "" (nothing has done arithmetic on it yet), so b[n]/c[n]
+    # write to b[""]/c[""] instead of b[0]/c[0]. The cumulative loop
+    # `for (i = 0; i < n; i++)` then reads integer subscripts "0", "1", ...
+    # and never sees bucket 0's count again -- it silently drops out of every
+    # percentile, even though `total` (a scalar, not an array) still counts
+    # it correctly.
+    #
+    # The numbers below reproduce the exact failure mode from the branch
+    # review: bucket 0 holds 0.2% of 100000 samples, there is zero overflow,
+    # and every sample sits inside the histogram ceiling. That 0.2% is enough
+    # to push the buggy cumulative sum (which tops out at total - bucket0)
+    # short of the 99.9th-percentile target, while still leaving enough
+    # margin that the 99th percentile resolves to the same bucket either way
+    # -- p99 stays right by coincidence, p999 does not. Null is supposed to
+    # mean "beyond the histogram ceiling"; here it would mean the opposite:
+    # so fast that most samples piled into bucket 0.
+    awk_program = _extract_latency_awk(repo_root)
+
+    histogram = "\n".join([
+        "0 200",
+        "1 50",
+        "2 50",
+        "3 50",
+        "4 98950",
+        "5 600",
+        "6 100",
+        "# Histogram Overflows: 0",
+        "# Max Latencies: 00007",
+    ]) + "\n"
+
+    proc = subprocess.run(
+        ["awk", awk_program], input=histogram, capture_output=True, text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    p99, p999, maxv, grand = proc.stdout.split()
+
+    assert grand == "100000", f"unexpected total sample count: {grand!r}"
+    assert p99 == "4", f"unexpected p99 bucket: {p99!r}"
+    assert p999 != "null", (
+        "stall_p999_us came back null for a histogram where every sample "
+        "(including bucket 0) is inside the ceiling and there is zero "
+        "overflow -- bucket 0 is being silently dropped from the "
+        "cumulative percentile sum (see the b[n]/c[n] subscript comment in "
+        "05-latency.sh)"
+    )
+    assert p999 == "5", f"unexpected p999 bucket: {p999!r}"
+
+
 @pytest.mark.docker
 def test_latency_stage_retains_legacy_fields_as_null(repo_root):
     # Spec 9.2: legacy fields are retained so old and new results share a

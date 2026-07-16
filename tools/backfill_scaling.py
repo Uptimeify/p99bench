@@ -21,8 +21,6 @@ import math
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-
 
 def backfill(result: dict) -> bool:
     """Fill cpu.scaling_efficiency from single/multi thread eps and vcpu.

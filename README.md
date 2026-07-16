@@ -94,8 +94,12 @@ whether to install Redis.
 
 Redis performance decomposes into single-core speed, scheduler stall behaviour
 and AOF fsync latency — all three measurable without a server running.
-`redis-cli --intrinsic-latency` ships in `redis-tools`, opens no socket, and is
-the cheapest good detector of an oversubscribed hypervisor there is.
+Scheduler stalls come from `cyclictest` (ships in `rt-tests`), which opens no
+socket and needs no Redis. It emits a latency histogram, run at normal
+scheduling priority so it experiences the same contention Redis and Node
+would, and we read the 99.9th percentile off it: `p99.9` is what a
+single-threaded process actually feels, and unlike a running max it converges
+instead of drifting upward the longer the test runs.
 
 `04-app-optional.sh` runs `pgbench` and `redis-benchmark` if a service happens to
 be reachable, but that is for validating the thresholds themselves, not for

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 02-cpu.sh - single/multi core throughput, clock under load, steal time.
-# Emits cpu{} fragment (intrinsic latency is added by 05-latency.sh).
+# Emits cpu{} fragment (stall percentiles are added by 05-latency.sh).
 set -uo pipefail
 cd "$(dirname "$0")" || exit 1
 source ./lib.sh
