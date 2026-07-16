@@ -407,3 +407,48 @@ def test_run_all_help_lists_every_option_it_parses(repo_root):
     required = {"--provider", "--product", "--region", "--price", "--billing"}
     for opt in sorted(parsed - required):
         assert opt in proc.stdout, f"{opt} is parsed but undocumented in --help"
+
+
+def test_steal_parser_reads_steal_not_the_column_beside_it(repo_root):
+    """mpstat's %steal must be located by offset from the END of the line.
+
+    The header's leading timestamp is one field in a 24-hour locale
+    ("18:56:02 CPU %usr ...") and two in a 12-hour one ("06:56:02 PM CPU ...").
+    The Average: line always has exactly one leading field. So an index counted
+    from the left is correct in one locale and off by one in the other -- the
+    original `col = i - 1` printed %soft as %steal on a 24-hour host. A
+    plausible small number, wearing the name of the metric that decides whether
+    Patroni spuriously fails over.
+
+    Both stages parse this identically, so both are pinned. Needs no container:
+    the bug is in the awk, and real mpstat output reproduces it exactly.
+    """
+    import subprocess
+
+    # Real `mpstat 1 2` output, 24-hour locale. %soft=0.10, %steal=0.00 --
+    # deliberately different so an off-by-one cannot pass by coincidence.
+    sample = (
+        "Linux 6.12.67 (host) \t07/16/26 \t_aarch64_\t(5 CPU)\n"
+        "\n"
+        "18:56:02     CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle\n"
+        "18:56:03     all    1.39    0.00    1.39    0.00    0.00    0.20    0.00    0.00    0.00   97.02\n"
+        "Average:     all    0.40    0.00    0.10    0.00    0.00    0.10    0.00    0.00    0.00   99.40\n"
+    )
+    for script in ("02-cpu.sh", "02b-cpu-steady.sh"):
+        src = (repo_root / "bench" / script).read_text()
+        # Find the awk program by CONTENT, not by position: the first literal
+        # "mpstat" in these files is inside a comment, so anchoring on it picks
+        # up the wrong block.
+        blocks = [b for b in re.findall(r"awk\s*'(.*?)'", src, re.S)
+                  if "%steal" in b and "Average" in b]
+        assert len(blocks) == 1, (
+            f"{script}: expected exactly one %steal awk program, found {len(blocks)}"
+        )
+        out = subprocess.run(["awk", blocks[0]], input=sample,
+                             capture_output=True, text=True)
+        assert out.returncode == 0, out.stderr
+        got = out.stdout.strip()
+        assert got == "0.00", (
+            f"{script}: steal parser returned {got!r}; %steal is 0.00 and %soft "
+            f"is 0.10 -- returning 0.10 means it is reading the column beside it"
+        )

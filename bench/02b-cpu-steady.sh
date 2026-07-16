@@ -61,8 +61,20 @@ if command -v mpstat >/dev/null 2>&1; then
   sysbench cpu --cpu-max-prime=20000 --threads="$CORES" --time=15 run >/dev/null 2>&1 &
   LOAD_PID=$!
   STEAL=$(mpstat 1 10 2>/dev/null | awk '
-    /%steal/ && !col { for (i = 1; i <= NF; i++) if ($i == "%steal") col = i - 1 }
-    /^Average/ && col { print $col; exit }
+    # Locate %steal by its OFFSET FROM THE END, not from the start.
+    #
+    # The header carries a leading timestamp whose field count varies by locale:
+    # "18:56:02 CPU %usr ..." in a 24-hour locale, but "06:56:02 PM CPU %usr ..."
+    # in a 12-hour one. The Average: line always has exactly one leading field.
+    # So an index counted from the left is off by one in some locales and right in
+    # others -- the previous version used `col = i - 1` and, on a 24-hour host,
+    # silently printed %soft as if it were %steal. A plausible small number,
+    # labelled as the metric that decides whether Patroni fails over.
+    #
+    # The trailing columns (%steal %guest %gnice %idle) do not move, so an offset
+    # from NF is stable across locales and sysstat versions.
+    /%steal/ && !found { for (i = 1; i <= NF; i++) if ($i == "%steal") { off = NF - i; found = 1 } }
+    /^Average/ && found { print $(NF - off); exit }
   ')
   wait "$LOAD_PID" 2>/dev/null || true
 else
