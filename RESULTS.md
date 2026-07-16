@@ -5,7 +5,7 @@
 
 10 runs across 7 machines at 3 providers.
 
-*Every number below is a measurement of specific machines at specific times. Providers vary by region, by hardware generation within a region, and by who else is on the host. Read [METHODOLOGY.md](METHODOLOGY.md) before drawing conclusions, and [THRESHOLDS.md](THRESHOLDS.md) before disagreeing with a verdict.*
+*Every number below is a measurement of specific machines at specific times. Providers vary by region, by hardware generation within a region, and by who else is on the host. Read [METHODOLOGY.md](METHODOLOGY.md) before drawing conclusions, and [THRESHOLDS.md](THRESHOLDS.md) before disagreeing with a grade.*
 
 ## Summary
 
@@ -13,16 +13,19 @@ One row per product and region. `fsync p99.9` is the number that decides
 whether a database is viable here, and the worst case matters more than the
 median: your slowest commits are the ones users notice.
 
-| Provider | Region | Product | Machines | Runs | fsync p99.9 med | fsync p99.9 worst | stall worst | pg | ts | redis | nuxt |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| hetzner | hel-1 | `CPX32` | 2 | 3 | 2.2 ms | 2.9 ms | 2.5 ms | fail | marginal | fail | marginal |
-| ovh | prg | `vps-1-lz-2026` | 1 | 2 | - | 12.5 ms | 6.2 ms | fail | fail | fail | fail |
-| ovh | waw | `vps-1-lz-2026` | 1 | 1 | - | 2.2 ms | 5.9 ms | fail | marginal | fail | fail |
-| ovh | zrh | `vps-1-lz-2026` | 2 | 3 | 118.0 ms | 137.4 ms | 6.5 ms | fail | fail | fail | fail |
-| windcloud | enge-sande | `VPS-L` | 1 | 1 | - | 459.3 ms | 2.7 ms | ? | ? | ? | fail |
+| Provider | Region | Product | Storage | Machines | Runs | fsync p99.9 med | fsync p99.9 worst | stall worst | pg | ts | patroni | redis | probe | pw | nuxt |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| hetzner | hel-1 | `CPX32` | net-fast | 2 | 3 | 2.2 ms | 2.9 ms | 2.5 ms | C | B | ? | ? | ? | ? | ? |
+| ovh | prg | `vps-1-lz-2026` | net-slow | 1 | 2 | - | 12.5 ms | 6.2 ms | F | D | ? | ? | ? | ? | ? |
+| ovh | waw | `vps-1-lz-2026` | net-fast | 1 | 1 | - | 2.2 ms | 5.9 ms | D | C | F | F | F | F | F |
+| ovh | zrh | `vps-1-lz-2026` | net-slow | 2 | 3 | 118.0 ms | 137.4 ms | 6.5 ms | F | F | F | F | F | F | ? |
+| windcloud | enge-sande | `VPS-L` | degraded | 1 | 1 | - | 459.3 ms | 2.7 ms | F | F | F | F | ? | ? | ? |
 
-Verdicts are the **worst** across all runs for that product. A machine that
-passes at 03:00 and fails at 18:00 is a machine that fails.
+Grades are the **worst** across all runs for that product. A machine that
+grades A at 03:00 and F at 18:00 is a machine that grades F. `?` on
+`patroni`/`redis`/`probe`/`pw`/`nuxt` mostly means the run predates Phase 1's
+stages, not that the machine is fine -- see
+[THRESHOLDS.md](THRESHOLDS.md#provisional-bands).
 
 ## Detail
 
@@ -41,11 +44,11 @@ Worst fsync p99.9 per machine ranges 1.9 ms to 2.9 ms (1.5x spread).
 <details>
 <summary>All 3 runs</summary>
 
-| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | redis | nuxt |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| `177b79` | 2026-07-15 | 22h | 2.9 ms | 2.4 ms | 0.0% | 2.5 ms | 2.0% | fail | marginal | fail | marginal |
-| `177b79` | 2026-07-16 | 09h | 2.2 ms | 2.5 ms | 0.0% | 2.3 ms | 0.5% | fail | marginal | fail | marginal |
-| `ffe9c6` | 2026-07-16 | 10h | 1.9 ms | 2.5 ms | 0.0% | 1.6 ms | 0.4% | fail | pass | fail | marginal |
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `177b79` | 2026-07-15 | 22h | 2.9 ms | 2.4 ms | 0.0% | 2.5 ms | 2.0% | C | B | ? | ? | ? | ? | ? |
+| `177b79` | 2026-07-16 | 09h | 2.2 ms | 2.5 ms | 0.0% | 2.3 ms | 0.5% | C | B | ? | ? | ? | ? | ? |
+| `ffe9c6` | 2026-07-16 | 10h | 1.9 ms | 2.5 ms | 0.0% | 1.6 ms | 0.4% | C | B | ? | ? | ? | ? | ? |
 
 </details>
 
@@ -60,10 +63,10 @@ Fewer than 3 runs, so no spread is computed. Worst fsync p99.9 seen: 12.5 ms.
 <details>
 <summary>All 2 runs</summary>
 
-| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | redis | nuxt |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| `1d0480` | 2026-07-15 | 22h | 8.4 ms | 18.2 ms | 0.1% | 5.1 ms | 0.0% | fail | fail | fail | fail |
-| `1d0480` | 2026-07-16 | 09h | 12.5 ms | 18.2 ms | 0.2% | 6.2 ms | 0.0% | fail | fail | fail | fail |
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `1d0480` | 2026-07-15 | 22h | 8.4 ms | 18.2 ms | 0.1% | 5.1 ms | 0.0% | F | D | ? | ? | ? | ? | ? |
+| `1d0480` | 2026-07-16 | 09h | 12.5 ms | 18.2 ms | 0.2% | 6.2 ms | 0.0% | F | D | ? | ? | ? | ? | ? |
 
 </details>
 
@@ -74,9 +77,9 @@ Fewer than 3 runs, so no spread is computed. Worst fsync p99.9 seen: 12.5 ms.
 <details>
 <summary>All 1 run</summary>
 
-| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | redis | nuxt |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| `99ba7e` | 2026-07-16 | 11h | 2.2 ms | 6.9 ms | 0.1% | 5.9 ms | 0.3% | fail | marginal | fail | fail |
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `99ba7e` | 2026-07-16 | 11h | 2.2 ms | 6.9 ms | 0.1% | 5.9 ms | 0.3% | D | C | F | F | F | F | F |
 
 </details>
 
@@ -95,11 +98,11 @@ Worst fsync p99.9 per machine ranges 118.0 ms to 137.4 ms.
 <details>
 <summary>All 3 runs</summary>
 
-| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | redis | nuxt |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| `c7d6f7` | 2026-07-15 | 22h | 118.0 ms | 18.0 ms | 0.2% | 2.5 ms | 0.3% | fail | fail | fail | marginal |
-| `c7d6f7` | 2026-07-16 | 09h | 109.6 ms | 18.2 ms | 0.2% | 5.4 ms | 0.4% | fail | fail | fail | fail |
-| `759286` | 2026-07-16 | 11h | 137.4 ms | 18.2 ms | 0.1% | 6.5 ms | 0.4% | fail | fail | fail | fail |
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `c7d6f7` | 2026-07-15 | 22h | 118.0 ms | 18.0 ms | 0.2% | 2.5 ms | 0.3% | F | F | F | F | F | F | ? |
+| `c7d6f7` | 2026-07-16 | 09h | 109.6 ms | 18.2 ms | 0.2% | 5.4 ms | 0.4% | F | F | F | F | ? | ? | ? |
+| `759286` | 2026-07-16 | 11h | 137.4 ms | 18.2 ms | 0.1% | 6.5 ms | 0.4% | F | F | F | F | ? | ? | ? |
 
 </details>
 
@@ -110,9 +113,9 @@ Worst fsync p99.9 per machine ranges 118.0 ms to 137.4 ms.
 <details>
 <summary>All 1 run</summary>
 
-| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | redis | nuxt |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| `3637eb` | 2026-07-16 | 10h | 459.3 ms | 6.8 ms | - | 2.7 ms | 0.0% | ? | ? | ? | fail |
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `3637eb` | 2026-07-16 | 10h | 459.3 ms | 6.8 ms | - | 2.7 ms | 0.0% | F | F | F | F | ? | ? | ? |
 
 </details>
 
@@ -124,9 +127,11 @@ speedtests measure a different path per host and cannot be compared in one
 table; these can. Distance is a known constant here, so a low number points
 at the provider's peering rather than at geography.
 
-**No verdict reads these numbers.** See [THRESHOLDS.md](THRESHOLDS.md#known-gaps)
-for why: nobody can yet justify a pass/fail line from a workload requirement
-rather than from taste.
+**Only `worker_probe` and `playwright_node` grade any of this** (`loss_pct`,
+`dns_ms`, `rtt_jitter_ratio`) -- because for those two profiles the network
+*is* the workload. See [THRESHOLDS.md](THRESHOLDS.md#known-gaps). Throughput
+(`mbps`, shown below) stays ungraded everywhere: no workload requirement
+yields a Mbit/s floor.
 
 | Provider | Region | Product | hetzner-fsn1 | hetzner-hel1 | ovh-gra | hetzner-ash |
 |---|---|---|---|---|---|---|
@@ -149,27 +154,29 @@ Sustained loss above ~0.05% will hurt TCP throughput and replication.
 ## Why runs failed
 
 Computed from [schema/thresholds.yaml](schema/thresholds.yaml), not written
-by hand. Disagree with a verdict? The thing to argue about is the threshold.
+by hand. Each profile names the metric that bound its grade -- disagree with
+a grade? The thing to argue about is the threshold, in
+[THRESHOLDS.md](THRESHOLDS.md).
 
-| Failing rule | Runs affected |
+| Binding constraint | Runs affected |
 |---|---|
-| [postgres_oltp] disk.wal_fsync.iops | 10 |
-| [postgres_oltp] disk.rand_read_8k.p99_us | 10 |
-| [postgres_oltp] disk.rand_read_8k.iops | 10 |
-| [redis_aof] cpu.intrinsic_latency_max_us | 10 |
-| [nuxt_ssr] cpu.intrinsic_latency_max_us | 10 |
-| [postgres_oltp] disk.wal_fsync.p999_us | 9 |
-| [timescale_ingest] disk.wal_fsync.p999_us | 9 |
-| [redis_aof] disk.wal_fsync.p999_us | 9 |
-| [postgres_oltp] disk.rand_write_8k.iops | 7 |
-| [timescale_ingest] disk.rand_write_8k.iops | 7 |
-| [timescale_ingest] disk.seq_write.bw_mbs | 5 |
-| [timescale_ingest] disk.seq_read.bw_mbs | 5 |
-| [redis_aof] cpu.single_thread_eps | 2 |
-| [nuxt_ssr] cpu.single_thread_eps | 2 |
-| [postgres_oltp] cpu.steal_pct_under_load not measured (required) | 1 |
-| [timescale_ingest] cpu.steal_pct_under_load not measured (required) | 1 |
-| [redis_aof] cpu.steal_pct_under_load not measured (required) | 1 |
+| [nuxt_ssr] cpu.stall_p999_us (needs re-run (tool >= 0.2.0)) | 9 |
+| [worker_probe] cpu.stall_p999_us (needs re-run (tool >= 0.2.0)) | 8 |
+| [playwright_node] cpu.steady_state.degradation_pct (needs re-run (tool >= 0.2.0)) | 8 |
+| [patroni_member] cpu.stall_p999_us (needs re-run (tool >= 0.2.0)) | 5 |
+| [redis_sentinel] cpu.stall_p999_us (needs re-run (tool >= 0.2.0)) | 5 |
+| [postgres_oltp] disk.wal_fsync.p999_us | 4 |
+| [timescale_ingest] disk.wal_fsync.p999_us | 4 |
+| [patroni_member] disk.wal_fsync.p999_us | 4 |
+| [redis_sentinel] disk.wal_fsync.p999_us | 4 |
+| [postgres_oltp] disk.rand_read_8k.p99_us | 2 |
+| [patroni_member] cpu.single_thread_eps | 1 |
+| [redis_sentinel] cpu.single_thread_eps | 1 |
+| [worker_probe] cpu.single_thread_eps | 1 |
+| [playwright_node] cpu.single_thread_eps | 1 |
+| [nuxt_ssr] cpu.single_thread_eps | 1 |
+| [worker_probe] network.loss_pct | 1 |
+| [playwright_node] network.loss_pct | 1 |
 
 ---
 

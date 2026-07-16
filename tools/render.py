@@ -31,8 +31,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "results"
 
-MARK = {"pass": "pass", "marginal": "marginal", "fail": "fail", "unknown": "?", None: "?"}
-PROFILES = ["postgres_oltp", "timescale_ingest", "redis_aof", "nuxt_ssr"]
+MARK = {"A": "A", "B": "B", "C": "C", "D": "D", "F": "F", "?": "?", None: "?"}
+PROFILES = [
+    "postgres_oltp", "timescale_ingest", "patroni_member", "redis_sentinel",
+    "worker_probe", "playwright_node", "nuxt_ssr",
+]
+# Short column headers -- the long profile names do not fit a table cell.
+PROFILE_ABBR = {
+    "postgres_oltp": "pg",
+    "timescale_ingest": "ts",
+    "patroni_member": "patroni",
+    "redis_sentinel": "redis",
+    "worker_probe": "probe",
+    "playwright_node": "pw",
+    "nuxt_ssr": "nuxt",
+}
 
 # Below this many runs we do not compute a spread. Two points is not a
 # distribution, it is a line segment.
@@ -43,7 +56,7 @@ DISCLAIMER = (
     "Providers vary by region, by hardware generation within a region, and by who "
     "else is on the host. Read [METHODOLOGY.md](METHODOLOGY.md) before drawing "
     "conclusions, and [THRESHOLDS.md](THRESHOLDS.md) before disagreeing with a "
-    "verdict.*"
+    "grade.*"
 )
 
 
@@ -91,11 +104,20 @@ def load_all() -> list[dict]:
     return out
 
 
-def worst_verdict(runs: list[dict], profile: str) -> str:
-    """Worst verdict across runs. A machine that fails at 18:00 fails."""
-    order = ["pass", "marginal", "unknown", "fail"]
-    seen = [(r.get("verdict") or {}).get(profile) for r in runs]
-    seen = [s for s in seen if s]
+def profile_grade(r: dict, profile: str) -> str:
+    return dig(r, f"grades.profiles.{profile}.grade") or "?"
+
+
+def worst_grade(runs: list[dict], profile: str) -> str:
+    """Worst grade across runs for a profile.
+
+    Ranking matches grade.py's rollup precedence (spec 4.2): any F beats any
+    ?, because a definite failure is more true than an unmeasured one, and ?
+    in turn outranks a merely-worse measured band. A machine that grades A at
+    03:00 and F at 18:00 is a machine that grades F.
+    """
+    order = ["A", "B", "C", "D", "?", "F"]
+    seen = [profile_grade(r, profile) for r in runs]
     if not seen:
         return "?"
     return max(seen, key=lambda v: order.index(v) if v in order else 0)
@@ -118,6 +140,18 @@ def spread(runs: list[dict], path: str) -> tuple[str, str]:
     return (fmt_us(statistics.median(vals)), fmt_us(max(vals)))
 
 
+def storage_classes(runs: list[dict]) -> str:
+    """storage_class is derived per-run from measured fsync latency (spec 4.5).
+
+    Runs of the same product normally agree, but nothing enforces that, so
+    report whatever distinct classes were actually observed rather than
+    silently picking the first.
+    """
+    classes = sorted({dig(r, "grades.storage_class") for r in runs
+                       if dig(r, "grades.storage_class")})
+    return "/".join(classes) if classes else "?"
+
+
 def hour_range(runs: list[dict]) -> str:
     hours = sorted({r["run"]["local_hour"] for r in runs
                     if dig(r, "run.local_hour") is not None})
@@ -125,7 +159,6 @@ def hour_range(runs: list[dict]) -> str:
 
 
 def render_run_row(r: dict) -> str:
-    v = r.get("verdict") or {}
     cells = [
         f"`{r['run']['host_id'][:6]}`",
         r["run"]["timestamp_utc"][:10],
@@ -135,7 +168,7 @@ def render_run_row(r: dict) -> str:
         fmt_pct(dig(r, "cpu.steal_pct_under_load")),
         fmt_us(dig(r, "cpu.intrinsic_latency_max_us")),
         fmt_pct(dig(r, "disk.steady_state.degradation_pct")),
-    ] + [MARK[v.get(p)] for p in PROFILES]
+    ] + [MARK[profile_grade(r, p)] for p in PROFILES]
     return "| " + " | ".join(cells) + " |"
 
 
@@ -171,18 +204,24 @@ def main() -> int:
     print("whether a database is viable here, and the worst case matters more than the")
     print("median: your slowest commits are the ones users notice.")
     print()
-    print("| Provider | Region | Product | Machines | Runs | fsync p99.9 med | fsync p99.9 worst | stall worst | pg | ts | redis | nuxt |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    summary_cols = (["Provider", "Region", "Product", "Storage", "Machines", "Runs",
+                      "fsync p99.9 med", "fsync p99.9 worst", "stall worst"]
+                     + [PROFILE_ABBR[p] for p in PROFILES])
+    print("| " + " | ".join(summary_cols) + " |")
+    print("|" + "---|" * len(summary_cols))
     for (name, region, product), rs in sorted(by_product.items()):
         n_hosts = len({r["run"]["host_id"] for r in rs})
         med, worst = spread(rs, "disk.wal_fsync.p999_us")
         _, stall = spread(rs, "cpu.intrinsic_latency_max_us")
-        cells = [name, region, f"`{product}`", str(n_hosts), str(len(rs)),
-                 med, worst, stall] + [MARK[worst_verdict(rs, p)] for p in PROFILES]
+        cells = [name, region, f"`{product}`", storage_classes(rs), str(n_hosts), str(len(rs)),
+                 med, worst, stall] + [MARK[worst_grade(rs, p)] for p in PROFILES]
         print("| " + " | ".join(cells) + " |")
     print()
-    print("Verdicts are the **worst** across all runs for that product. A machine that")
-    print("passes at 03:00 and fails at 18:00 is a machine that fails.")
+    print("Grades are the **worst** across all runs for that product. A machine that")
+    print("grades A at 03:00 and F at 18:00 is a machine that grades F. `?` on")
+    print("`patroni`/`redis`/`probe`/`pw`/`nuxt` mostly means the run predates Phase 1's")
+    print("stages, not that the machine is fine -- see")
+    print("[THRESHOLDS.md](THRESHOLDS.md#provisional-bands).")
     print()
 
     # ----------------------------------------------------------------- detail
@@ -260,8 +299,10 @@ def main() -> int:
         print("<details>")
         print(f"<summary>All {len(rs)} run{'s' if len(rs) != 1 else ''}</summary>")
         print()
-        print("| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall max | steady drop | pg | ts | redis | nuxt |")
-        print("|---|---|---|---|---|---|---|---|---|---|---|---|")
+        run_cols = (["Machine", "Date", "Hour", "fsync p99.9", "rand-read p99", "steal",
+                     "stall max", "steady drop"] + [PROFILE_ABBR[p] for p in PROFILES])
+        print("| " + " | ".join(run_cols) + " |")
+        print("|" + "---|" * len(run_cols))
         for r in sorted(rs, key=lambda x: x["run"]["timestamp_utc"]):
             print(render_run_row(r))
         print()
@@ -276,8 +317,9 @@ def main() -> int:
         print()
 
     # ---------------------------------------------------------------- network
-    # Deliberately its own section rather than a column in the verdict tables:
-    # nothing here produces a pass/fail, and mixing it in would imply it does.
+    # Deliberately its own section rather than a column in the summary tables:
+    # only worker_probe and playwright_node grade any of it, and mixing it into
+    # every profile's row would imply the rest do too.
     print("## Network")
     print()
     print("Throughput and latency to the **same fixed targets** from every host")
@@ -286,9 +328,11 @@ def main() -> int:
     print("table; these can. Distance is a known constant here, so a low number points")
     print("at the provider's peering rather than at geography.")
     print()
-    print("**No verdict reads these numbers.** See [THRESHOLDS.md](THRESHOLDS.md#known-gaps)")
-    print("for why: nobody can yet justify a pass/fail line from a workload requirement")
-    print("rather than from taste.")
+    print("**Only `worker_probe` and `playwright_node` grade any of this** (`loss_pct`,")
+    print("`dns_ms`, `rtt_jitter_ratio`) -- because for those two profiles the network")
+    print("*is* the workload. See [THRESHOLDS.md](THRESHOLDS.md#known-gaps). Throughput")
+    print("(`mbps`, shown below) stays ungraded everywhere: no workload requirement")
+    print("yields a Mbit/s floor.")
     print()
 
     net_runs = [r for r in runs if dig(r, "network.reachable") is True
@@ -384,20 +428,32 @@ def main() -> int:
     print("## Why runs failed")
     print()
     print("Computed from [schema/thresholds.yaml](schema/thresholds.yaml), not written")
-    print("by hand. Disagree with a verdict? The thing to argue about is the threshold.")
+    print("by hand. Each profile names the metric that bound its grade -- disagree with")
+    print("a grade? The thing to argue about is the threshold, in")
+    print("[THRESHOLDS.md](THRESHOLDS.md).")
     print()
-    reason_counts = defaultdict(int)
+    bound_counts = defaultdict(int)
     for r in runs:
-        for reason in (r.get("verdict") or {}).get("reasons", []):
-            key = reason.split("=")[0].strip().rstrip(" (")
-            reason_counts[key] += 1
-    if reason_counts:
-        print("| Failing rule | Runs affected |")
+        for p in PROFILES:
+            entry = dig(r, f"grades.profiles.{p}") or {}
+            grade, bound = entry.get("grade"), entry.get("bound_by")
+            if not bound:
+                continue
+            if grade == "F":
+                bound_counts[f"[{p}] {bound}"] += 1
+            elif grade == "?":
+                # Distinct from an F: bound_by here names the metric that
+                # COULD NOT be graded, not one that failed. reason says why --
+                # usually "needs re-run", which is a data gap, not a grade.
+                reason = entry.get("reason", "not measured")
+                bound_counts[f"[{p}] {bound} ({reason})"] += 1
+    if bound_counts:
+        print("| Binding constraint | Runs affected |")
         print("|---|---|")
-        for k, c in sorted(reason_counts.items(), key=lambda x: -x[1]):
+        for k, c in sorted(bound_counts.items(), key=lambda x: -x[1]):
             print(f"| {k} | {c} |")
     else:
-        print("No failing rules across submitted runs.")
+        print("No binding constraints across submitted runs.")
     print()
 
     print("---")

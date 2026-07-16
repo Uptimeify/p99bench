@@ -24,9 +24,9 @@ jobs:
       - name: Validate result files against schema and policy
         run: python3 tools/validate.py results/
 
-      - name: Verify verdicts match thresholds
+      - name: Verify grades match bands
         # validate.py already checks this per-file, but this makes the failure
-        # mode obvious in the job list: a hand-edited verdict is not a schema
+        # mode obvious in the job list: a hand-edited grade is not a schema
         # error, it is a trust problem.
         run: |
           fail=0
@@ -34,9 +34,9 @@ jobs:
           for f in results/**/*.json; do
             tmp=$(mktemp)
             cp "$f" "$tmp"
-            python3 tools/verdict.py "$tmp" --in-place
+            python3 tools/grade.py "$tmp" --in-place
             if ! diff -q "$f" "$tmp" >/dev/null; then
-              echo "::error file=$f::verdict does not match schema/thresholds.yaml"
+              echo "::error file=$f::grades do not match schema/thresholds.yaml"
               diff "$f" "$tmp" || true
               fail=1
             fi
