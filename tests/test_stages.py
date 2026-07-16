@@ -136,3 +136,26 @@ def test_latency_stage_uses_policy_other_not_dash_p_zero(repo_root):
             continue
         assert not re.search(r"(?<!\S)-p\s*0(?!\S)", line), \
             f"found bare -p 0 (clamps to SCHED_FIFO prio 2, not SCHED_OTHER): {line!r}"
+
+
+@pytest.mark.docker
+def test_ram_stage_emits_bandwidth_field(repo_root):
+    ram = run_stage(repo_root, "03-ram.sh", {"P99_RAM_TOTAL": "2G"}, "ram")["ram"]
+    assert ram["bw_read_mbs"] is not None
+    assert isinstance(ram["bw_read_mbs"], (int, float))
+
+
+@pytest.mark.docker
+def test_ram_working_set_exceeds_llc(repo_root):
+    # The whole point of the fix: block size IS the per-thread working set in
+    # sysbench, and the old 1M sat in L2. Assert we are past any plausible LLC.
+    ram = run_stage(repo_root, "03-ram.sh", {"P99_RAM_TOTAL": "2G"}, "ram")["ram"]
+    assert ram["bw_block_bytes"] >= 128 * 1024 * 1024
+
+
+@pytest.mark.docker
+def test_ram_stage_retains_legacy_fields(repo_root):
+    # Spec 9.2: the old cache-resident number keeps its name and meaning so
+    # published results stay readable. It is simply no longer banded.
+    ram = run_stage(repo_root, "03-ram.sh", {"P99_RAM_TOTAL": "2G"}, "ram")["ram"]
+    assert "seq_read_mbs" in ram
