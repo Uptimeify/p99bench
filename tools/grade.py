@@ -55,13 +55,20 @@ def dig(obj: dict, path: str):
     return cur
 
 
-def reduce_network(result: dict, path: str):
+def reduce_network(result: dict, path: str, op: str):
     """Worst value across network targets for a `network.<field>` metric.
 
     Worst, not mean. Every host measures the SAME fixed targets so distance is a
     constant, which is what makes the numbers comparable at all -- and one bad
     path is a bad path. Averaging would bury the 10% loss outlier the corpus
     already contains (ovh/zrh -> hetzner-ash) under three clean paths.
+
+    `op` says which direction is worse: for `lte` metrics (higher = worse,
+    e.g. loss_pct, dns_ms) worst is max(); for `gte` metrics (lower = worse,
+    e.g. a hypothetical banded mbps) worst is min(). This must be derived from
+    the metric definition, not assumed -- every network metric graded today
+    happens to be `lte`, but a `gte` one reduced by max() would silently
+    return the BEST path, the exact inversion of a worst-wins engine.
     """
     net = result.get("network") or {}
     if not net.get("reachable"):
@@ -69,8 +76,17 @@ def reduce_network(result: dict, path: str):
     field = path.split(".", 1)[1]
     values = []
     for target in net.get("targets") or []:
-        if not target.get("reachable", True):
-            continue
+        # Do NOT skip on target.get("reachable"). Per-target `reachable` is an
+        # HTTP-status flag set by bench/06-network.sh from `http_code == 200`
+        # -- it is not a "nothing was measured for this target" flag. Every
+        # field is independently nullable there: a target that fails the HTTP
+        # check can still carry a real dns_ms (from curl's time_namelookup)
+        # and rtt/loss (from ping). Skipping the target on this flag would
+        # throw those away and, because max() over a subset is never greater
+        # than max() over the full set, could only ever IMPROVE the
+        # worst-wins grade -- a compensatory hole this engine must not have.
+        # The isinstance() filter below already handles real non-measurement
+        # (total curl failure emits every field as null).
         if field == "rtt_jitter_ratio":
             p50, p99 = target.get("rtt_p50_ms"), target.get("rtt_p99_ms")
             if isinstance(p50, (int, float)) and isinstance(p99, (int, float)) and p50 > 0:
@@ -81,21 +97,21 @@ def reduce_network(result: dict, path: str):
             values.append(v)
     if not values:
         return None
-    # Every network metric is "lower is worse when higher", so worst == max.
-    return max(values)
+    return max(values) if op == "lte" else min(values)
 
 
-def metric_value(result: dict, path: str):
+def metric_value(result: dict, path: str, metric_def: dict):
     if path.startswith("network."):
-        return reduce_network(result, path)
+        return reduce_network(result, path, metric_def["op"])
     return dig(result, path)
 
 
 def grade_metric(value, metric_def: dict) -> str:
     """Band lookup for one metric. Returns A-F, or ? when unmeasured."""
-    if value is None or isinstance(value, bool):
-        return "?"
-    if not isinstance(value, (int, float)):
+    # bool must be excluded explicitly: isinstance(True, int) is True in
+    # Python, so without this a bool would fall through to the numeric branch
+    # and grade as if it were 0 or 1.
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         return "?"
     bands, op = metric_def["bands"], metric_def["op"]
     for g in ("A", "B", "C", "D"):
@@ -152,15 +168,40 @@ def storage_class(result: dict) -> str | None:
     return STORAGE_CLASS_WORST
 
 
+def _version_gte(version, minimum: str) -> bool:
+    """True if a dotted version string (e.g. "0.10.0") is >= minimum.
+
+    A plain string compare ("0.10.0" >= "0.2.0") is False, because it is
+    lexicographic ("1" < "2"), not numeric -- a tool newer than the minimum
+    would be wrongly told it needs a re-run. Each dotted component is
+    compared as an int instead. A missing or malformed version is treated as
+    NOT meeting the minimum: safer to ask an unknown-age tool to re-run than
+    to silently assume it is new enough.
+    """
+    if not version or not isinstance(version, str):
+        return False
+    try:
+        parts = tuple(int(p) for p in version.split("."))
+        min_parts = tuple(int(p) for p in minimum.split("."))
+    except ValueError:
+        return False
+    return parts >= min_parts
+
+
 def _grade_rules(result, thresholds, rule_specs):
     graded, required, detail = {}, {}, {}
     for rule in rule_specs:
         path = rule["metric"]
         mdef = thresholds["metrics"][path]
-        value = metric_value(result, path)
+        value = metric_value(result, path, mdef)
         g = grade_metric(value, mdef)
         graded[path] = g
-        required[path] = rule["required"]
+        # .get(), not rule["required"]: rollup() already treats a missing
+        # entry in `required` as falsy via required.get(m), so this must be
+        # equally defensive rather than KeyError on a rule that omits the
+        # key (schema/bands.schema.json mandates it, but nothing at runtime
+        # enforces that before a rule reaches here).
+        required[path] = rule.get("required", False)
         detail[path] = {"value": value, "grade": g}
     return graded, required, detail
 
@@ -200,7 +241,7 @@ def compute(result: dict, thresholds: dict) -> dict:
             # not carry the newer metrics; that is a re-run, not a defect.
             entry["reason"] = (
                 f"{bound} not measured (required)"
-                if tool_version and tool_version >= "0.2.0"
+                if _version_gte(tool_version, "0.2.0")
                 else "needs re-run (tool >= 0.2.0)"
             )
         if profile.get("network_half_unmeasured"):
