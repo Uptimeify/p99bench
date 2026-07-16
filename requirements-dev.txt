@@ -1,0 +1,3 @@
+# Test-only deps. The benchmark scripts in bench/ need none of this --
+# see requirements.txt for why that separation matters.
+pytest>=8.0
