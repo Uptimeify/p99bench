@@ -3,9 +3,9 @@
 
 Two layers:
   1. JSON Schema  -- structural correctness.
-  2. Policy rules -- things a schema cannot express, like "the verdict in the
-     file must match what the thresholds actually compute". This is what stops
-     a submitter, including us, from hand-editing a verdict.
+  2. Policy rules -- things a schema cannot express, like "the grades in the
+     file must match what the bands actually compute". This is what stops
+     a submitter, including us, from hand-editing a grade.
 
 Usage:
     python3 tools/validate.py results/
@@ -26,7 +26,7 @@ except ImportError:
     sys.exit("deps required: pip install jsonschema pyyaml")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from verdict import compute  # noqa: E402
+from grade import compute  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS_DIR = ROOT / "results"
@@ -82,22 +82,47 @@ def check_policy(path: Path, data: dict) -> list[str]:
             "A 60s run cannot see burst throttling."
         )
 
-    # fsync is the headline metric. Without it there is no verdict worth having.
+    # fsync is the headline metric. Without it there is no grade worth having.
     if data.get("disk", {}).get("wal_fsync", {}).get("p999_us") is None:
         errs.append("disk.wal_fsync.p999_us missing -- this is the primary metric")
 
     if not data.get("run", {}).get("submitter"):
         errs.append("run.submitter missing -- results are not accepted anonymously")
 
-    # Verdict must be reproducible from the published thresholds.
-    if "verdict" in data and data["verdict"]:
+    # Grades must be reproducible from the published bands. This is the trust
+    # property, not a lint: a project publishing provider comparisons has an
+    # obvious temptation to nudge them, and the only real defence is making a
+    # nudge fail the build in public.
+    if data.get("grades"):
+        stored = data["grades"]
+        if stored.get("bands_version") != THRESHOLDS["bands_version"]:
+            errs.append(
+                f"grades.bands_version is '{stored.get('bands_version')}' but "
+                f"schema/thresholds.yaml is '{THRESHOLDS['bands_version']}'. "
+                f"Re-run tools/grade.py --in-place."
+            )
         expected = compute(data, THRESHOLDS)
-        for profile in THRESHOLDS["profiles"]:
-            if data["verdict"].get(profile) != expected.get(profile):
+        if stored != expected:
+            for name, exp in expected["profiles"].items():
+                got = stored.get("profiles", {}).get(name, {}).get("grade")
+                if got != exp["grade"]:
+                    errs.append(
+                        f"grades.profiles.{name} is '{got}' but the bands compute "
+                        f"'{exp['grade']}'. Do not hand-edit grades; run "
+                        f"tools/grade.py --in-place."
+                    )
+            for name, exp in expected["categories"].items():
+                got = stored.get("categories", {}).get(name, {}).get("grade")
+                if got != exp["grade"]:
+                    errs.append(
+                        f"grades.categories.{name} is '{got}' but the bands "
+                        f"compute '{exp['grade']}'."
+                    )
+            if stored.get("storage_class") != expected["storage_class"]:
                 errs.append(
-                    f"verdict.{profile} is '{data['verdict'].get(profile)}' but thresholds "
-                    f"compute '{expected.get(profile)}'. Do not hand-edit verdicts; "
-                    f"run tools/verdict.py --in-place."
+                    f"grades.storage_class is '{stored.get('storage_class')}' but "
+                    f"the measured fsync latency computes "
+                    f"'{expected['storage_class']}'."
                 )
 
     return errs
