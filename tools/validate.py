@@ -93,37 +93,65 @@ def check_policy(path: Path, data: dict) -> list[str]:
     # property, not a lint: a project publishing provider comparisons has an
     # obvious temptation to nudge them, and the only real defence is making a
     # nudge fail the build in public.
-    if data.get("grades"):
-        stored = data["grades"]
-        if stored.get("bands_version") != THRESHOLDS["bands_version"]:
-            errs.append(
-                f"grades.bands_version is '{stored.get('bands_version')}' but "
-                f"schema/thresholds.yaml is '{THRESHOLDS['bands_version']}'. "
-                f"Re-run tools/grade.py --in-place."
-            )
-        expected = compute(data, THRESHOLDS)
-        if stored != expected:
-            for name, exp in expected["profiles"].items():
-                got = stored.get("profiles", {}).get(name, {}).get("grade")
-                if got != exp["grade"]:
-                    errs.append(
-                        f"grades.profiles.{name} is '{got}' but the bands compute "
-                        f"'{exp['grade']}'. Do not hand-edit grades; run "
-                        f"tools/grade.py --in-place."
-                    )
-            for name, exp in expected["categories"].items():
-                got = stored.get("categories", {}).get(name, {}).get("grade")
-                if got != exp["grade"]:
-                    errs.append(
-                        f"grades.categories.{name} is '{got}' but the bands "
-                        f"compute '{exp['grade']}'."
-                    )
-            if stored.get("storage_class") != expected["storage_class"]:
+    #
+    # A missing or null block is itself a failure, not something to skip over
+    # silently: render.py's worst_grade ranks "?" better than "F", so a result
+    # with no grades at all renders as a BETTER-looking cell than a graded
+    # failure -- a hole obtained by shipping less, exactly what spec 4.2
+    # forbids. `if data.get("grades")` used to treat both "missing" and
+    # "null" as "nothing to check here"; both must be hard errors instead.
+    if not data.get("grades"):
+        errs.append(
+            "grades block is missing or null -- run tools/grade.py --in-place. "
+            "A result with no grades is not a valid submission."
+        )
+        return errs
+
+    stored = data["grades"]
+    if stored.get("bands_version") != THRESHOLDS["bands_version"]:
+        errs.append(
+            f"grades.bands_version is '{stored.get('bands_version')}' but "
+            f"schema/thresholds.yaml is '{THRESHOLDS['bands_version']}'. "
+            f"Re-run tools/grade.py --in-place."
+        )
+    expected = compute(data, THRESHOLDS)
+    if stored != expected:
+        before = len(errs)
+        for name, exp in expected["profiles"].items():
+            got = stored.get("profiles", {}).get(name, {}).get("grade")
+            if got != exp["grade"]:
                 errs.append(
-                    f"grades.storage_class is '{stored.get('storage_class')}' but "
-                    f"the measured fsync latency computes "
-                    f"'{expected['storage_class']}'."
+                    f"grades.profiles.{name} is '{got}' but the bands compute "
+                    f"'{exp['grade']}'. Do not hand-edit grades; run "
+                    f"tools/grade.py --in-place."
                 )
+        for name, exp in expected["categories"].items():
+            got = stored.get("categories", {}).get(name, {}).get("grade")
+            if got != exp["grade"]:
+                errs.append(
+                    f"grades.categories.{name} is '{got}' but the bands "
+                    f"compute '{exp['grade']}'."
+                )
+        if stored.get("storage_class") != expected["storage_class"]:
+            errs.append(
+                f"grades.storage_class is '{stored.get('storage_class')}' but "
+                f"the measured fsync latency computes "
+                f"'{expected['storage_class']}'."
+            )
+        # Catch-all: the three checks above only compare the top-level grade
+        # letters and storage_class, so a mismatch confined to bound_by,
+        # reason, or a categories.*.metrics.*.value/grade entry fell through
+        # both loops and check_policy silently returned []. Those fields are
+        # published too -- bound_by drives RESULTS.md's "Why runs failed",
+        # and metrics[].value is a number on the page -- so anything the
+        # specific checks above did not already name still needs an error.
+        if len(errs) == before:
+            errs.append(
+                "grades block does not match schema/thresholds.yaml, but the "
+                "difference is not in a top-level grade or storage_class -- "
+                "likely a hand-edited bound_by, reason, or metrics[] value/grade. "
+                "Do not hand-edit grades; run tools/grade.py --in-place."
+            )
 
     return errs
 

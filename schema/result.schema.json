@@ -12,7 +12,8 @@
     "disk",
     "cpu",
     "ram",
-    "network"
+    "network",
+    "grades"
   ],
   "additionalProperties": false,
   "properties": {
