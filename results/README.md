@@ -14,19 +14,18 @@ costs nothing and preserves both questions.
 CI checks that the directory names match `provider.name` and `provider.region`
 inside each file.
 
-## The files currently here are EXAMPLES
+## These are real submissions
 
-They exist to demonstrate the two variance types the tooling reports and to give
-CI something to chew on. **Delete them before the first real submission:**
+Every file here is a real measurement of a real machine. They are not examples
+and must not be deleted. Results are immutable: grades are recomputed from
+`schema/thresholds.yaml` on every render, but the measured numbers never change.
 
-```bash
-rm -rf results/ovh results/hetzner
-python3 tools/render.py > RESULTS.md
-```
-
-They are shaped from real measurements but contain filled-in values for metrics
-that did not complete, so they must not be read as findings about either
-provider.
+Results measured with tool_version < 0.2.0 predate the metric-integrity fixes
+and carry no `cpu.stall_*`, `cpu.steady_state`, `cpu.tls_verify_s` or
+`ram.bw_read_mbs`. They still grade fully for `postgres_oltp` and
+`timescale_ingest`; profiles needing the newer metrics grade `?` until the
+machine is re-run. That is intended — a grade invented from data that was never
+measured would be worse than no grade.
 
 ## host_id
 

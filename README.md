@@ -21,7 +21,7 @@ never the numbers in the marketing material:
 
 ```bash
 # Debian 13 / Ubuntu 24.04
-apt update && apt install -y fio sysbench stress-ng smartmontools dmidecode \
+apt update && apt install -y fio sysbench stress-ng rt-tests smartmontools dmidecode \
   numactl redis-tools jq bc sysstat curl iputils-ping python3-yaml
 
 git clone https://github.com/Uptimeify/p99bench && cd p99bench/bench
@@ -31,8 +31,9 @@ sudo ./run-all.sh \
   --price 29.90 --billing monthly --submitter yourhandle
 ```
 
-Takes about 45 minutes, 30 of which are the sustained load test. Needs ~20 GB
-free and a machine with nothing else running on it.
+Takes about 60 minutes: 30 for the sustained disk test, 15 for the sustained CPU
+test, ~15 for everything else. Needs ~20 GB free and a machine with nothing else
+running on it.
 
 To benchmark a dedicated data volume instead of the boot disk:
 
@@ -108,8 +109,9 @@ procurement.
 | `01-disk.sh` | seq/random throughput, **fsync p99.9** | ~7 min |
 | `01b-steady.sh` | 30 min sustained load → burst credit exhaustion | 30 min |
 | `02-cpu.sh` | single/multi core, clock under load, **steal time** | ~3 min |
+| `02b-cpu-steady.sh` | 15 min sustained CPU → **burst credit exhaustion** | 15 min |
 | `03-ram.sh` | bandwidth, 8k random, NUMA locality | ~3 min |
-| `05-latency.sh` | **scheduler stalls** (no Redis needed) | 1 min |
+| `05-latency.sh` | **scheduler stall percentiles** (no Redis needed) | 1 min |
 | `06-network.sh` | uplink + RTT to fixed targets (informational) | ~2 min |
 | `04-app-optional.sh` | pgbench / redis-benchmark, only if already running | varies |
 

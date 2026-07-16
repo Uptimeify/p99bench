@@ -3,7 +3,7 @@
 # Sourced by every 0x-*.sh script. Not executable on its own.
 
 # shellcheck disable=SC2034  # consumed by run-all.sh after sourcing
-P99BENCH_VERSION="0.1.0"
+P99BENCH_VERSION="0.2.0"
 
 # Where partial JSON fragments accumulate before run-all.sh merges them.
 : "${P99_WORK:=/tmp/p99bench}"

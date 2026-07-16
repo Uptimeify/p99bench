@@ -33,6 +33,11 @@ Do **not** pass `--skip-steady`. Validation rejects results without the sustaine
 test — without it there is no way to tell a fast disk from a burst credit
 balance, which is most of the point of this project.
 
+Do **not** pass `--skip-cpu-steady` either. Without it, `playwright_node` and
+`worker_probe` grade `?` — a 30-second CPU test measures the burst credit
+balance, not the machine you get, which is the same reason `--skip-steady` is
+refused for disk.
+
 ### Three runs, different hours
 
 **One run is not a result.** Noisy neighbours have schedules; a benchmark at

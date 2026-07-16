@@ -80,7 +80,7 @@ jobs:
       - name: Install bench deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y fio sysbench jq bc redis-tools curl iputils-ping
+          sudo apt-get install -y fio sysbench jq bc redis-tools curl iputils-ping rt-tests
           pip install pyyaml
 
       - name: Smoke test disk script
@@ -97,7 +97,18 @@ jobs:
           P99_LATENCY_DURATION: 5
         run: |
           sudo -E bash bench/05-latency.sh
-          sudo jq -e '.cpu' "$P99_WORK/frag-latency.json"
+          # Percentiles must exist and be ordered. This is the assertion the
+          # old max-only metric could not support.
+          sudo jq -e '.cpu.stall_p999_us != null' "$P99_WORK/frag-latency.json"
+          sudo jq -e '.cpu.stall_p99_us <= .cpu.stall_p999_us' "$P99_WORK/frag-latency.json"
+          sudo jq -e '.cpu.stall_p999_us <= .cpu.stall_max_us' "$P99_WORK/frag-latency.json"
+
+      - name: Smoke test CPU steady script
+        env:
+          P99_CPU_STEADY_MIN: 1
+        run: |
+          sudo -E bash bench/02b-cpu-steady.sh
+          sudo jq -e '.cpu.steady_state.degradation_pct != null' "$P99_WORK/frag-cpu-steady.json"
 
       - name: Smoke test network script
         # Runners have egress, so this exercises the real path. It is not a
@@ -119,3 +130,17 @@ jobs:
                   assert t.get(k), f"target {t.get('id', '?')} missing {k}"
           print(f"{len(d['targets'])} targets, list v{d['list_version']}")
           PY
+
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install -r requirements-dev.txt
+      - name: Run tests
+        # Docker-marked stage tests are covered by the smoke job above; here we
+        # run the tier that needs no benchmark tools.
+        run: python3 -m pytest tests/ -v -m "not docker"
