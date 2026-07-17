@@ -57,22 +57,36 @@ def test_cluster_profiles_declare_their_unmeasured_half():
 
 
 def test_v1_results_grade_postgres_and_timescale_but_not_the_new_profiles():
-    # Spec 9.3. The existing corpus keeps answering the disk-bound database
-    # questions it was built for, and honestly declines the CPU-sustained and
-    # stall questions it never measured. Fabricating a playwright grade from
-    # data that never measured a playwright workload is the failure this whole
-    # redesign exists to correct.
+    # Spec 9.3, updated for the worst-measured-is-a-lower-bound rewrite. The
+    # existing corpus keeps fully answering the disk-bound database questions
+    # it was built for (postgres_oltp, timescale_ingest: nothing required is
+    # missing). The five profiles that DO read a metric this v1 tool never
+    # collected (cpu.stall_p999_us and friends) no longer fabricate a "?" --
+    # they carry a real grade off what WAS measured (fsync, single-thread eps,
+    # RAM size, network jitter, ...) and are flagged `incomplete` instead. This
+    # is the honest version of "declines the questions it never measured": say
+    # what is known, and say plainly that more could still lower it. Silently
+    # passing would be the old failure this redesign fixed; silently hiding a
+    # known floor behind "?" was the NEW failure this rewrite fixes.
     doc = json.loads(
         (CORPUS_DIR / "hetzner" / "hel-1" / "2026-07-16T1012-cpx32.json").read_text()
     )
     g = compute(doc, THRESHOLDS)["profiles"]
 
     assert g["postgres_oltp"]["grade"] != "?"
+    assert g["postgres_oltp"]["incomplete"] is False
     assert g["timescale_ingest"]["grade"] != "?"
+    assert g["timescale_ingest"]["incomplete"] is False
+
     for name in ("patroni_member", "redis_sentinel", "worker_probe",
                  "playwright_node", "nuxt_ssr"):
-        assert g[name]["grade"] == "?", f"{name} graded from data it never had"
-        assert "re-run" in g[name]["reason"]
+        assert g[name]["grade"] != "?", (
+            f"{name} grades '?' despite measured metrics -- "
+            "the worst-measured floor was discarded"
+        )
+        assert g[name]["incomplete"] is True, f"{name} should flag missing cpu.stall_p999_us"
+        assert "cpu.stall_p999_us" in g[name]["missing"]
+        assert "reason" not in g[name], f"{name} is not '?', so it must carry no reason"
 
 
 def test_ovh_waw_and_zrh_read_as_opposite_failures():

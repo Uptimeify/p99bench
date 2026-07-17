@@ -51,13 +51,13 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 </details>
 
-**`cpu`** -- ?, bound by `steal_pct_under_load`
+**`cpu`** -- D?, bound by `single_thread_eps` (incomplete -- a `?` row below was required and unmeasured; this grade is a floor)
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
-| `single_thread_eps` | 400 | D | ≥1,400 / ≥1,000 / ≥700 / ≥400 | - |
+| **`single_thread_eps`** | **400** | **D** | ≥1,400 / ≥1,000 / ≥700 / ≥400 | - |
 | `scaling_efficiency` | 0.984 | A | ≥0.850 / ≥0.700 / ≥0.550 / ≥0.400 | - |
-| **`steal_pct_under_load`** | **—** | **?** | ≤0.5% / ≤2.0% / ≤5.0% / ≤10.0% | not measured |
+| `steal_pct_under_load` | — | ? | ≤0.5% / ≤2.0% / ≤5.0% / ≤10.0% | not measured |
 | `stall_p999_us*` | — | ? | ≤100 us / ≤500 us / ≤2.0 ms / ≤10.0 ms | not measured |
 | `steady_state.degradation_pct*` | 0.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
 | `tls_verify_s*` | 9,608 | C | ≥30,000 / ≥15,000 / ≥7,000 / ≥3,000 | - |
@@ -122,7 +122,7 @@ Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown
 
 | Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `3637eb` | 2026-07-17 | 07h | 295.7 ms | 5.1 ms | - | - | 0.0% | F | F | F | F | ? | ? | ? |
+| `3637eb` | 2026-07-17 | 07h | 295.7 ms | 5.1 ms | - | - | 0.0% | F? | F? | F? | F? | D? | D? | D? |
 
 </details>
 

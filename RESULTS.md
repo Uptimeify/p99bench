@@ -19,11 +19,14 @@ ones users notice, so worst matters more than median here.
 Grades are **A-F, the worst across all runs** for that product. A machine
 that grades A at 03:00 and F at 18:00 is a machine that grades F.
 
-**`?` is unmeasured, not bad.** Most `cpu` cells and every `ram` cell
-read `?` on this corpus because those hosts predate the stages that
-measure `cpu.stall_*`, `cpu.steady_state`, `cpu.tls_verify_s`, and
-`ram.bw_read_mbs` -- re-running with today's tooling replaces a `?` with a
-real grade, it is not a rebanding. See
+**`?` says nothing in that category/profile was measured at all** --
+there is no lower bound to report. **`D?` (a letter followed by `?`)
+says at least `D`: every metric that WAS measured rolled up to that
+grade, but a required metric is still missing, so the true grade could
+only be the same or worse -- never better, because grading is
+non-compensatory. Re-running with today's tooling on hosts that predate
+`cpu.stall_*`, `cpu.steady_state`, `cpu.tls_verify_s`, or `ram.bw_read_mbs`
+replaces the `?` suffix with a final grade; it is not a rebanding. See
 [THRESHOLDS.md](THRESHOLDS.md#provisional-bands).
 
 `disk`/`cpu`/`ram`/`net` are the four measured categories; `pg` through
@@ -37,8 +40,8 @@ on any other profile's row is context, not a cause.
 | Provider | Region | Product | Class | Machines | Runs | fsync p99.9 worst | disk | cpu | ram | net | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | hetzner | hel-1 | `CPX32` | net-fast | 1 | 1 | 2.0 ms | C | B | A | C | C | B | B | B | C | C | B |
-| ovh | zrh | `vps-1-lz-2026` | net-slow | 1 | 1 | 112.7 ms | F | ? | A | A | F | F | F | F | ? | ? | ? |
-| windcloud | enge-sande | `VPS-L` | degraded | 1 | 1 | 295.7 ms | F | ? | B | A | F | F | F | F | ? | ? | ? |
+| ovh | zrh | `vps-1-lz-2026` | net-slow | 1 | 1 | 112.7 ms | F | B? | A | A | F | F | F? | F? | B? | C? | A? |
+| windcloud | enge-sande | `VPS-L` | degraded | 1 | 1 | 295.7 ms | F | D? | B | A | F? | F? | F? | F? | D? | D? | D? |
 
 ## Network
 
@@ -65,9 +68,6 @@ a grade? The thing to argue about is the threshold, in
 | [timescale_ingest] disk.wal_fsync.p999_us | 2 |
 | [patroni_member] disk.wal_fsync.p999_us | 2 |
 | [redis_sentinel] disk.wal_fsync.p999_us | 2 |
-| [worker_probe] cpu.stall_p999_us (cpu.stall_p999_us not measured (required)) | 2 |
-| [playwright_node] cpu.stall_p999_us (cpu.stall_p999_us not measured (required)) | 2 |
-| [nuxt_ssr] cpu.stall_p999_us (cpu.stall_p999_us not measured (required)) | 2 |
 
 ---
 

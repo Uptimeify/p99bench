@@ -845,11 +845,20 @@
           "type": "object",
           "additionalProperties": {
             "type": "object",
-            "required": ["grade", "bound_by", "metrics"],
+            "required": ["grade", "bound_by", "incomplete", "missing", "metrics"],
             "additionalProperties": false,
             "properties": {
               "grade": { "$ref": "#/$defs/gradeValue" },
               "bound_by": { "type": ["string", "null"] },
+              "incomplete": {
+                "type": "boolean",
+                "description": "True when a required rule went unmeasured. The grade is then a floor -- at least this bad -- because a missing metric can only drag a non-compensatory grade down, never lift it."
+              },
+              "missing": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Sorted dotted paths of required metrics that were not measured. Populated whenever `incomplete` is true."
+              },
               "metrics": {
                 "type": "object",
                 "additionalProperties": {
@@ -868,11 +877,20 @@
           "type": "object",
           "additionalProperties": {
             "type": "object",
-            "required": ["grade"],
+            "required": ["grade", "bound_by", "incomplete", "missing"],
             "additionalProperties": false,
             "properties": {
               "grade": { "$ref": "#/$defs/gradeValue" },
               "bound_by": { "type": ["string", "null"] },
+              "incomplete": {
+                "type": "boolean",
+                "description": "True when a required rule went unmeasured. The grade is then a floor -- at least this bad -- because a missing metric can only drag a non-compensatory grade down, never lift it."
+              },
+              "missing": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Sorted dotted paths of required metrics that were not measured. Populated whenever `incomplete` is true."
+              },
               "reason": { "type": "string" },
               "network_half_unmeasured": { "type": "boolean" }
             }

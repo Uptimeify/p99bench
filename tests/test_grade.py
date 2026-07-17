@@ -99,34 +99,66 @@ def test_real_corpus_values_grade_as_spec_66_says():
 
 def test_rollup_worst_wins():
     g = {"a": "A", "b": "C", "c": "B"}
-    assert rollup(g, {"a": True, "b": True, "c": True}) == ("C", "b")
+    grade, bound, incomplete, missing = rollup(g, {"a": True, "b": True, "c": True})
+    assert (grade, bound) == ("C", "b")
+    assert incomplete is False
+    assert missing == []
 
 
-def test_rollup_f_beats_question_mark():
-    # Spec 4.2 precedence. A host with a 459ms fsync is F whether or not its
-    # stall was measured -- grading is non-compensatory, so no unmeasured
-    # metric could rescue it. And ? must not be a hiding place: if a missing
-    # metric outranked a measured failure, skipping a stage would upgrade an F
-    # to a ?, a better-looking cell obtained by running LESS of the suite.
+def test_rollup_worst_measured_wins_even_with_a_missing_required_metric():
+    # Spec 4.2, new precedence. F falls out of the ordinary worst-band rule --
+    # there is no separate "F beats ?" special case anymore. A host with a
+    # measured F is F whether or not its stall was also measured -- grading is
+    # non-compensatory, so no unmeasured metric could rescue it.
     g = {"fsync": "F", "stall": "?"}
-    grade, bound = rollup(g, {"fsync": True, "stall": True})
+    grade, bound, incomplete, missing = rollup(g, {"fsync": True, "stall": True})
     assert grade == "F"
     assert bound == "fsync"
+    assert incomplete is True
+    assert missing == ["stall"]
 
 
-def test_rollup_question_mark_when_required_missing_and_no_failure():
+def test_rollup_worst_measured_is_a_lower_bound_not_a_question_mark():
+    # The flaw this rewrite fixes. Real windcloud/ovh-zrh shape: one required
+    # metric measured at a real (non-F) band, another required metric
+    # unmeasured. The old rule reported "?" here, discarding the fact that the
+    # category is AT LEAST as bad as the measured band -- a missing metric can
+    # only drag a non-compensatory grade down, never lift it. The new rule
+    # reports the measured floor and flags it incomplete instead of hiding it
+    # behind "?".
     g = {"fsync": "B", "stall": "?"}
-    assert rollup(g, {"fsync": True, "stall": True})[0] == "?"
+    grade, bound, incomplete, missing = rollup(g, {"fsync": True, "stall": True})
+    assert grade == "B"
+    assert bound == "fsync"
+    assert incomplete is True
+    assert missing == ["stall"]
+
+
+def test_rollup_question_mark_only_when_nothing_measured_at_all():
+    # "?" is reserved for the case where there is no lower bound to report --
+    # every rule in the category/profile, required or not, is unmeasured.
+    g = {"stall": "?", "tls": "?"}
+    grade, bound, incomplete, missing = rollup(g, {"stall": True, "tls": True})
+    assert grade == "?"
+    assert bound is None
+    assert incomplete is True
+    assert missing == ["stall", "tls"]
 
 
 def test_rollup_skips_missing_optional_rule():
     g = {"fsync": "B", "advisory": "?"}
-    assert rollup(g, {"fsync": True, "advisory": False}) == ("B", "fsync")
+    grade, bound, incomplete, missing = rollup(g, {"fsync": True, "advisory": False})
+    assert (grade, bound) == ("B", "fsync")
+    assert incomplete is False
+    assert missing == []
 
 
 def test_rollup_names_the_binding_constraint():
     g = {"fsync": "D", "reads": "B"}
-    assert rollup(g, {"fsync": True, "reads": True}) == ("D", "fsync")
+    grade, bound, incomplete, missing = rollup(g, {"fsync": True, "reads": True})
+    assert (grade, bound) == ("D", "fsync")
+    assert incomplete is False
+    assert missing == []
 
 
 def test_reduce_network_takes_the_worst_target():
@@ -217,8 +249,9 @@ def test_reduce_network_rtt_jitter_ratio_none_when_only_zero_p50_target():
 # to. That branch is intentionally NOT tested here; it belongs to Task 4,
 # once profiles exist to exercise it. What real v1 data DOES exercise through
 # compute() today is the category rollup: worst-wins across a full metric
-# list, the "?" precedence when a required metric is unmeasured, and F
-# beating ? per spec 4.2. These fixtures are trimmed real fragments (only the
+# list, the worst-measured-band-is-a-lower-bound precedence when a required
+# metric is unmeasured (spec 4.2), and the true "?" case where a category has
+# nothing measured at all. These fixtures are trimmed real fragments (only the
 # fields the graded metrics touch) taken verbatim from the named result file.
 
 # results/hetzner/hel-1/2026-07-15T2119-cpx32.json, trimmed to the fields the
@@ -277,20 +310,31 @@ def test_compute_category_worst_wins_on_real_v1_data():
     assert network["metrics"]["network.rtt_jitter_ratio"]["value"] == 1.576837416481069
 
 
-def test_compute_category_is_question_mark_when_a_required_metric_is_unmeasured():
+def test_compute_category_worst_measured_wins_with_missing_required_metrics():
     # cpu.stall_p999_us, cpu.steady_state.degradation_pct and cpu.tls_verify_s
-    # do not exist in this real tool_version 0.1.0 result. None of the
-    # measured cpu metrics is F, so the category rollup's "missing required"
-    # precedence (spec 4.2, step 2) is what fires, through compute() end to
-    # end -- not just the rollup() unit in isolation.
+    # do not exist in this real tool_version 0.1.0 result. Every metric that
+    # WAS measured (single_thread_eps, scaling_efficiency, steal) grades A, so
+    # the category is measurably at least A -- the old rule reported "?" here
+    # and threw that fact away. This is the exact flaw the rewrite fixes,
+    # proven through the full compute() path, not just the rollup() unit.
     grades = compute(HEL1_2119, THRESHOLDS)
     cpu = grades["categories"]["cpu"]
-    assert cpu["grade"] == "?"
+    assert cpu["grade"] == "A"
+    assert cpu["bound_by"] == "cpu.single_thread_eps"
+    assert cpu["incomplete"] is True
+    assert cpu["missing"] == [
+        "cpu.stall_p999_us", "cpu.steady_state.degradation_pct", "cpu.tls_verify_s",
+    ]
     assert cpu["metrics"]["cpu.stall_p999_us"]["grade"] == "?"
 
+    # ram has exactly one metric (bw_read_mbs) and it is wholly unmeasured on
+    # this v1 result -- there is nothing to bound a grade on, so this is the
+    # genuine "?" case: no lower bound exists to report.
     ram = grades["categories"]["ram"]
     assert ram["grade"] == "?"
-    assert ram["bound_by"] == "ram.bw_read_mbs"
+    assert ram["bound_by"] is None
+    assert ram["incomplete"] is True
+    assert ram["missing"] == ["ram.bw_read_mbs"]
 
 
 # results/ovh/waw/2026-07-16T1017-vps-1-lz-2026.json cpu fragment, trimmed.
@@ -306,15 +350,83 @@ WAW_1017_CPU = {
 }
 
 
-def test_compute_category_f_beats_question_mark_on_real_v1_data():
-    # Spec 4.2: F must win even though this same category also has a required
-    # "?" (cpu.stall_p999_us, unmeasured on 0.1.0). Proven here through the
+def test_compute_category_f_still_wins_as_the_worst_measured_band():
+    # F is not a special case anymore -- it falls out of "worst measured band"
+    # because F simply IS the worst band on the scale. Proven here through the
     # full compute() path on a real published F, not just the rollup() unit.
     grades = compute(WAW_1017_CPU, THRESHOLDS)
     cpu = grades["categories"]["cpu"]
     assert cpu["metrics"]["cpu.stall_p999_us"]["grade"] == "?"
     assert cpu["grade"] == "F"
     assert cpu["bound_by"] == "cpu.single_thread_eps"
+    assert cpu["incomplete"] is True
+    assert "cpu.stall_p999_us" in cpu["missing"]
+
+
+# results/windcloud/enge-sande/2026-07-17T0642-vps-l.json cpu fragment,
+# trimmed, tool_version 0.2.0. The motivating real-world case for this
+# rewrite: single_thread_eps sits exactly on the D/F boundary (400.0 -> D),
+# scaling_efficiency and steady_state grade A, tls_verify_s grades C, and
+# steal_pct_under_load / stall_p999_us are unmeasured. The old rule reported
+# "?" for a CPU that is measurably D.
+WINDCLOUD_CPU = {
+    "run": {"tool_version": "0.2.0"},
+    "cpu": {
+        "single_thread_eps": 400.0,
+        "scaling_efficiency": 0.984,
+        "steal_pct_under_load": None,
+        "steady_state": {"degradation_pct": 0},
+        "tls_verify_s": 9608.3,
+        "stall_p999_us": None,
+    },
+}
+
+# results/ovh/zrh/2026-07-17T0642-vps-1-lz-2026.json cpu fragment, trimmed,
+# tool_version 0.2.0. Same shape, healthier CPU: everything measured grades A
+# except tls_verify_s (B), and stall_p999_us is unmeasured.
+OVH_ZRH_CPU = {
+    "run": {"tool_version": "0.2.0"},
+    "cpu": {
+        "single_thread_eps": 1651.79,
+        "scaling_efficiency": 0.992,
+        "steal_pct_under_load": 0.03,
+        "steady_state": {"degradation_pct": 0},
+        "tls_verify_s": 16905.7,
+        "stall_p999_us": None,
+    },
+}
+
+
+def test_compute_category_windcloud_cpu_is_d_not_question_mark():
+    # The exact real-world case from the task: single_thread_eps=D is the
+    # worst measured band, so the CPU category is at least D. Reporting "?"
+    # here (as the old rule did) hides a bad CPU behind an "unknown" label.
+    cpu = compute(WINDCLOUD_CPU, THRESHOLDS)["categories"]["cpu"]
+    assert cpu["grade"] == "D"
+    assert cpu["bound_by"] == "cpu.single_thread_eps"
+    assert cpu["incomplete"] is True
+    assert cpu["missing"] == ["cpu.stall_p999_us", "cpu.steal_pct_under_load"]
+
+
+def test_compute_category_ovh_zrh_cpu_is_b_not_question_mark():
+    # Same shape as windcloud, healthier CPU: worst measured band is B
+    # (tls_verify_s), not "?".
+    cpu = compute(OVH_ZRH_CPU, THRESHOLDS)["categories"]["cpu"]
+    assert cpu["grade"] == "B"
+    assert cpu["bound_by"] == "cpu.tls_verify_s"
+    assert cpu["incomplete"] is True
+    assert cpu["missing"] == ["cpu.stall_p999_us"]
+
+
+def test_compute_category_question_mark_when_nothing_measured_at_all():
+    # The one case "?" is still correct for: a category where literally
+    # nothing was measured, so there is no lower bound to report.
+    doc = {"run": {"tool_version": "0.2.0"}, "ram": {}}
+    ram = compute(doc, THRESHOLDS)["categories"]["ram"]
+    assert ram["grade"] == "?"
+    assert ram["bound_by"] is None
+    assert ram["incomplete"] is True
+    assert ram["missing"] == ["ram.bw_read_mbs"]
 
 
 # --- MINOR 5 --------------------------------------------------------------

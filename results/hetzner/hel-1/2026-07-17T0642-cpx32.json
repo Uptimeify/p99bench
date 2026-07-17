@@ -176,6 +176,8 @@
       "disk": {
         "grade": "C",
         "bound_by": "disk.rand_read_8k.p99_us",
+        "incomplete": false,
+        "missing": [],
         "metrics": {
           "disk.wal_fsync.p999_us": {
             "value": 1957.89,
@@ -214,6 +216,8 @@
       "cpu": {
         "grade": "B",
         "bound_by": "cpu.stall_p999_us",
+        "incomplete": false,
+        "missing": [],
         "metrics": {
           "cpu.single_thread_eps": {
             "value": 1659.17,
@@ -244,6 +248,8 @@
       "ram": {
         "grade": "A",
         "bound_by": "ram.bw_read_mbs",
+        "incomplete": false,
+        "missing": [],
         "metrics": {
           "ram.bw_read_mbs": {
             "value": 104326.23,
@@ -254,6 +260,8 @@
       "network": {
         "grade": "C",
         "bound_by": "network.rtt_jitter_ratio",
+        "incomplete": false,
+        "missing": [],
         "metrics": {
           "network.loss_pct": {
             "value": 0,
@@ -269,33 +277,47 @@
     "profiles": {
       "postgres_oltp": {
         "grade": "C",
-        "bound_by": "disk.rand_read_8k.p99_us"
+        "bound_by": "disk.rand_read_8k.p99_us",
+        "incomplete": false,
+        "missing": []
       },
       "timescale_ingest": {
         "grade": "B",
-        "bound_by": "disk.wal_fsync.p999_us"
+        "bound_by": "disk.wal_fsync.p999_us",
+        "incomplete": false,
+        "missing": []
       },
       "patroni_member": {
         "grade": "B",
         "bound_by": "disk.wal_fsync.p999_us",
+        "incomplete": false,
+        "missing": [],
         "network_half_unmeasured": true
       },
       "redis_sentinel": {
         "grade": "B",
         "bound_by": "cpu.stall_p999_us",
+        "incomplete": false,
+        "missing": [],
         "network_half_unmeasured": true
       },
       "worker_probe": {
         "grade": "C",
-        "bound_by": "network.rtt_jitter_ratio"
+        "bound_by": "network.rtt_jitter_ratio",
+        "incomplete": false,
+        "missing": []
       },
       "playwright_node": {
         "grade": "C",
-        "bound_by": "host.ram_mb"
+        "bound_by": "host.ram_mb",
+        "incomplete": false,
+        "missing": []
       },
       "nuxt_ssr": {
         "grade": "B",
-        "bound_by": "cpu.stall_p999_us"
+        "bound_by": "cpu.stall_p999_us",
+        "incomplete": false,
+        "missing": []
       }
     }
   }

@@ -63,6 +63,26 @@ PROFILE_ABBR = {
 
 MARK = {"A": "A", "B": "B", "C": "C", "D": "D", "F": "F", "?": "?", None: "?"}
 
+# A-F only -- "?" never gets the incomplete suffix. "?" already means "nothing
+# measured", the maximal form of uncertainty; appending another "?" to it
+# (`??`) would add noise, not information.
+REAL_GRADES = {"A", "B", "C", "D", "F"}
+
+
+def grade_cell(grade, incomplete: bool) -> str:
+    """The rendered grade cell, e.g. `D?` for an incomplete D.
+
+    `incomplete` means a required rule went unmeasured, so the grade is a
+    FLOOR -- at least this bad, because grading is non-compensatory and a
+    missing metric can only drag it further down, never lift it. The `?`
+    suffix on a real letter is that caveat; see the index's "How to read
+    this table" section for the reader-facing explanation.
+    """
+    mark = MARK[grade]
+    if incomplete and grade in REAL_GRADES:
+        return f"{mark}?"
+    return mark
+
 DISCLAIMER = (
     "*Every number below is a measurement of specific machines at specific times. "
     "Providers vary by region, by hardware generation within a region, and by who "
@@ -204,6 +224,7 @@ def print_category_metrics(rs: list[dict], category: str) -> None:
     """
     paths = THRESHOLDS["categories"][category]
     grade = worst_category(rs, category)
+    incomplete = category_incomplete(rs, category)
     bound = category_bound_by(rs, category)
     bound_label = bound.split(".", 1)[1] if bound and "." in bound else bound
 
@@ -211,9 +232,11 @@ def print_category_metrics(rs: list[dict], category: str) -> None:
     # sections above already split on the literal "## " prefix, and any run
     # of 2+ hashes followed by a space contains that substring too --
     # a "###" heading here would silently corrupt those splits.
-    heading = f"**`{category}`** -- {MARK[grade]}"
+    heading = f"**`{category}`** -- {grade_cell(grade, incomplete)}"
     if bound_label:
         heading += f", bound by `{bound_label}`"
+    if incomplete:
+        heading += " (incomplete -- a `?` row below was required and unmeasured; this grade is a floor)"
     print(heading)
     print()
     if len(rs) > 1:
@@ -234,14 +257,14 @@ def print_category_metrics(rs: list[dict], category: str) -> None:
             has_provisional = True
             label += "*"
         value_cell = fmt_metric_value(value, mdef.get("unit"))
-        grade_cell = MARK[g]
+        grade_mark = MARK[g]
         metric_cell = f"`{label}`"
         if path == bound:
             metric_cell = f"**{metric_cell}**"
             value_cell = f"**{value_cell}**"
-            grade_cell = f"**{grade_cell}**"
+            grade_mark = f"**{grade_mark}**"
         explain = "not measured" if value is None else (mdef.get("means") or {}).get(g, "-")
-        print(f"| {metric_cell} | {value_cell} | {grade_cell} | {fmt_bands(mdef)} | {explain} |")
+        print(f"| {metric_cell} | {value_cell} | {grade_mark} | {fmt_bands(mdef)} | {explain} |")
         why = (mdef.get("why") or "").strip()
         if why:
             why_lines.append(f"- `{path}`: {why}")
@@ -330,7 +353,9 @@ def index_rows(runs: list[dict]) -> list[dict]:
             "fsync_p999_us_worst": max(vals) if vals else None,
             "price_eur_month": dig(rs[0], "provider.price_eur_month"),
             "categories": {c: worst_category(rs, c) for c in CATEGORIES},
+            "categories_incomplete": {c: category_incomplete(rs, c) for c in CATEGORIES},
             "profiles": {p: worst_grade(rs, p) for p in PROFILES},
+            "profiles_incomplete": {p: profile_incomplete(rs, p) for p in PROFILES},
             "bound_by_counts": _bound_by_counts(rs),
         }
         if len(vals) >= MIN_RUNS_FOR_SPREAD:
@@ -386,7 +411,10 @@ def render_run_row(r: dict) -> str:
         fmt_pct(dig(r, "cpu.steal_pct_under_load")),
         fmt_us(dig(r, "cpu.stall_p999_us")),
         fmt_pct(dig(r, "disk.steady_state.degradation_pct")),
-    ] + [MARK[aggregate.profile_grade(r, p)] for p in PROFILES]
+    ] + [
+        grade_cell(aggregate.profile_grade(r, p), bool(dig(r, f"grades.profiles.{p}.incomplete")))
+        for p in PROFILES
+    ]
     return "| " + " | ".join(cells) + " |"
 
 
@@ -403,6 +431,31 @@ def category_bound_by(rs: list[dict], category: str) -> str | None:
         if entry.get("grade") == worst and entry.get("bound_by"):
             return entry["bound_by"]
     return None
+
+
+def category_incomplete(rs: list[dict], category: str) -> bool:
+    """Whether the run that set this category's worst-across-runs grade was
+    itself incomplete (a required rule unmeasured). Mirrors
+    category_bound_by's doctrine: the grade shown is the worst-wins grade, so
+    the caveat shown must come from the SAME run that produced it, not from
+    an unrelated run that happened to also be incomplete.
+    """
+    worst = worst_category(rs, category)
+    for r in rs:
+        entry = dig(r, f"grades.categories.{category}") or {}
+        if entry.get("grade") == worst:
+            return bool(entry.get("incomplete"))
+    return False
+
+
+def profile_incomplete(rs: list[dict], profile: str) -> bool:
+    """Same doctrine as category_incomplete, for a workload profile."""
+    worst = worst_grade(rs, profile)
+    for r in rs:
+        entry = dig(r, f"grades.profiles.{profile}") or {}
+        if entry.get("grade") == worst:
+            return bool(entry.get("incomplete"))
+    return False
 
 
 def network_target_stats(rs: list[dict]) -> tuple[dict[str, dict], bool]:
@@ -718,11 +771,14 @@ def _print_index_md(rows: list[dict]) -> None:
     print("Grades are **A-F, the worst across all runs** for that product. A machine")
     print("that grades A at 03:00 and F at 18:00 is a machine that grades F.")
     print()
-    print("**`?` is unmeasured, not bad.** Most `cpu` cells and every `ram` cell")
-    print("read `?` on this corpus because those hosts predate the stages that")
-    print("measure `cpu.stall_*`, `cpu.steady_state`, `cpu.tls_verify_s`, and")
-    print("`ram.bw_read_mbs` -- re-running with today's tooling replaces a `?` with a")
-    print("real grade, it is not a rebanding. See")
+    print("**`?` says nothing in that category/profile was measured at all** --")
+    print("there is no lower bound to report. **`D?` (a letter followed by `?`)")
+    print("says at least `D`: every metric that WAS measured rolled up to that")
+    print("grade, but a required metric is still missing, so the true grade could")
+    print("only be the same or worse -- never better, because grading is")
+    print("non-compensatory. Re-running with today's tooling on hosts that predate")
+    print("`cpu.stall_*`, `cpu.steady_state`, `cpu.tls_verify_s`, or `ram.bw_read_mbs`")
+    print("replaces the `?` suffix with a final grade; it is not a rebanding. See")
     print("[THRESHOLDS.md](THRESHOLDS.md#provisional-bands).")
     print()
     print("`disk`/`cpu`/`ram`/`net` are the four measured categories; `pg` through")
@@ -742,11 +798,15 @@ def _print_index_md(rows: list[dict]) -> None:
     print("|" + "---|" * len(cols))
     for r in rows:
         cat, prof = r["categories"], r["profiles"]
+        cat_inc, prof_inc = r["categories_incomplete"], r["profiles_incomplete"]
         cells = [
             r["provider"], r["region"], f"`{r['product']}`", r["storage_class"],
             str(r["machines"]), str(r["runs"]), fmt_us(r["fsync_p999_us_worst"]),
-            MARK[cat["disk"]], MARK[cat["cpu"]], MARK[cat["ram"]], MARK[cat["network"]],
-        ] + [MARK[prof[p]] for p in PROFILES]
+            grade_cell(cat["disk"], cat_inc["disk"]),
+            grade_cell(cat["cpu"], cat_inc["cpu"]),
+            grade_cell(cat["ram"], cat_inc["ram"]),
+            grade_cell(cat["network"], cat_inc["network"]),
+        ] + [grade_cell(prof[p], prof_inc[p]) for p in PROFILES]
         print("| " + " | ".join(cells) + " |")
     print()
 

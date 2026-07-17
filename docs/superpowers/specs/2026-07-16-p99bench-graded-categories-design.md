@@ -208,28 +208,74 @@ the precise failure this project exists to prevent.
 This is what lets a profile survive a metric that a given tool version did not
 collect (§9.3), and it is why the advisory-only rules of v1 stay advisory.
 
-**Precedence: `F` beats `?`.** When a rule grades `F` *and* another required
-rule is missing, the result is `F`, not `?`. Ordering:
+**Precedence: the worst *measured* band wins, and `?` is reserved for "nothing
+measured at all".**
 
-1. any rule grades `F` -> **F**
-2. else any `required: true` rule missing -> **?**
-3. else -> the worst band present
+1. grade = the worst band among the metrics that were actually measured. `F`
+   is not a special case here — it simply *is* the worst band on the A–F
+   scale, so it falls out of this rule for free.
+2. `?` fires only when the category/profile has **no measured metric at
+   all** — there is no lower bound to report, so there is nothing to say.
+3. a new boolean, `incomplete`, is `true` whenever any `required: true` rule
+   went unmeasured, whether or not the grade above is `?`. When `incomplete`
+   is `true`, a `missing` field lists the still-unmeasured required metrics
+   (sorted dotted paths), so a reader knows what could still move the grade.
 
-This refines v1, which returned `unknown` whenever a required rule was missing
-even if another rule had already failed. Two reasons:
+This replaces an earlier version of this rule ("F beats `?`": any rule
+grading `F` wins outright; else any missing `required: true` rule produces
+`?`; else the worst band present) that fixed the case where a *measured*
+failure was outranked by an unrelated missing metric, but stopped one step
+short: it still let a missing metric erase a measured **non-F** band. Real
+example, from `results/windcloud/enge-sande/*.json`:
 
-- **It is more true.** A host with a 459 ms fsync p99.9 is F for `postgres_oltp`
-  whether or not its stall was measured. Grading is non-compensatory (§4.2), so
-  no unmeasured metric could rescue it. Reporting `?` there discards a fact we
-  hold.
-- **`?` must not be a hiding place.** If a missing metric outranked a measured
-  failure, skipping a stage would upgrade an F to a `?` — a strictly better-
-  looking cell in the index table, obtainable by running *less* of the suite.
-  A grading rule that rewards measuring less is a rule a submitter will
-  eventually notice.
+```
+cpu category, tool_version 0.2.0:
+  measured:   single_thread_eps = 400.0  -> D   (the D/F boundary, exactly)
+              scaling_efficiency = 0.984 -> A
+              steady_state.degradation_pct = 0 -> A
+              tls_verify_s = 9608.3      -> C
+  unmeasured: steal_pct_under_load, stall_p999_us   (both required)
+```
 
-This is stricter than v1, not looser, so it stays consistent with "never grades
-by omission".
+Under the old rule, `steal_pct_under_load` being a missing `required: true`
+rule made the whole category `?` — even though `single_thread_eps` is
+*measurably* D. A reader sees "unknown" about a CPU this project already knows
+is bad. The same shape appears on `ovh/zrh`: worst measured is `tls_verify_s`
+= B, and the old rule reported `?` there too.
+
+The fix generalises the reasoning the old rule already used for F. Because
+grading is non-compensatory (worst-wins, never averaged), **the worst
+measured band is a lower bound**: whatever the two unmeasured CPU metrics turn
+out to be, they can only hold the grade at D or drag it to F — no unmeasured
+metric can lift a non-compensatory grade above what is already measured. So
+"at least D" is a fact this project holds, and reporting `?` over it discards
+that fact. Under the new rule, windcloud's `cpu` category grades:
+
+```
+grade: "D", bound_by: "cpu.single_thread_eps",
+incomplete: true, missing: ["cpu.stall_p999_us", "cpu.steal_pct_under_load"]
+```
+
+— "at least D, and possibly worse once the missing metrics land."
+
+This keeps every property the old rule was written to protect:
+
+- **Never grades by omission.** Omitting a metric can only ever *add* the
+  `incomplete` caveat; it can never produce a better-looking grade than the
+  metrics that were actually run.
+- **Not gameable.** Under the old rule, skipping a stage could turn a measured
+  D into a `?` — a `?` sorts as *better-looking* than a D in the index (it
+  reads as "unknown", not "bad"), so running less of the suite could improve
+  a cell. The new rule removes that incentive instead of merely capping it at
+  F: there is no band a submitter can reach by measuring less than they did.
+- **Still worst-wins, still non-compensatory.** `bound_by` always names the
+  metric that actually set the grade — the worst *measured* one, never a
+  missing one. `?` no longer doubles as "the name of what's missing"; that is
+  what `missing` is for.
+
+This is still stricter than v1, which returned `unknown` whenever a required
+rule was missing even if another rule had already failed — it just corrects
+the earlier draft's asymmetry between F and every other band.
 
 ### 4.3 Bands are absolute, never a curve
 

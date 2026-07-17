@@ -161,6 +161,8 @@
       "disk": {
         "grade": "C",
         "bound_by": "disk.rand_read_8k.p99_us",
+        "incomplete": false,
+        "missing": [],
         "metrics": {
           "disk.wal_fsync.p999_us": {
             "value": 1875.97,
@@ -197,8 +199,14 @@
         }
       },
       "cpu": {
-        "grade": "?",
-        "bound_by": "cpu.stall_p999_us",
+        "grade": "A",
+        "bound_by": "cpu.single_thread_eps",
+        "incomplete": true,
+        "missing": [
+          "cpu.stall_p999_us",
+          "cpu.steady_state.degradation_pct",
+          "cpu.tls_verify_s"
+        ],
         "metrics": {
           "cpu.single_thread_eps": {
             "value": 1661.19,
@@ -228,7 +236,11 @@
       },
       "ram": {
         "grade": "?",
-        "bound_by": "ram.bw_read_mbs",
+        "bound_by": null,
+        "incomplete": true,
+        "missing": [
+          "ram.bw_read_mbs"
+        ],
         "metrics": {
           "ram.bw_read_mbs": {
             "value": null,
@@ -239,6 +251,8 @@
       "network": {
         "grade": "B",
         "bound_by": "network.rtt_jitter_ratio",
+        "incomplete": false,
+        "missing": [],
         "metrics": {
           "network.loss_pct": {
             "value": 0,
@@ -254,38 +268,62 @@
     "profiles": {
       "postgres_oltp": {
         "grade": "C",
-        "bound_by": "disk.rand_read_8k.p99_us"
+        "bound_by": "disk.rand_read_8k.p99_us",
+        "incomplete": false,
+        "missing": []
       },
       "timescale_ingest": {
         "grade": "B",
-        "bound_by": "disk.wal_fsync.p999_us"
+        "bound_by": "disk.wal_fsync.p999_us",
+        "incomplete": false,
+        "missing": []
       },
       "patroni_member": {
-        "grade": "?",
-        "bound_by": "cpu.stall_p999_us",
-        "reason": "needs re-run (tool >= 0.2.0)",
+        "grade": "B",
+        "bound_by": "disk.wal_fsync.p999_us",
+        "incomplete": true,
+        "missing": [
+          "cpu.stall_p999_us",
+          "cpu.steady_state.degradation_pct"
+        ],
         "network_half_unmeasured": true
       },
       "redis_sentinel": {
-        "grade": "?",
-        "bound_by": "cpu.stall_p999_us",
-        "reason": "needs re-run (tool >= 0.2.0)",
+        "grade": "B",
+        "bound_by": "disk.wal_fsync.p999_us",
+        "incomplete": true,
+        "missing": [
+          "cpu.stall_p999_us",
+          "cpu.steady_state.degradation_pct"
+        ],
         "network_half_unmeasured": true
       },
       "worker_probe": {
-        "grade": "?",
-        "bound_by": "cpu.stall_p999_us",
-        "reason": "needs re-run (tool >= 0.2.0)"
+        "grade": "B",
+        "bound_by": "network.rtt_jitter_ratio",
+        "incomplete": true,
+        "missing": [
+          "cpu.stall_p999_us",
+          "cpu.steady_state.degradation_pct",
+          "cpu.tls_verify_s"
+        ]
       },
       "playwright_node": {
-        "grade": "?",
-        "bound_by": "cpu.steady_state.degradation_pct",
-        "reason": "needs re-run (tool >= 0.2.0)"
+        "grade": "C",
+        "bound_by": "host.ram_mb",
+        "incomplete": true,
+        "missing": [
+          "cpu.stall_p999_us",
+          "cpu.steady_state.degradation_pct"
+        ]
       },
       "nuxt_ssr": {
-        "grade": "?",
-        "bound_by": "cpu.stall_p999_us",
-        "reason": "needs re-run (tool >= 0.2.0)"
+        "grade": "A",
+        "bound_by": "cpu.single_thread_eps",
+        "incomplete": true,
+        "missing": [
+          "cpu.stall_p999_us"
+        ]
       }
     }
   }

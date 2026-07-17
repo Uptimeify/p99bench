@@ -121,34 +121,43 @@ def grade_metric(value, metric_def: dict) -> str:
     return "F"
 
 
-def rollup(graded: dict[str, str], required: dict[str, bool]) -> tuple[str, str | None]:
-    """Worst-wins rollup. Returns (grade, binding_metric).
+def rollup(
+    graded: dict[str, str], required: dict[str, bool]
+) -> tuple[str, str | None, bool, list[str]]:
+    """Worst-wins rollup. Returns (grade, binding_metric, incomplete, missing).
 
     Precedence (spec 4.2):
-      1. any rule at F            -> F
-      2. else any required rule ? -> ?
-      3. else the worst band present
+      - grade = the worst band among MEASURED metrics. F falls out of this
+        naturally (it is simply the worst band on the scale) -- there is no
+        separate "F beats ?" special case anymore.
+      - `?` is reserved for the case where NOTHING in this category/profile
+        was measured. There is no lower bound to report, so there is nothing
+        to say.
+      - `incomplete` is True whenever any `required: true` rule went
+        unmeasured. The grade is then a FLOOR, not a final answer: it is "at
+        least this bad", because grading is non-compensatory and a missing
+        metric can only drag the grade down, never lift it.
+      - `missing` names the required metrics that are still unmeasured, so a
+        reader knows what could still lower the grade.
 
-    F beats ? on purpose. A host with a 459ms fsync p99.9 is F whether or not
-    its stall was measured -- grading is non-compensatory, so no unmeasured
-    metric could rescue it, and reporting ? would discard a fact we hold. It
-    also stops ? being a hiding place: if a missing metric outranked a measured
-    failure, skipping a stage would upgrade an F to a ?, a better-looking cell
-    obtained by running less of the suite.
+    Why the worst MEASURED band, not `?`, when a required rule is missing: a
+    host with a 400 eps single_thread_eps (D) and an unmeasured stall_p999_us
+    is measurably D right now -- reporting `?` over that discards a fact we
+    hold. Grading is non-compensatory, so the missing metric cannot rescue
+    the D; it can only make it worse. This also stops `?` being a hiding
+    place: under the old rule, skipping a stage could turn a measured D into
+    a `?`, which reads BETTER than D -- a strictly better-looking cell
+    obtained by running LESS of the suite. Reporting the floor instead removes
+    that incentive rather than creating a new one.
     """
-    failures = [m for m, g in graded.items() if g == "F"]
-    if failures:
-        return ("F", failures[0])
-
-    missing_required = [m for m, g in graded.items() if g == "?" and required.get(m)]
-    if missing_required:
-        return ("?", missing_required[0])
+    missing = sorted(m for m, g in graded.items() if g == "?" and required.get(m))
+    incomplete = bool(missing)
 
     scored = {m: g for m, g in graded.items() if g in RANK}
     if not scored:
-        return ("?", None)
+        return ("?", None, incomplete, missing)
     binding = max(scored, key=lambda m: RANK[scored[m]])
-    return (scored[binding], binding)
+    return (scored[binding], binding, incomplete, missing)
 
 
 def storage_class(result: dict) -> str | None:
@@ -223,24 +232,36 @@ def compute(result: dict, thresholds: dict) -> dict:
     for cat, paths in thresholds["categories"].items():
         specs = [{"metric": p, "required": True} for p in paths]
         graded, required, detail = _grade_rules(result, thresholds, specs)
-        grade, bound = rollup(graded, required)
+        grade, bound, incomplete, missing = rollup(graded, required)
         out["categories"][cat] = {
             "grade": grade,
             "bound_by": bound,
+            "incomplete": incomplete,
+            "missing": missing,
             "metrics": detail,
         }
 
     # Profiles are opinions that consume category metrics.
     for name, profile in thresholds["profiles"].items():
         graded, required, _ = _grade_rules(result, thresholds, profile["rules"])
-        grade, bound = rollup(graded, required)
-        entry = {"grade": grade, "bound_by": bound}
+        grade, bound, incomplete, missing = rollup(graded, required)
+        entry = {
+            "grade": grade,
+            "bound_by": bound,
+            "incomplete": incomplete,
+            "missing": missing,
+        }
 
         if grade == "?":
             # Say WHY it is unknown. A result measured before 0.2.0 simply does
             # not carry the newer metrics; that is a re-run, not a defect.
+            # grade == "?" only fires when NOTHING was measured, so `bound` is
+            # always None here -- name the first missing required metric
+            # instead (there is always at least one: an empty `missing` with
+            # nothing scored would mean the profile has zero rules).
+            ref = missing[0] if missing else bound
             entry["reason"] = (
-                f"{bound} not measured (required)"
+                f"{ref} not measured (required)"
                 if _version_gte(tool_version, "0.2.0")
                 else "needs re-run (tool >= 0.2.0)"
             )

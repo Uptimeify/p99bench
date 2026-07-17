@@ -51,16 +51,16 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 </details>
 
-**`cpu`** -- ?, bound by `stall_p999_us`
+**`cpu`** -- B?, bound by `tls_verify_s` (incomplete -- a `?` row below was required and unmeasured; this grade is a floor)
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
 | `single_thread_eps` | 1,652 | A | ≥1,400 / ≥1,000 / ≥700 / ≥400 | - |
 | `scaling_efficiency` | 0.992 | A | ≥0.850 / ≥0.700 / ≥0.550 / ≥0.400 | - |
 | `steal_pct_under_load` | 0.0% | A | ≤0.5% / ≤2.0% / ≤5.0% / ≤10.0% | - |
-| **`stall_p999_us*`** | **—** | **?** | ≤100 us / ≤500 us / ≤2.0 ms / ≤10.0 ms | not measured |
+| `stall_p999_us*` | — | ? | ≤100 us / ≤500 us / ≤2.0 ms / ≤10.0 ms | not measured |
 | `steady_state.degradation_pct*` | 0.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
-| `tls_verify_s*` | 16,906 | B | ≥30,000 / ≥15,000 / ≥7,000 / ≥3,000 | - |
+| **`tls_verify_s*`** | **16,906** | **B** | ≥30,000 / ≥15,000 / ≥7,000 / ≥3,000 | - |
 
 *Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
 
@@ -122,7 +122,7 @@ Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown
 
 | Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `c7d6f7` | 2026-07-17 | 07h | 112.7 ms | 18.0 ms | 0.0% | - | 0.0% | F | F | F | F | ? | ? | ? |
+| `c7d6f7` | 2026-07-17 | 07h | 112.7 ms | 18.0 ms | 0.0% | - | 0.0% | F | F | F? | F? | B? | C? | A? |
 
 </details>
 

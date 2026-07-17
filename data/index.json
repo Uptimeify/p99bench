@@ -18,6 +18,12 @@
         "ram": "A",
         "network": "C"
       },
+      "categories_incomplete": {
+        "disk": false,
+        "cpu": false,
+        "ram": false,
+        "network": false
+      },
       "profiles": {
         "postgres_oltp": "C",
         "timescale_ingest": "B",
@@ -26,6 +32,15 @@
         "worker_probe": "C",
         "playwright_node": "C",
         "nuxt_ssr": "B"
+      },
+      "profiles_incomplete": {
+        "postgres_oltp": false,
+        "timescale_ingest": false,
+        "patroni_member": false,
+        "redis_sentinel": false,
+        "worker_probe": false,
+        "playwright_node": false,
+        "nuxt_ssr": false
       },
       "bound_by_counts": {}
     },
@@ -41,27 +56,39 @@
       "price_eur_month": 7.49,
       "categories": {
         "disk": "F",
-        "cpu": "?",
+        "cpu": "B",
         "ram": "A",
         "network": "A"
+      },
+      "categories_incomplete": {
+        "disk": false,
+        "cpu": true,
+        "ram": false,
+        "network": false
       },
       "profiles": {
         "postgres_oltp": "F",
         "timescale_ingest": "F",
         "patroni_member": "F",
         "redis_sentinel": "F",
-        "worker_probe": "?",
-        "playwright_node": "?",
-        "nuxt_ssr": "?"
+        "worker_probe": "B",
+        "playwright_node": "C",
+        "nuxt_ssr": "A"
+      },
+      "profiles_incomplete": {
+        "postgres_oltp": false,
+        "timescale_ingest": false,
+        "patroni_member": true,
+        "redis_sentinel": true,
+        "worker_probe": true,
+        "playwright_node": true,
+        "nuxt_ssr": true
       },
       "bound_by_counts": {
         "[postgres_oltp] disk.wal_fsync.p999_us": 1,
         "[timescale_ingest] disk.wal_fsync.p999_us": 1,
         "[patroni_member] disk.wal_fsync.p999_us": 1,
-        "[redis_sentinel] disk.wal_fsync.p999_us": 1,
-        "[worker_probe] cpu.stall_p999_us (cpu.stall_p999_us not measured (required))": 1,
-        "[playwright_node] cpu.stall_p999_us (cpu.stall_p999_us not measured (required))": 1,
-        "[nuxt_ssr] cpu.stall_p999_us (cpu.stall_p999_us not measured (required))": 1
+        "[redis_sentinel] disk.wal_fsync.p999_us": 1
       }
     },
     {
@@ -76,27 +103,39 @@
       "price_eur_month": 19.0,
       "categories": {
         "disk": "F",
-        "cpu": "?",
+        "cpu": "D",
         "ram": "B",
         "network": "A"
+      },
+      "categories_incomplete": {
+        "disk": false,
+        "cpu": true,
+        "ram": false,
+        "network": false
       },
       "profiles": {
         "postgres_oltp": "F",
         "timescale_ingest": "F",
         "patroni_member": "F",
         "redis_sentinel": "F",
-        "worker_probe": "?",
-        "playwright_node": "?",
-        "nuxt_ssr": "?"
+        "worker_probe": "D",
+        "playwright_node": "D",
+        "nuxt_ssr": "D"
+      },
+      "profiles_incomplete": {
+        "postgres_oltp": true,
+        "timescale_ingest": true,
+        "patroni_member": true,
+        "redis_sentinel": true,
+        "worker_probe": true,
+        "playwright_node": true,
+        "nuxt_ssr": true
       },
       "bound_by_counts": {
         "[postgres_oltp] disk.wal_fsync.p999_us": 1,
         "[timescale_ingest] disk.wal_fsync.p999_us": 1,
         "[patroni_member] disk.wal_fsync.p999_us": 1,
-        "[redis_sentinel] disk.wal_fsync.p999_us": 1,
-        "[worker_probe] cpu.stall_p999_us (cpu.stall_p999_us not measured (required))": 1,
-        "[playwright_node] cpu.stall_p999_us (cpu.stall_p999_us not measured (required))": 1,
-        "[nuxt_ssr] cpu.stall_p999_us (cpu.stall_p999_us not measured (required))": 1
+        "[redis_sentinel] disk.wal_fsync.p999_us": 1
       }
     }
   ]
