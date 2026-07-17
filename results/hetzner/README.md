@@ -28,14 +28,14 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
-| `wal_fsync.p999_us` | 1.8 ms | B | ≤1.0 ms / ≤3.0 ms / ≤10.0 ms / ≤50.0 ms | solid VM; ~300+ commits/s single-writer |
-| `wal_fsync.iops` | 1,340 | B | ≥5,000 / ≥1,000 / ≥333 / ≥100 | - |
-| **`rand_read_8k.p99_us`** | **2.3 ms** | **C** | ≤500 us / ≤2.0 ms / ≤5.0 ms / ≤15.0 ms | - |
-| `rand_read_8k.iops` | 81,561 | B | ≥100,000 / ≥50,000 / ≥20,000 / ≥5,000 | - |
-| `rand_write_8k.iops` | 67,483 | A | ≥50,000 / ≥20,000 / ≥10,000 / ≥3,000 | - |
-| `seq_write.bw_mbs` | 5,643 MB/s | A | ≥1,000 MB/s / ≥500 MB/s / ≥200 MB/s / ≥100 MB/s | - |
-| `seq_read.bw_mbs` | 7,321 MB/s | A | ≥2,000 MB/s / ≥1,000 MB/s / ≥500 MB/s / ≥200 MB/s | - |
-| `steady_state.degradation_pct` | 2.7% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
+| `wal_fsync.p999_us` | 2.0 ms | B | ≤1.0 ms / ≤3.0 ms / ≤10.0 ms / ≤50.0 ms | solid VM; ~300+ commits/s single-writer |
+| `wal_fsync.iops` | 1,318 | B | ≥5,000 / ≥1,000 / ≥333 / ≥100 | - |
+| **`rand_read_8k.p99_us`** | **2.5 ms** | **C** | ≤500 us / ≤2.0 ms / ≤5.0 ms / ≤15.0 ms | - |
+| `rand_read_8k.iops` | 79,891 | B | ≥100,000 / ≥50,000 / ≥20,000 / ≥5,000 | - |
+| `rand_write_8k.iops` | 67,443 | A | ≥50,000 / ≥20,000 / ≥10,000 / ≥3,000 | - |
+| `seq_write.bw_mbs` | 5,456 MB/s | A | ≥1,000 MB/s / ≥500 MB/s / ≥200 MB/s / ≥100 MB/s | - |
+| `seq_read.bw_mbs` | 6,908 MB/s | A | ≥2,000 MB/s / ≥1,000 MB/s / ≥500 MB/s / ≥200 MB/s | - |
+| `steady_state.degradation_pct` | 0.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
 
 <details>
 <summary>Why these `disk` metrics</summary>
@@ -55,12 +55,12 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
-| `single_thread_eps` | 1,656 | A | ≥1,400 / ≥1,000 / ≥700 / ≥400 | - |
-| `scaling_efficiency` | 0.986 | A | ≥0.850 / ≥0.700 / ≥0.550 / ≥0.400 | - |
+| `single_thread_eps` | 1,662 | A | ≥1,400 / ≥1,000 / ≥700 / ≥400 | - |
+| `scaling_efficiency` | 0.981 | A | ≥0.850 / ≥0.700 / ≥0.550 / ≥0.400 | - |
 | `steal_pct_under_load` | 0.0% | A | ≤0.5% / ≤2.0% / ≤5.0% / ≤10.0% | - |
-| **`stall_p999_us*`** | **244 us** | **B** | ≤100 us / ≤500 us / ≤2.0 ms / ≤10.0 ms | - |
-| `steady_state.degradation_pct*` | 0.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
-| `tls_verify_s*` | 16,784 | B | ≥30,000 / ≥15,000 / ≥7,000 / ≥3,000 | - |
+| **`stall_p999_us*`** | **260 us** | **B** | ≤100 us / ≤500 us / ≤2.0 ms / ≤10.0 ms | - |
+| `steady_state.degradation_pct*` | 15.0% | B | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
+| `tls_verify_s*` | 16,176 | B | ≥30,000 / ≥15,000 / ≥7,000 / ≥3,000 | - |
 
 *Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
 
@@ -96,7 +96,7 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
 | `loss_pct` | 0.0% | A | ≤0.0% / ≤0.1% / ≤0.5% / ≤2.0% | - |
-| **`rtt_jitter_ratio`** | **1.417** | **B** | ≤1.100 / ≤1.500 / ≤2.000 / ≤5.000 | - |
+| **`rtt_jitter_ratio`** | **1.440** | **B** | ≤1.100 / ≤1.500 / ≤2.000 / ≤5.000 | - |
 
 <details>
 <summary>Why these `network` metrics</summary>
@@ -110,10 +110,10 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 | Target | Throughput | RTT p50 | RTT p99 |
 |---|---|---|---|
-| `hetzner-fsn1` | 774 Mb/s | 25ms | - |
-| `hetzner-hel1` | 5.83 Gb/s | 0.5ms | 0.7ms |
+| `hetzner-fsn1` | 751 Mb/s | 25ms | - |
+| `hetzner-hel1` | 5.74 Gb/s | 0.5ms | 0.7ms |
 | `ovh-gra` | 0 Mb/s | 29ms | - |
-| `hetzner-ash` | 189 Mb/s | 110ms | - |
+| `hetzner-ash` | 202 Mb/s | 110ms | - |
 
 Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown per target instead (lowest throughput, highest RTT seen).
 
@@ -122,7 +122,7 @@ Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown
 
 | Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `ffe9c6` | 2026-07-17 | 09h | 1.8 ms | 2.3 ms | 0.0% | 244 us | 2.7% | C | B | B | B | B | C | B |
+| `ffe9c6` | 2026-07-17 | 11h | 2.0 ms | 2.5 ms | 0.0% | 260 us | 0.0% | C | B | B | B | B | C | B |
 
 </details>
 

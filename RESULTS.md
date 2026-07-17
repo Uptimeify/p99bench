@@ -39,9 +39,9 @@ on any other profile's row is context, not a cause.
 
 | Provider | Region | Product | Class | Machines | Runs | fsync p99.9 worst | disk | cpu | ram | net | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| hetzner | hel-1 | `CPX32` | net-fast | 1 | 1 | 1.8 ms | C | B | ? | B | C | B | B | B | B | C | B |
-| ovh | zrh | `vps-1-lz-2026` | net-slow | 1 | 1 | 112.7 ms | F | B | ? | A | F | F | F | F | B | C | B |
-| windcloud | enge-sande | `VPS-L` | degraded | 1 | 1 | 246.4 ms | F | D | B | A | F | F | F | F | D | D | D |
+| hetzner | hel-1 | `CPX32` | net-fast | 1 | 1 | 2.0 ms | C | B | ? | B | C | B | B | B | B | C | B |
+| ovh | zrh | `vps-1-lz-2026` | net-slow | 1 | 1 | 120.1 ms | F | B | ? | A | F | F | F | F | B | C | B |
+| windcloud | enge-sande | `VPS-L` | degraded | 1 | 1 | 270.5 ms | F | F | B | A | F | F | F | F | F | F | F |
 
 ## Network
 
@@ -67,7 +67,11 @@ a grade? The thing to argue about is the threshold, in
 | [postgres_oltp] disk.wal_fsync.p999_us | 2 |
 | [timescale_ingest] disk.wal_fsync.p999_us | 2 |
 | [patroni_member] disk.wal_fsync.p999_us | 2 |
-| [redis_sentinel] disk.wal_fsync.p999_us | 2 |
+| [redis_sentinel] disk.wal_fsync.p999_us | 1 |
+| [redis_sentinel] cpu.single_thread_eps | 1 |
+| [worker_probe] cpu.single_thread_eps | 1 |
+| [playwright_node] cpu.single_thread_eps | 1 |
+| [nuxt_ssr] cpu.single_thread_eps | 1 |
 
 ---
 
