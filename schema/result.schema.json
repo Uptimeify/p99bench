@@ -596,6 +596,18 @@
             "number",
             "null"
           ]
+        },
+        "numa_local_read_mbs": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "numa_remote_read_mbs": {
+          "type": [
+            "number",
+            "null"
+          ]
         }
       }
     },
@@ -664,6 +676,18 @@
                   "null"
                 ],
                 "minimum": 0
+              },
+              "dns_first_ms": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "dns_warm_p50_ms": {
+                "type": [
+                  "number",
+                  "null"
+                ]
               },
               "rtt_p50_ms": {
                 "type": [

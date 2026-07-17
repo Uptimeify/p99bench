@@ -471,7 +471,7 @@ def network_target_stats(rs: list[dict]) -> tuple[dict[str, dict], bool]:
 
     reachable is an HTTP-status flag (bench/06-network.sh: http_code == 200),
     NOT a "nothing measured" flag -- a target with reachable: false can still
-    carry a real dns_ms/rtt_p50_ms/loss_pct (every published result has
+    carry a real dns_first_ms/rtt_p50_ms/loss_pct (every published result has
     exactly this on ovh-gra: mbps is null, RTT is real). So this collects
     every target that appears, unconditionally on `reachable`; only mbps
     being present or absent decides whether throughput renders as a number
@@ -606,7 +606,7 @@ def _print_provider_page(provider: str, runs: list[dict]) -> None:
     print("a low number points at this provider's peering rather than at")
     print("geography. **Only `worker_probe` and `playwright_node` grade any of")
     print("it** (`loss_pct`, `rtt_jitter_ratio`) -- for those two profiles the")
-    print("network *is* the workload. Throughput and `dns_ms` stay ungraded")
+    print("network *is* the workload. Throughput and DNS stay ungraded")
     print("everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).")
     print()
 

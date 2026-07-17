@@ -73,32 +73,76 @@ fi
 
 # --- per-target measurement ------------------------------------------------
 
+# dns_lookup_ms <url> -- one DNS lookup, in ms. Prints nothing on failure.
+#
+# curl -sI rather than a GET: the name is resolved before any response body
+# matters, so time_namelookup is valid even against an endpoint that rejects
+# HEAD (a 405 still resolved the name). -o /dev/null so this never pulls the
+# throughput file six times per target.
+dns_lookup_ms() {
+  local url="$1" t
+  t=$(curl -sI --max-time 10 -o /dev/null -w '%{time_namelookup}' "$url" 2>/dev/null) || return 0
+  [[ -z "$t" ]] && return 0
+  echo "scale=2; $t * 1000" | bc 2>/dev/null || true
+}
+
 # measure_target <id> <url> <ping_host>
 # Emits one JSON object. Every field independently nullable: a target that
 # answers HTTP but drops ICMP still yields useful throughput.
 measure_target() {
   local id="$1" url="$2" phost="$3"
 
+  # DNS first, before the throughput curl resolves the name and warms every
+  # cache between here and the authoritative server.
+  #
+  # The old measurement was one curl time_namelookup taken in passing during
+  # the throughput request: n=1, no warming, no separation. Worst-of-four
+  # across targets then made it worst-of-four-cold-first-lookups, which is
+  # authoritative-NS distance, not the host -- ovh/waw measured 1.86 / 81.07 /
+  # 109.60 / 149.45 ms in a single run against a single resolver. That is why
+  # it was never gradeable (THRESHOLDS.md).
+  #
+  # Two separate questions, so two separate fields:
+  #   dns_first_ms    - the first lookup this run makes for this name. Still
+  #                     n=1 and still mostly NS distance and prior cache state.
+  #                     Informational, and honest about it in the name.
+  #   dns_warm_p50_ms - median of 5 lookups once the name is cached. THIS is a
+  #                     host property: a monitoring probe hitting a target
+  #                     every minute pays the cached lookup essentially always,
+  #                     so what it actually waits on is this host's resolver
+  #                     answering a name it already knows. Repeatable, and a
+  #                     median rather than a max because there is no queue here
+  #                     whose tail we are hunting -- the tail belongs to rtt.
+  log "  $id: dns"
+  local dns_first dns_warm_p50
+  dns_first=$(dns_lookup_ms "$url")
+  # median() (lib.sh) drops failed lookups rather than counting them as zero,
+  # and is unit tested there -- this stage cannot be tested without egress.
+  dns_warm_p50=$(for _ in 1 2 3 4 5; do dns_lookup_ms "$url"; done | median)
+  [[ -z "$dns_warm_p50" ]] && warn "  $id: no DNS lookup succeeded - dns_warm_p50_ms null"
+
   log "  $id: throughput"
   # -w gives us curl's own measurements: no arithmetic on wall clock, no
   # writing 100MB to disk (-o /dev/null) polluting a disk benchmark.
-  local out speed_bps ttfb dns
+  local out speed_bps ttfb
   out=$(curl -s --max-time 120 -o /dev/null \
-        -w '%{speed_download} %{time_starttransfer} %{time_namelookup} %{http_code}' \
+        -w '%{speed_download} %{time_starttransfer} %{http_code}' \
         "$url" 2>/dev/null) || out=""
 
   if [[ -z "$out" ]]; then
-    jq -n --arg id "$id" '{id: $id, reachable: false, mbps: null,
-                           ttfb_ms: null, rtt_p50_ms: null, rtt_p99_ms: null,
-                           loss_pct: null}'
+    jq -n --arg id "$id" \
+       --argjson dns_first "$(jnum "$dns_first")" \
+       --argjson dns_warm "$(jnum "$dns_warm_p50")" \
+       '{id: $id, reachable: false, mbps: null, ttfb_ms: null,
+         dns_first_ms: $dns_first, dns_warm_p50_ms: $dns_warm,
+         rtt_p50_ms: null, rtt_p99_ms: null, loss_pct: null}'
     return
   fi
 
   speed_bps=$(echo "$out" | awk '{print $1}')
   ttfb=$(echo "$out" | awk '{print $2}')
-  dns=$(echo "$out" | awk '{print $3}')
   local code
-  code=$(echo "$out" | awk '{print $4}')
+  code=$(echo "$out" | awk '{print $3}')
 
   # bytes/s -> Mbit/s
   local mbps="null"
@@ -107,8 +151,6 @@ measure_target() {
   fi
   local ttfb_ms="null"
   [[ -n "$ttfb" ]] && ttfb_ms=$(echo "scale=2; $ttfb * 1000" | bc 2>/dev/null || echo null)
-  local dns_ms="null"
-  [[ -n "$dns" ]] && dns_ms=$(echo "scale=2; $dns * 1000" | bc 2>/dev/null || echo null)
 
   # Latency: percentiles, not the average. Same reasoning as every other metric
   # in this suite -- the mean hides exactly the tail that hurts.
@@ -133,13 +175,15 @@ measure_target() {
   jq -n --arg id "$id" \
      --argjson mbps "$(jnum "$mbps")" \
      --argjson ttfb "$(jnum "$ttfb_ms")" \
-     --argjson dns "$(jnum "$dns_ms")" \
+     --argjson dns_first "$(jnum "$dns_first")" \
+     --argjson dns_warm "$(jnum "$dns_warm_p50")" \
      --argjson p50 "$(jnum "$p50")" \
      --argjson p99 "$(jnum "$p99")" \
      --argjson loss "$(jnum "$loss")" \
      --argjson ok "$([[ "$code" == "200" ]] && echo true || echo false)" \
      '{id: $id, reachable: $ok, mbps: $mbps, ttfb_ms: $ttfb,
-       dns_ms: $dns, rtt_p50_ms: $p50, rtt_p99_ms: $p99, loss_pct: $loss}'
+       dns_first_ms: $dns_first, dns_warm_p50_ms: $dns_warm,
+       rtt_p50_ms: $p50, rtt_p99_ms: $p99, loss_pct: $loss}'
 }
 
 RESULTS="[]"

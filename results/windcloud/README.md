@@ -15,7 +15,7 @@ be compared in one table; these can. Distance is a known constant, so
 a low number points at this provider's peering rather than at
 geography. **Only `worker_probe` and `playwright_node` grade any of
 it** (`loss_pct`, `rtt_jitter_ratio`) -- for those two profiles the
-network *is* the workload. Throughput and `dns_ms` stay ungraded
+network *is* the workload. Throughput and DNS stay ungraded
 everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 ## enge-sande / `VPS-L`
@@ -33,8 +33,8 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 | `rand_read_8k_qd1.p99_us*` | — | ? | ≤500 us / ≤2.0 ms / ≤5.0 ms / ≤15.0 ms | not measured |
 | `rand_read_8k.iops` | 64,010 | B | ≥100,000 / ≥50,000 / ≥20,000 / ≥5,000 | - |
 | `rand_write_8k.iops` | 13,180 | C | ≥50,000 / ≥20,000 / ≥10,000 / ≥3,000 | - |
-| `seq_write.bw_mbs` | 570 MB/s | B | ≥1,000 MB/s / ≥500 MB/s / ≥200 MB/s / ≥100 MB/s | - |
-| `seq_read.bw_mbs` | 3,313 MB/s | A | ≥2,000 MB/s / ≥1,000 MB/s / ≥500 MB/s / ≥200 MB/s | - |
+| `seq_write.bw_mbs` | 570.15 MiB/s | B | ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s / ≥100 MiB/s | - |
+| `seq_read.bw_mbs` | 3312.6 MiB/s | A | ≥2000 MiB/s / ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s | - |
 | `steady_state.degradation_pct` | 0.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
 
 *Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
@@ -82,7 +82,7 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
-| **`bw_read_mbs*`** | **33,193 MB/s** | **B** | ≥40,000 MB/s / ≥25,000 MB/s / ≥15,000 MB/s / ≥8,000 MB/s | - |
+| **`bw_read_mbs*`** | **33192.8 MiB/s** | **B** | ≥40000 MiB/s / ≥25000 MiB/s / ≥15000 MiB/s / ≥8000 MiB/s | - |
 
 *Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
 

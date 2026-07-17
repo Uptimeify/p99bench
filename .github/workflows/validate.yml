@@ -122,6 +122,14 @@ jobs:
         run: |
           sudo -E bash bench/06-network.sh
           sudo jq -e '.network.reachable != null' "$P99_WORK/frag-network.json"
+          # If the runner had egress, the warm-lookup path must have produced
+          # numbers. This is the ONLY gate that ever executes that code: it
+          # needs real DNS resolution, which neither the test container nor a
+          # dev sandbox has. Guarded on reachable so an egress-blocked runner
+          # still passes -- reachable=false remains a valid outcome.
+          sudo jq -e 'if .network.reachable then
+                        ([.network.targets[] | select(.dns_warm_p50_ms != null)] | length) > 0
+                      else true end' "$P99_WORK/frag-network.json"
 
       - name: Network targets file is parseable
         run: |

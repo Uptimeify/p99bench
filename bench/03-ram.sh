@@ -22,9 +22,16 @@ SLOTS=$(dmidecode -t memory 2>/dev/null | grep -c "Size: [0-9]" || echo "")
 # metric nulled with no trace of why. A null is the right OUTCOME (doctrine:
 # null loses one metric, garbage loses the run) but it must never be a silent
 # one -- the run log is the only evidence a remote host leaves behind.
+# MEM_PREFIX wraps the sysbench call (numactl, for the NUMA test). An array
+# rather than a string so a path with a space cannot re-split into two words,
+# and expanded with the ${x[@]+"${x[@]}"} form so an empty array is not an
+# unbound-variable error under set -u.
+MEM_PREFIX=()
+
 mem() {
   local oper="$1" mode="$2" bs="$3" threads="$4" total="$5" out val
-  if ! out=$(sysbench memory --memory-block-size="$bs" --memory-total-size="$total" \
+  if ! out=$(${MEM_PREFIX[@]+"${MEM_PREFIX[@]}"} \
+      sysbench memory --memory-block-size="$bs" --memory-total-size="$total" \
       --memory-oper="$oper" --memory-access-mode="$mode" --threads="$threads" run 2>&1); then
     warn "sysbench memory failed (oper=$oper mode=$mode block=$bs threads=$threads total=$total): $(printf '%s' "$out" | grep -iE 'fatal|error' | head -2 | tr '\n' ' ')"
     return 0
@@ -96,17 +103,46 @@ RND_R=$(mem read rnd 8k "$CORES" 50G)
 log "RAM: random write 8k"
 RND_W=$(mem write rnd 8k "$CORES" 50G)
 
+# NUMA locality: read the same working set pinned to node 0's CPUs, once from
+# node 0's memory and once from node 1's. The gap is the socket hop.
+#
+# This was WRONG until 2026-07-17. It called sysbench with no
+# --memory-block-size and no --memory-oper, so it inherited the defaults: a 1K
+# block (L1-resident) of WRITES. It measured cache on both sides of the hop,
+# so the hop was invisible -- the same bug the bandwidth test above exists to
+# fix, one call below the fix. The published numbers prove it: windcloud
+# reported REMOTE memory faster than local on two separate runs (4305 vs 4379,
+# 3846 vs 3870 MiB/s), which cannot happen across a socket hop. Neither number
+# ever reached DRAM.
+#
+# Fields renamed numa_{local,remote}_mbs -> numa_{local,remote}_read_mbs: a
+# changed measurement gets a changed name (spec 9.2), and these really are a
+# different measurement -- 512M reads where the old field was 1K writes. The
+# old values are not comparable to the new ones and must never be pooled.
 NUMA_L=null
 NUMA_R=null
 NODES=$(numactl --hardware 2>/dev/null | awk '/^available:/ {print $2}' || echo 1)
 if [[ "${NODES:-1}" -gt 1 ]]; then
-  log "RAM: NUMA local vs remote"
-  NUMA_L=$(numactl --cpunodebind=0 --membind=0 \
-    sysbench memory --memory-total-size=20G --threads=4 run 2>/dev/null \
-    | awk '/MiB\/sec/ {gsub(/[()]/,"",$4); print $4; exit}')
-  NUMA_R=$(numactl --cpunodebind=0 --membind=1 \
-    sysbench memory --memory-total-size=20G --threads=4 run 2>/dev/null \
-    | awk '/MiB\/sec/ {gsub(/[()]/,"",$4); print $4; exit}')
+  # Sized against ONE node's memory, not the machine's: --membind=1 forces
+  # every byte to come from node 1, so node 1's capacity is the cap that
+  # matters. Smallest node wins -- nodes are not always equal.
+  NODE_MB=$(numactl --hardware 2>/dev/null |
+    awk '/^node [0-9]+ size:/ {if (min == "" || $4 < min) min = $4} END {print min + 0}')
+  NUMA_THREADS=$CORES
+  (( NUMA_THREADS > 4 )) && NUMA_THREADS=4
+  NUMA_BLOCK=$(ram_block_bytes "$LLC" "$NUMA_THREADS" "$((NODE_MB * 1024 * 1024))")
+  NUMA_WS=$((NUMA_BLOCK * NUMA_THREADS))
+
+  if (( NUMA_BLOCK == 0 || NUMA_WS < CACHE_CLEAR_FLOOR )); then
+    warn "RAM: NUMA working set ${NUMA_WS}B (${NUMA_BLOCK}B/thread x ${NUMA_THREADS} threads on a ${NODE_MB}MB node) cannot clear 2x LLC (${CACHE_CLEAR_FLOOR}B) - recording NUMA locality as null rather than comparing two cache measurements."
+  else
+    log "RAM: NUMA local vs remote (working set ${NUMA_BLOCK}B/thread x ${NUMA_THREADS}, node ${NODE_MB}MB)"
+    MEM_PREFIX=(numactl --cpunodebind=0 --membind=0)
+    NUMA_L=$(mem read seq "$NUMA_BLOCK" "$NUMA_THREADS" 20G)
+    MEM_PREFIX=(numactl --cpunodebind=0 --membind=1)
+    NUMA_R=$(mem read seq "$NUMA_BLOCK" "$NUMA_THREADS" 20G)
+    MEM_PREFIX=()
+  fi
 else
   log "Single NUMA node, skipping locality test"
 fi
@@ -129,8 +165,8 @@ emit_json ram "$(jq -n \
       seq_write_mbs: $sw,
       rnd_read_mbs: $rr,
       rnd_write_mbs: $rw,
-      numa_local_mbs: $nl,
-      numa_remote_mbs: $nr
+      numa_local_read_mbs: $nl,
+      numa_remote_read_mbs: $nr
   }}')"
 
 echo
@@ -142,8 +178,8 @@ jq -r '.ram |
   "seq write:    \(.seq_write_mbs // "n/a") MiB/s   (legacy)",
   "rnd read 8k:  \(.rnd_read_mbs // "n/a") MiB/s   (legacy: 8k block, L1-resident, not banded)",
   "rnd write 8k: \(.rnd_write_mbs // "n/a") MiB/s   (legacy)",
-  "numa local:   \(.numa_local_mbs // "n/a") MiB/s",
-  "numa remote:  \(.numa_remote_mbs // "n/a") MiB/s"
+  "numa local:   \(.numa_local_read_mbs // "n/a") MiB/s",
+  "numa remote:  \(.numa_remote_read_mbs // "n/a") MiB/s"
 ' "$P99_WORK/frag-ram.json"
 echo
 echo "Reference: DDR4-3200 dual channel ~35-45 GB/s. DDR5-4800 dual ~60-70 GB/s."

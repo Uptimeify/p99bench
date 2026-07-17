@@ -95,8 +95,8 @@ all 10 published results.
 | `disk.rand_read_8k.p99_us` | — | — | — | — | — | **Informational, not graded.** Measured at `--iodepth=32 --numjobs=4`, so Little's law pins it to its own throughput: p99 ≈ 128/IOPS. Across the 13 runs measured to date, `p99_us / (128/IOPS)` had a median of **1.08** and sat within 7% of 1.0 on every OVH host — it restates `rand_read_8k.iops` rather than measuring a tail. Grading both counted one fact twice, and worst-wins always took the harsher view: band A (≤ 500 µs) demanded **256,000 IOPS** at QD128 while the `iops` band called 100,000 an A. A Hetzner CPX32 doing 79,633 IOPS was marked C for it. Still emitted and still shown as context — a busy pool's latency is worth seeing, it is just not a threshold. | — |
 | `disk.rand_read_8k.iops` | ≥ 100,000 | ≥ 50,000 | ≥ 20,000 | ≥ 5,000 | < 5,000 | Generational marker rather than a workload requirement. Advisory. | Low |
 | `disk.rand_write_8k.iops` | ≥ 50,000 | ≥ 20,000 | ≥ 10,000 | ≥ 3,000 | < 3,000 | Checkpoint flush rate. Advisory. | Low |
-| `disk.seq_write.bw_mbs` | ≥ 1,000 MB/s | ≥ 500 MB/s | ≥ 200 MB/s | ≥ 100 MB/s | < 100 MB/s | Chunk writes and compression output are sequential and bulky. | Medium |
-| `disk.seq_read.bw_mbs` | ≥ 2,000 MB/s | ≥ 1,000 MB/s | ≥ 500 MB/s | ≥ 200 MB/s | < 200 MB/s | Continuous aggregate refresh reads whole chunks. Advisory: a generational marker rather than a figure derived from a workload requirement — `timescale_ingest` reads it as `required: false` for that reason. On the current corpus it produces both A and D (hetzner and ovh/waw clear 5.7–7.4 GB/s, ovh/prg and ovh/zrh sit pinned at 300 MB/s): it discriminates, so it is neither broken nor quiet. | Low |
+| `disk.seq_write.bw_mbs` | ≥ 1,000 MiB/s | ≥ 500 MiB/s | ≥ 200 MiB/s | ≥ 100 MiB/s | < 100 MiB/s | Chunk writes and compression output are sequential and bulky. | Medium |
+| `disk.seq_read.bw_mbs` | ≥ 2,000 MiB/s | ≥ 1,000 MiB/s | ≥ 500 MiB/s | ≥ 200 MiB/s | < 200 MiB/s | Continuous aggregate refresh reads whole chunks. Advisory: a generational marker rather than a figure derived from a workload requirement — `timescale_ingest` reads it as `required: false` for that reason. On the current corpus it produces both A and D (hetzner and ovh/waw clear 5.7–7.4 GB/s, ovh/prg and ovh/zrh sit pinned at 300 MB/s): it discriminates, so it is neither broken nor quiet. | Low |
 | `disk.steady_state.degradation_pct` | ≤ 5% | ≤ 15% | ≤ 30% | ≤ 50% | > 50% | Burst credits. A 60 s run measures the credit balance; 30 minutes measures the machine you will actually run. **Quiet** in the current corpus (0.0–2.0% across all 10 runs) — see [Quiet metrics](#quiet-metrics). | Medium |
 
 ## cpu
@@ -118,7 +118,7 @@ Phase 1 and carry no corpus yet — see
 
 | Metric | A | B | C | D | F | Reasoning | Confidence |
 |---|---|---|---|---|---|---|---|
-| `ram.bw_read_mbs` | ≥ 40,000 MB/s | ≥ 25,000 MB/s | ≥ 15,000 MB/s | ≥ 8,000 MB/s | < 8,000 MB/s | **PROVISIONAL — and it cannot be calibrated from the existing corpus at all**: those 10 numbers were measured with a 1M working set that sat in L2, so they describe cache, not memory, and cannot calibrate their own replacement. Anchored to DDR generation instead: DDR4-2666 dual ~43 GB/s, DDR5-4800 dual ~76 GB/s; single channel halves it. | Low |
+| `ram.bw_read_mbs` | ≥ 40,000 MiB/s | ≥ 25,000 MiB/s | ≥ 15,000 MiB/s | ≥ 8,000 MiB/s | < 8,000 MiB/s | **PROVISIONAL — and it cannot be calibrated from the existing corpus at all**: those 10 numbers were measured with a 1M working set that sat in L2, so they describe cache, not memory, and cannot calibrate their own replacement. Anchored to DDR generation instead: DDR4-2666 dual ~43 GB/s, DDR5-4800 dual ~76 GB/s; single channel halves it. Mind the units when reading those anchors: sysbench reports **MiB/s** and the bands are MiB/s, while DDR figures are quoted in GB/s — the A band of 40,000 MiB/s is 41.9 GB/s, i.e. ~55% of a dual-channel DDR5-4800 part. Measured so far: hetzner 60,097 MiB/s (63.0 GB/s), ovh/zrh 85,645 (89.8 GB/s), windcloud 33,193 (34.8 GB/s). | Low |
 | `host.ram_mb` *(not in the `ram` category — read directly by `playwright_node`)* | ≥ 16,384 | ≥ 8,192 | ≥ 4,096 | ≥ 2,048 | < 2,048 | Each Chromium is ~300–500 MB, so a 2 GB VPS cannot run 4 concurrent browsers regardless of core speed. A sizing fact, and actionable. | Medium |
 
 `ram` is the only category with a single metric, and that metric is
@@ -142,18 +142,28 @@ in any category.
 | `network.loss_pct` | ≤ 0.01% | ≤ 0.1% | ≤ 0.5% | ≤ 2% | > 2% | Derived, not chosen: an ICMP check sending 3 packets and declaring "down" on total loss false-alarms at rate `p^3`. At `p` = 10%, that is 1-in-1000 checks; at one check per minute, 1.4 false alarms per day. The corpus contains exactly this case: `ovh/zrh -> hetzner-ash` at 10% loss. | Medium |
 | `network.rtt_jitter_ratio` | ≤ 1.1 | ≤ 1.5 | ≤ 2.0 | ≤ 5.0 | > 5.0 | `rtt_p99_ms / rtt_p50_ms`. Timing-sensitive checks care about the spread, not the mean. | Low |
 
-`network.dns_ms` has a band in `schema/thresholds.yaml` but **no category or
-profile reads it** — it is recorded and reported, never graded.
-`06-network.sh` measures it as one `curl` `time_namelookup` per target: a
-single uncached first lookup, n=1, no warming, and the worst-of-four rollup
-this project uses everywhere else would then report *worst-of-four-cold-
-first-lookups* as if it were a property of the host. The corpus disagrees:
-ovh/waw, one run, one resolver, four targets: 1.86 / 81.07 / 109.60 / 149.45
-ms — an 80x spread that is authoritative-NS distance and cache state, not the
-machine. Grading it would repeat the extreme-value mistake this redesign
-exists to fix. The band stays in the YAML, unused, so a future fix to
-`06-network.sh` (repeated lookups, warm and cold separated) has a calibrated
-starting point instead of nothing.
+`network.dns_warm_p50_ms` has a band in `schema/thresholds.yaml` but **no
+category or profile reads it** — it is recorded and reported, never graded.
+
+Until tool 0.2.1 the field was `network.dns_ms`: one `curl` `time_namelookup`
+taken in passing during the throughput request — n=1, no warming — and the
+worst-of-four rollup this project uses everywhere else would then report
+*worst-of-four-cold-first-lookups* as if it were a property of the host. The
+corpus disagreed: ovh/waw, one run, one resolver, four targets: 1.86 / 81.07 /
+109.60 / 149.45 ms — an 80x spread that is authoritative-NS distance and cache
+state, not the machine.
+
+`06-network.sh` now measures the two questions separately:
+
+| Field | What it is | Status |
+|---|---|---|
+| `dns_warm_p50_ms` | Median of 5 lookups once the name is cached. A monitoring probe hitting a target every minute pays the cached lookup essentially always, so what it waits on is *this host's resolver answering a name it already knows*. Repeatable, and a host property. | Ungraded, **provisional** band — no run has measured it yet |
+| `dns_first_ms` | The first lookup of the run for that name. Still n=1, still dominated by NS distance and prior cache state. | Informational, and named so nobody mistakes it for a host property |
+
+A median, not a max: there is no queue here whose tail we are hunting — that
+tail belongs to `rtt_p99_ms`. The bands stay unused until 0.2.1 runs exist to
+calibrate them; whether `worker_probe` should read `dns_warm_p50_ms` is a spec
+11 decision, not a guess to make now.
 
 Why only these two profiles: see [Known gaps](#known-gaps) below — this is a
 narrowing of the project's long-standing "no verdict reads network" stance, not

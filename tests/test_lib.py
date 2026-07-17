@@ -225,3 +225,45 @@ def test_ram_block_is_zero_when_no_legal_block_exists(run_bash):
     # degenerate cannot be measured at all, so say so with 0 rather than
     # emitting a block sysbench will FATAL on.
     assert _block(run_bash, 32 * MIB, 16, 64) == 0
+
+
+# median() -- used by 06-network.sh for dns_warm_p50_ms. It lives in lib.sh so
+# CI tests it: the network stage needs real egress, which neither the test
+# container nor a dev sandbox has, so its own smoke test only runs in CI. The
+# arithmetic must not be the part that is untested -- that is precisely how the
+# sysbench power-of-two bug and the 1K NUMA default both reached real hosts.
+
+def _median(run_bash, values):
+    return run_bash(f'printf "%s\\n" {values} | median').stdout
+
+
+def test_median_of_five(run_bash):
+    assert _median(run_bash, "5 1 3 2 4") == "3"
+
+
+def test_median_sorts_numerically_not_lexically(run_bash):
+    # A lexical sort puts "100" before "9", which would report 100 as the
+    # median of these five. DNS timings routinely straddle that boundary
+    # (0.8ms cached vs 149ms cold), so this is not hypothetical.
+    assert _median(run_bash, "9 100 8 7 6") == "8"
+
+
+def test_median_of_one(run_bash):
+    assert _median(run_bash, "42.5") == "42.5"
+
+
+def test_median_of_empty_is_empty(run_bash):
+    # Every lookup failed. Print nothing; jnum turns that into null.
+    assert run_bash('printf "" | median').stdout == ""
+
+
+def test_median_ignores_non_numeric_lines(run_bash):
+    # A failed curl contributes nothing, but a changed -w format could emit a
+    # word. Same doctrine as jnum: drop it rather than average it in.
+    assert _median(run_bash, "2 oops 1 3") == "2"
+
+
+def test_median_of_even_count_takes_the_lower_middle(run_bash):
+    # Documented choice: no interpolation, so the reported value is always one
+    # that was actually measured.
+    assert _median(run_bash, "1 2 3 4") == "2"

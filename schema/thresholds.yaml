@@ -88,14 +88,14 @@ metrics:
 
   disk.seq_write.bw_mbs:
     op: gte
-    unit: MB/s
+    unit: MiB/s
     bands: { A: 1000, B: 500, C: 200, D: 100 }
     confidence: medium
     why: "Chunk writes and compression output are sequential and bulky."
 
   disk.seq_read.bw_mbs:
     op: gte
-    unit: MB/s
+    unit: MiB/s
     bands: { A: 2000, B: 1000, C: 500, D: 200 }
     confidence: low
     why: >
@@ -199,7 +199,7 @@ metrics:
 
   ram.bw_read_mbs:
     op: gte
-    unit: MB/s
+    unit: MiB/s
     bands: { A: 40000, B: 25000, C: 15000, D: 8000 }
     confidence: low
     provisional: true
@@ -233,27 +233,30 @@ metrics:
       at one check per minute, 1.4 false alarms per day. The corpus contains
       exactly this case: ovh/zrh -> hetzner-ash at 10% loss.
 
-  network.dns_ms:
+  network.dns_warm_p50_ms:
     op: lte
     unit: ms
     bands: { A: 5, B: 20, C: 50, D: 100 }
     confidence: medium
+    provisional: true
     why: >
-      NOT GRADED (spec 6.5 update) -- read no category and no profile below.
-      Every HEAD/GET check does pay DNS before it starts, so this ought to be
-      a worker_probe input, but 06-network.sh measures it as ONE curl
-      time_namelookup per target: a single uncached first lookup, n=1, no
-      warming, and reduce_network then takes the worst of four -- so the
-      graded number would be worst-of-four-cold-first-lookups, not a property
-      of the host. ovh/waw, one run, one resolver: 1.86 / 81.07 / 109.60 /
-      149.45 ms across four targets -- an 80x spread that is authoritative-NS
-      distance and cache state. A probe checking a target every minute pays
-      the cached lookup essentially always. Grading this would repeat the
-      extreme-value mistake spec 5.1 exists to correct. The bands above are
-      left in place, unused, so a later fix to 06-network.sh (repeated
-      lookups, warm and cold separated) has calibrated bounds ready rather
-      than starting from nothing -- but until that fix ships, no rule may
-      reference this metric. A band we cannot honestly derive is not a band.
+      NOT GRADED YET -- read no category and no profile below. The fix this
+      band was parked for has now shipped (tool 0.2.1): 06-network.sh takes
+      five lookups per target once the name is cached and reports their median
+      as dns_warm_p50_ms, with the cold-ish first lookup kept separately as
+      dns_first_ms (informational, still n=1).
+      The old field, dns_ms, was ONE curl time_namelookup taken in passing --
+      n=1, no warming -- and worst-of-four across targets made the graded
+      number worst-of-four-cold-first-lookups, not a property of the host.
+      ovh/waw, one run, one resolver: 1.86 / 81.07 / 109.60 / 149.45 ms across
+      four targets, an 80x spread that is authoritative-NS distance, not the
+      machine. The warm median IS a host property: a probe checking a target
+      every minute pays the cached lookup essentially always, so what it waits
+      on is this host's resolver answering a name it already knows.
+      Still ungraded because no run has measured it yet -- these bands are
+      reasoned, not calibrated. Decide whether worker_probe should read it
+      once tool 0.2.1 runs land (spec 11), and do not grade it before then:
+      a band nobody has data for is not a band.
 
   network.rtt_jitter_ratio:
     op: lte
@@ -261,6 +264,15 @@ metrics:
     bands: { A: 1.1, B: 1.5, C: 2.0, D: 5.0 }
     confidence: low
     why: "rtt_p99 / rtt_p50. Timing-sensitive checks care about the spread, not the mean."
+
+  # UNITS: the three bw_mbs bands above are MiB/s, not MB/s, and say so.
+  # fio reports bandwidth in KiB/s and 01-disk.sh divides by 1024; sysbench
+  # prints MiB/sec directly. The bands were written as "MB/s" and compared
+  # against MiB/s numbers, which made them ~4.9% stricter than documented.
+  # Checked across all 13 runs measured to date: no grade changes either way,
+  # so this is a labelling fix, not a recalibration. The FIELD names keep the
+  # _mbs suffix -- the measurement did not change, and spec 9.2 reserves a
+  # rename for when it does.
 
 categories:
   disk:

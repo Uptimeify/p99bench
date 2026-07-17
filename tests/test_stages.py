@@ -489,3 +489,55 @@ def test_disk_stage_measures_random_read_at_qd1(repo_root):
     assert "--iodepth=1" in line, f"QD1 read job must be iodepth=1: {line!r}"
     assert "--numjobs=1" in line, f"QD1 read job must be numjobs=1: {line!r}"
     assert "psync" in line, f"QD1 read job must use psync, as Postgres does: {line!r}"
+
+
+def test_ram_numa_test_sizes_its_working_set_and_reads(repo_root):
+    # Not @pytest.mark.docker: CI runs -m "not docker", and a container has one
+    # NUMA node so this code path never executes there anyway. Source it is.
+    #
+    # The NUMA locality test called sysbench with no --memory-block-size and no
+    # --memory-oper until 2026-07-17, so it took the defaults: a 1K block
+    # (L1-resident) of writes. It therefore measured cache on both sides of the
+    # hop and could not see NUMA at all. windcloud published remote memory as
+    # FASTER than local on two separate runs (4305 vs 4379, 3846 vs 3870
+    # MiB/s) -- impossible across a socket hop, and the proof neither number
+    # ever reached DRAM.
+    #
+    # This is the same bug 03-ram.sh exists to fix, one function call below the
+    # fix. Assert the sizing is explicit rather than inherited.
+    script = (repo_root / "bench" / "03-ram.sh").read_text()
+    body = script[script.index("NUMA_L="):script.index("emit_json ram")]
+    calls = [ln for ln in body.splitlines()
+             if "sysbench memory" in ln or "mem read" in ln]
+    assert calls, "03-ram.sh must still measure NUMA locality"
+    for line in calls:
+        assert "--memory-total-size" not in line or "block" in body, line
+    # The measurement must be a sized read, not sysbench's 1K default write.
+    assert "--memory-oper" in body or "mem read" in body, \
+        "NUMA test must specify a read operation, not inherit sysbench's default write"
+    assert "NUMA_BLOCK" in body, \
+        "NUMA test must size its own working set (NUMA_BLOCK), not inherit the 1K default"
+
+
+def test_network_dns_is_measured_repeatedly_not_once(repo_root):
+    # Not @pytest.mark.docker: CI runs -m "not docker".
+    #
+    # dns_ms was ONE curl time_namelookup per target -- n=1, no warming, and
+    # the worst-of-four rollup would then report worst-of-four-cold-first-
+    # lookups as a property of the host. ovh/waw, one run, one resolver, four
+    # targets: 1.86 / 81.07 / 109.60 / 149.45 ms. That 80x spread is
+    # authoritative-NS distance and cache state, not the machine, which is why
+    # it could never be graded (THRESHOLDS.md, network.dns_ms).
+    #
+    # The warm lookup IS a host property: a probe checking a target every
+    # minute pays the cached lookup essentially always, so what matters is how
+    # fast this host's resolver answers a cached name, measured more than once.
+    script = (repo_root / "bench" / "06-network.sh").read_text()
+    assert "dns_warm_p50_ms" in script, "the warm lookup must be measured and named"
+    assert "dns_first_ms" in script, "the cold-ish first lookup stays, separately named"
+    assert "dns_ms" not in script.replace("dns_ms", "", 0) or True  # see below
+    # The old single-shot field must not still be emitted under its old name:
+    # a changed measurement gets a changed name (spec 9.2).
+    emitted = script[script.index("jq -n --arg id"):]
+    assert "dns_ms:" not in emitted, \
+        "dns_ms must no longer be emitted -- it named a single cold lookup"

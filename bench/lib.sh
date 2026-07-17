@@ -267,6 +267,30 @@ llc_bytes() {
   printf '%s' "$biggest"
 }
 
+# median - median of the numbers on stdin. Prints nothing when none are valid.
+#
+# Lives here so CI can test it: its only caller (06-network.sh, for
+# dns_warm_p50_ms) needs real egress to run at all, which neither the test
+# container nor a dev sandbox has. The arithmetic must not be the untested
+# part -- a non-power-of-two block and a 1K NUMA default both reached real
+# hosts by being arithmetic no gate ever executed.
+#
+# Non-numeric lines are DROPPED, not coerced: a failed lookup contributes
+# nothing rather than a zero that would drag the median down. Same doctrine as
+# jnum -- never let a word become a number.
+#
+# Even counts take the lower middle rather than interpolating, so the reported
+# value is always one that was actually measured.
+median() {
+  local vals n
+  vals=$(grep -E '^-?([0-9]+\.?[0-9]*|\.[0-9]+)$' | sort -n)
+  [[ -z "$vals" ]] && return 0
+  n=$(printf '%s\n' "$vals" | wc -l | tr -d ' ')
+  # printf '%s' (no trailing newline), as llc_bytes and ram_block_bytes do --
+  # every caller is a command substitution, and the helpers agree on shape.
+  printf '%s' "$(printf '%s\n' "$vals" | awk -v n="$n" 'NR == int((n + 1) / 2) {print; exit}')"
+}
+
 # ram_block_bytes <llc_bytes> <cores> <ram_bytes>
 #
 # The per-thread sysbench block for the RAM bandwidth run, or 0 if no legal
