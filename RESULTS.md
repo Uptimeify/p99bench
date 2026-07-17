@@ -3,7 +3,7 @@
 
 # Results
 
-3 runs across 3 machines at 3 providers.
+6 runs across 6 machines at 3 providers.
 
 *Every number below is a measurement of specific machines at specific times. Providers vary by region, by hardware generation within a region, and by who else is on the host. Read [METHODOLOGY.md](METHODOLOGY.md) before drawing conclusions, and [THRESHOLDS.md](THRESHOLDS.md) before disagreeing with a grade.*
 
@@ -39,9 +39,12 @@ on any other profile's row is context, not a cause.
 
 | Provider | Region | Product | Class | Machines | Runs | fsync p99.9 worst | disk | cpu | ram | net | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| hetzner | hel-1 | `CPX32` | net-fast | 1 | 1 | 2.2 ms | B? | B | A | D | B? | B | B | B | D | C | B |
-| ovh | zrh | `vps-1-lz-2026` | net-slow | 1 | 1 | 114.8 ms | F? | B | A | A | F? | F | F | F | B | C | B |
-| windcloud | enge-sande | `VPS-L` | degraded | 1 | 1 | 333.4 ms | F? | D | B | A | F? | F | F | F | D | D | D |
+| hetzner | fsn-1 | `CPX32` | net-fast | 1 | 1 | 4.4 ms | C | F | B | D | C | C | F | F | F | F | F |
+| hetzner | hel-1 | `CPX32` | net-fast | 1 | 1 | 3.7 ms | C | B | A | B | C | C | C | C | B | C | B |
+| ovh | prg | `vps-1-lz-2026` | net-slow | 1 | 1 | 15.4 ms | D | B | A | A | D | D | D | D | B | C | B |
+| ovh | waw | `vps-1-lz-2026` | net-fast | 1 | 1 | 3.0 ms | C | F | C | A | C | C | F | F | F | F | F |
+| ovh | zrh | `vps-1-lz-2026` | net-slow | 1 | 1 | 11.2 ms | D | B | A | A | D | D | D | D | B | C | B |
+| windcloud | enge-sande | `VPS-L` | net-slow | 1 | 1 | 242.2 ms | F | F | B | A | F | F | F | F | F | F | F |
 
 ## Network
 
@@ -64,10 +67,14 @@ a grade? The thing to argue about is the threshold, in
 
 | Binding constraint | Runs affected |
 |---|---|
-| [postgres_oltp] disk.wal_fsync.p999_us | 2 |
-| [timescale_ingest] disk.wal_fsync.p999_us | 2 |
-| [patroni_member] disk.wal_fsync.p999_us | 2 |
-| [redis_sentinel] disk.wal_fsync.p999_us | 2 |
+| [redis_sentinel] cpu.single_thread_eps | 3 |
+| [worker_probe] cpu.single_thread_eps | 3 |
+| [playwright_node] cpu.single_thread_eps | 3 |
+| [nuxt_ssr] cpu.single_thread_eps | 3 |
+| [patroni_member] cpu.single_thread_eps | 2 |
+| [postgres_oltp] disk.wal_fsync.p999_us | 1 |
+| [timescale_ingest] disk.wal_fsync.p999_us | 1 |
+| [patroni_member] disk.wal_fsync.p999_us | 1 |
 
 ---
 

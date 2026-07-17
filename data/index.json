@@ -4,37 +4,85 @@
   "results": [
     {
       "provider": "hetzner",
+      "region": "fsn-1",
+      "product": "CPX32",
+      "storage_class": "net-fast",
+      "machines": 1,
+      "runs": 1,
+      "fsync_p999_us_median": null,
+      "fsync_p999_us_worst": 4423.68,
+      "price_eur_month": 42.23,
+      "categories": {
+        "disk": "C",
+        "cpu": "F",
+        "ram": "B",
+        "network": "D"
+      },
+      "categories_incomplete": {
+        "disk": false,
+        "cpu": false,
+        "ram": false,
+        "network": false
+      },
+      "profiles": {
+        "postgres_oltp": "C",
+        "timescale_ingest": "C",
+        "patroni_member": "F",
+        "redis_sentinel": "F",
+        "worker_probe": "F",
+        "playwright_node": "F",
+        "nuxt_ssr": "F"
+      },
+      "profiles_incomplete": {
+        "postgres_oltp": false,
+        "timescale_ingest": false,
+        "patroni_member": false,
+        "redis_sentinel": false,
+        "worker_probe": false,
+        "playwright_node": false,
+        "nuxt_ssr": false
+      },
+      "bound_by_counts": {
+        "[patroni_member] cpu.single_thread_eps": 1,
+        "[redis_sentinel] cpu.single_thread_eps": 1,
+        "[worker_probe] cpu.single_thread_eps": 1,
+        "[playwright_node] cpu.single_thread_eps": 1,
+        "[nuxt_ssr] cpu.single_thread_eps": 1
+      }
+    },
+    {
+      "provider": "hetzner",
       "region": "hel-1",
       "product": "CPX32",
       "storage_class": "net-fast",
       "machines": 1,
       "runs": 1,
       "fsync_p999_us_median": null,
-      "fsync_p999_us_worst": 2244.61,
+      "fsync_p999_us_worst": 3686.4,
       "price_eur_month": 42.23,
       "categories": {
-        "disk": "B",
+        "disk": "C",
         "cpu": "B",
         "ram": "A",
-        "network": "D"
+        "network": "B"
       },
       "categories_incomplete": {
-        "disk": true,
+        "disk": false,
         "cpu": false,
         "ram": false,
         "network": false
       },
       "profiles": {
-        "postgres_oltp": "B",
-        "timescale_ingest": "B",
-        "patroni_member": "B",
-        "redis_sentinel": "B",
-        "worker_probe": "D",
+        "postgres_oltp": "C",
+        "timescale_ingest": "C",
+        "patroni_member": "C",
+        "redis_sentinel": "C",
+        "worker_probe": "B",
         "playwright_node": "C",
         "nuxt_ssr": "B"
       },
       "profiles_incomplete": {
-        "postgres_oltp": true,
+        "postgres_oltp": false,
         "timescale_ingest": false,
         "patroni_member": false,
         "redis_sentinel": false,
@@ -46,37 +94,127 @@
     },
     {
       "provider": "ovh",
+      "region": "prg",
+      "product": "vps-1-lz-2026",
+      "storage_class": "net-slow",
+      "machines": 1,
+      "runs": 1,
+      "fsync_p999_us_median": null,
+      "fsync_p999_us_worst": 15400.96,
+      "price_eur_month": 7.49,
+      "categories": {
+        "disk": "D",
+        "cpu": "B",
+        "ram": "A",
+        "network": "A"
+      },
+      "categories_incomplete": {
+        "disk": false,
+        "cpu": false,
+        "ram": false,
+        "network": false
+      },
+      "profiles": {
+        "postgres_oltp": "D",
+        "timescale_ingest": "D",
+        "patroni_member": "D",
+        "redis_sentinel": "D",
+        "worker_probe": "B",
+        "playwright_node": "C",
+        "nuxt_ssr": "B"
+      },
+      "profiles_incomplete": {
+        "postgres_oltp": false,
+        "timescale_ingest": false,
+        "patroni_member": false,
+        "redis_sentinel": false,
+        "worker_probe": false,
+        "playwright_node": false,
+        "nuxt_ssr": false
+      },
+      "bound_by_counts": {}
+    },
+    {
+      "provider": "ovh",
+      "region": "waw",
+      "product": "vps-1-lz-2026",
+      "storage_class": "net-fast",
+      "machines": 1,
+      "runs": 1,
+      "fsync_p999_us_median": null,
+      "fsync_p999_us_worst": 2998.27,
+      "price_eur_month": 7.49,
+      "categories": {
+        "disk": "C",
+        "cpu": "F",
+        "ram": "C",
+        "network": "A"
+      },
+      "categories_incomplete": {
+        "disk": false,
+        "cpu": false,
+        "ram": false,
+        "network": false
+      },
+      "profiles": {
+        "postgres_oltp": "C",
+        "timescale_ingest": "C",
+        "patroni_member": "F",
+        "redis_sentinel": "F",
+        "worker_probe": "F",
+        "playwright_node": "F",
+        "nuxt_ssr": "F"
+      },
+      "profiles_incomplete": {
+        "postgres_oltp": false,
+        "timescale_ingest": false,
+        "patroni_member": false,
+        "redis_sentinel": false,
+        "worker_probe": false,
+        "playwright_node": false,
+        "nuxt_ssr": false
+      },
+      "bound_by_counts": {
+        "[patroni_member] cpu.single_thread_eps": 1,
+        "[redis_sentinel] cpu.single_thread_eps": 1,
+        "[worker_probe] cpu.single_thread_eps": 1,
+        "[playwright_node] cpu.single_thread_eps": 1,
+        "[nuxt_ssr] cpu.single_thread_eps": 1
+      }
+    },
+    {
+      "provider": "ovh",
       "region": "zrh",
       "product": "vps-1-lz-2026",
       "storage_class": "net-slow",
       "machines": 1,
       "runs": 1,
       "fsync_p999_us_median": null,
-      "fsync_p999_us_worst": 114819.07,
+      "fsync_p999_us_worst": 11206.66,
       "price_eur_month": 7.49,
       "categories": {
-        "disk": "F",
+        "disk": "D",
         "cpu": "B",
         "ram": "A",
         "network": "A"
       },
       "categories_incomplete": {
-        "disk": true,
+        "disk": false,
         "cpu": false,
         "ram": false,
         "network": false
       },
       "profiles": {
-        "postgres_oltp": "F",
-        "timescale_ingest": "F",
-        "patroni_member": "F",
-        "redis_sentinel": "F",
+        "postgres_oltp": "D",
+        "timescale_ingest": "D",
+        "patroni_member": "D",
+        "redis_sentinel": "D",
         "worker_probe": "B",
         "playwright_node": "C",
         "nuxt_ssr": "B"
       },
       "profiles_incomplete": {
-        "postgres_oltp": true,
+        "postgres_oltp": false,
         "timescale_ingest": false,
         "patroni_member": false,
         "redis_sentinel": false,
@@ -84,31 +222,26 @@
         "playwright_node": false,
         "nuxt_ssr": false
       },
-      "bound_by_counts": {
-        "[postgres_oltp] disk.wal_fsync.p999_us": 1,
-        "[timescale_ingest] disk.wal_fsync.p999_us": 1,
-        "[patroni_member] disk.wal_fsync.p999_us": 1,
-        "[redis_sentinel] disk.wal_fsync.p999_us": 1
-      }
+      "bound_by_counts": {}
     },
     {
       "provider": "windcloud",
       "region": "enge-sande",
       "product": "VPS-L",
-      "storage_class": "degraded",
+      "storage_class": "net-slow",
       "machines": 1,
       "runs": 1,
       "fsync_p999_us_median": null,
-      "fsync_p999_us_worst": 333447.17,
+      "fsync_p999_us_worst": 242221.06,
       "price_eur_month": 19.0,
       "categories": {
         "disk": "F",
-        "cpu": "D",
+        "cpu": "F",
         "ram": "B",
         "network": "A"
       },
       "categories_incomplete": {
-        "disk": true,
+        "disk": false,
         "cpu": false,
         "ram": false,
         "network": false
@@ -118,12 +251,12 @@
         "timescale_ingest": "F",
         "patroni_member": "F",
         "redis_sentinel": "F",
-        "worker_probe": "D",
-        "playwright_node": "D",
-        "nuxt_ssr": "D"
+        "worker_probe": "F",
+        "playwright_node": "F",
+        "nuxt_ssr": "F"
       },
       "profiles_incomplete": {
-        "postgres_oltp": true,
+        "postgres_oltp": false,
         "timescale_ingest": false,
         "patroni_member": false,
         "redis_sentinel": false,
@@ -135,7 +268,10 @@
         "[postgres_oltp] disk.wal_fsync.p999_us": 1,
         "[timescale_ingest] disk.wal_fsync.p999_us": 1,
         "[patroni_member] disk.wal_fsync.p999_us": 1,
-        "[redis_sentinel] disk.wal_fsync.p999_us": 1
+        "[redis_sentinel] cpu.single_thread_eps": 1,
+        "[worker_probe] cpu.single_thread_eps": 1,
+        "[playwright_node] cpu.single_thread_eps": 1,
+        "[nuxt_ssr] cpu.single_thread_eps": 1
       }
     }
   ]

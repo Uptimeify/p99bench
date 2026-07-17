@@ -20,22 +20,22 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 ## enge-sande / `VPS-L`
 
-1 run - 1 machine - storage class `degraded` - 19.00 EUR/mo - **boot volume**
+1 run - 1 machine - storage class `net-slow` - 19.00 EUR/mo - **boot volume**
 
 **Host**: Intel(R) Xeon(R) Gold 6126 CPU @ 2.60GHz - 4 vCPU - 11.7 GB RAM - kvm - kernel 6.12.95+deb13-amd64
 
-**`disk`** -- F?, bound by `wal_fsync.p999_us` (incomplete -- a `?` row below was required and unmeasured; this grade is a floor)
+**`disk`** -- F, bound by `wal_fsync.p999_us`
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
-| **`wal_fsync.p999_us`** | **333.4 ms** | **F** | ≤1.0 ms / ≤3.0 ms / ≤10.0 ms / ≤50.0 ms | durability path broken |
-| `wal_fsync.iops` | 89 | F | ≥5,000 / ≥1,000 / ≥333 / ≥100 | - |
-| `rand_read_8k_qd1.p99_us*` | — | ? | ≤500 us / ≤2.0 ms / ≤5.0 ms / ≤15.0 ms | not measured |
-| `rand_read_8k.iops` | 64,010 | B | ≥100,000 / ≥50,000 / ≥20,000 / ≥5,000 | - |
-| `rand_write_8k.iops` | 13,180 | C | ≥50,000 / ≥20,000 / ≥10,000 / ≥3,000 | - |
-| `seq_write.bw_mbs` | 570.15 MiB/s | B | ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s / ≥100 MiB/s | - |
-| `seq_read.bw_mbs` | 3312.6 MiB/s | A | ≥2000 MiB/s / ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s | - |
-| `steady_state.degradation_pct` | 0.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
+| **`wal_fsync.p999_us`** | **242.2 ms** | **F** | ≤1.0 ms / ≤3.0 ms / ≤10.0 ms / ≤50.0 ms | durability path broken |
+| `wal_fsync.iops` | 103 | D | ≥5,000 / ≥1,000 / ≥333 / ≥100 | - |
+| `rand_read_8k_qd1.p99_us*` | 3.8 ms | C | ≤500 us / ≤2.0 ms / ≤5.0 ms / ≤15.0 ms | - |
+| `rand_read_8k.iops` | 66,259 | B | ≥100,000 / ≥50,000 / ≥20,000 / ≥5,000 | - |
+| `rand_write_8k.iops` | 12,832 | C | ≥50,000 / ≥20,000 / ≥10,000 / ≥3,000 | - |
+| `seq_write.bw_mbs` | 583.55 MiB/s | B | ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s / ≥100 MiB/s | - |
+| `seq_read.bw_mbs` | 3435.73 MiB/s | A | ≥2000 MiB/s / ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s | - |
+| `steady_state.degradation_pct` | 9.0% | B | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
 
 *Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
 
@@ -53,16 +53,16 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 </details>
 
-**`cpu`** -- D, bound by `single_thread_eps`
+**`cpu`** -- F, bound by `single_thread_eps`
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
-| **`single_thread_eps`** | **407** | **D** | ≥1,400 / ≥1,000 / ≥700 / ≥400 | - |
-| `scaling_efficiency` | 0.954 | A | ≥0.850 / ≥0.700 / ≥0.550 / ≥0.400 | - |
-| `steal_pct_under_load` | 0.2% | A | ≤0.5% / ≤2.0% / ≤5.0% / ≤10.0% | - |
-| `stall_p999_us*` | 190 us | B | ≤100 us / ≤500 us / ≤2.0 ms / ≤10.0 ms | - |
-| `steady_state.degradation_pct*` | 1.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
-| `tls_verify_s*` | 9,099 | C | ≥30,000 / ≥15,000 / ≥7,000 / ≥3,000 | - |
+| **`single_thread_eps`** | **399** | **F** | ≥1,400 / ≥1,000 / ≥700 / ≥400 | - |
+| `scaling_efficiency` | 0.971 | A | ≥0.850 / ≥0.700 / ≥0.550 / ≥0.400 | - |
+| `steal_pct_under_load` | 0.1% | A | ≤0.5% / ≤2.0% / ≤5.0% / ≤10.0% | - |
+| `stall_p999_us*` | 242 us | B | ≤100 us / ≤500 us / ≤2.0 ms / ≤10.0 ms | - |
+| `steady_state.degradation_pct*` | 2.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
+| `tls_verify_s*` | 9,440 | C | ≥30,000 / ≥15,000 / ≥7,000 / ≥3,000 | - |
 
 *Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
 
@@ -82,7 +82,7 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
-| **`bw_read_mbs*`** | **33192.8 MiB/s** | **B** | ≥40000 MiB/s / ≥25000 MiB/s / ≥15000 MiB/s / ≥8000 MiB/s | - |
+| **`bw_read_mbs*`** | **30401.6 MiB/s** | **B** | ≥40000 MiB/s / ≥25000 MiB/s / ≥15000 MiB/s / ≥8000 MiB/s | - |
 
 *Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
 
@@ -98,7 +98,7 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
 | **`loss_pct`** | **0.0%** | **A** | ≤0.0% / ≤0.1% / ≤0.5% / ≤2.0% | - |
-| `rtt_jitter_ratio` | 1.012 | A | ≤1.100 / ≤1.500 / ≤2.000 / ≤5.000 | - |
+| `rtt_jitter_ratio` | 1.007 | A | ≤1.100 / ≤1.500 / ≤2.000 / ≤5.000 | - |
 
 <details>
 <summary>Why these `network` metrics</summary>
@@ -112,10 +112,10 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 | Target | Throughput | RTT p50 | RTT p99 |
 |---|---|---|---|
-| `hetzner-fsn1` | 1.20 Gb/s | 17ms | - |
-| `hetzner-hel1` | 468 Mb/s | 29ms | - |
+| `hetzner-fsn1` | 1.13 Gb/s | 17ms | - |
+| `hetzner-hel1` | 672 Mb/s | 29ms | - |
 | `ovh-gra` | 0 Mb/s | 21ms | - |
-| `hetzner-ash` | 233 Mb/s | 94ms | - |
+| `hetzner-ash` | 239 Mb/s | 94ms | - |
 
 Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown per target instead (lowest throughput, highest RTT seen).
 
@@ -124,7 +124,7 @@ Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown
 
 | Machine | Date | Hour | fsync p99.9 | rand-read p99 (QD1) | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `3637eb` | 2026-07-17 | 12h | 333.4 ms | - | 0.2% | 190 us | 0.0% | F? | F | F | F | D | D | D |
+| `3637eb` | 2026-07-17 | 16h | 242.2 ms | 3.8 ms | 0.1% | 242 us | 9.0% | F | F | F | F | F | F | F |
 
 </details>
 
