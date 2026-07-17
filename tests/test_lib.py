@@ -82,15 +82,24 @@ def test_llc_bytes_picks_largest_of_several_indexes(run_bash):
     assert out.stdout == str(32 * 1024 * 1024)
 
 
+# P99_LSCPU_OUT="" (empty) forces the lscpu fallback to yield nothing, so
+# these three tests reach the FINAL 32M fallback deterministically. Without it
+# they are environment-dependent: they passed on macOS (no lscpu) and on a
+# runner whose `lscpu -B` prints "256 MiB (8 instances)" (rejected by the
+# numeric guard), but FAILED on a runner with a clean numeric lscpu, which
+# returned its real 260 MiB L3. The seam makes the assertion mean what it says.
+NO_LSCPU = {"P99_LSCPU_OUT": "/dev/null"}
+
+
 def test_llc_bytes_falls_back_when_directory_missing(run_bash):
-    out = run_bash("llc_bytes", env={"P99_CACHE_ROOT": str(FIXTURES / "does_not_exist")})
+    out = run_bash("llc_bytes", env={"P99_CACHE_ROOT": str(FIXTURES / "does_not_exist"), **NO_LSCPU})
     assert out.stdout == str(32 * 1024 * 1024)
 
 
 def test_llc_bytes_skips_malformed_entries_without_crashing(run_bash):
     # One empty size file, one non-numeric one. Neither should crash or
     # contribute a bogus value; with no valid entry, falls back to 32M.
-    out = run_bash("llc_bytes", env={"P99_CACHE_ROOT": str(FIXTURES / "malformed")})
+    out = run_bash("llc_bytes", env={"P99_CACHE_ROOT": str(FIXTURES / "malformed"), **NO_LSCPU})
     assert out.returncode == 0
     assert out.stdout == str(32 * 1024 * 1024)
 
@@ -102,9 +111,38 @@ def test_llc_bytes_warns_and_ignores_unrecognized_unit(run_bash):
     # class this parser exists to prevent. Now: warn and ignore the entry
     # rather than contribute a wrong number. Only entry present, so this
     # falls back to the pessimistic 32M default.
-    out = run_bash("llc_bytes", env={"P99_CACHE_ROOT": str(FIXTURES / "unrecognized_unit")})
+    out = run_bash("llc_bytes", env={"P99_CACHE_ROOT": str(FIXTURES / "unrecognized_unit"), **NO_LSCPU})
     assert out.stdout == str(32 * 1024 * 1024)
     assert "unrecognized" in out.stderr.lower()
+
+
+def test_llc_bytes_reads_lscpu_when_sysfs_is_absent(run_bash, tmp_path):
+    # The path that actually runs on every cloud guest -- sysfs cache info is
+    # absent there, so lscpu is the real source, not the 32M last resort. It
+    # was untested until 2026-07-17, which is exactly why a runner swap could
+    # flip three green tests to red without anyone having touched the code.
+    # `lscpu -B` reports bytes: 67108864 = 64 MiB.
+    lscpu = tmp_path / "lscpu.txt"
+    lscpu.write_text("Architecture: x86_64\nL3 cache: 67108864\n")
+    out = run_bash("llc_bytes", env={
+        "P99_CACHE_ROOT": str(FIXTURES / "does_not_exist"),
+        "P99_LSCPU_OUT": str(lscpu),
+    })
+    assert out.stdout == str(64 * 1024 * 1024)
+
+
+def test_llc_bytes_rejects_sub_mib_lscpu_value_as_unit_confusion(run_bash, tmp_path):
+    # An lscpu that ignores -B prints "256 MiB (8 instances)"; $3 is a bare
+    # "256", numeric, and taken as 256 BYTES it would pass a > 0 guard and
+    # become a nonsense LLC (which then sizes a cache-bound block). No real L3
+    # is under 1 MiB, so the value must be rejected and fall through to 32M.
+    lscpu = tmp_path / "lscpu.txt"
+    lscpu.write_text("L3 cache: 256 MiB (8 instances)\n")
+    out = run_bash("llc_bytes", env={
+        "P99_CACHE_ROOT": str(FIXTURES / "does_not_exist"),
+        "P99_LSCPU_OUT": str(lscpu),
+    })
+    assert out.stdout == str(32 * 1024 * 1024)
 
 
 def test_lib_forces_c_locale(run_bash):

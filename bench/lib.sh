@@ -258,10 +258,32 @@ llc_bytes() {
   # fired silently on every one. lscpu reads CPUID instead, so it still answers
   # in a guest. Kept second so the fixture-driven tests (P99_CACHE_ROOT) still
   # exercise the sysfs parser.
-  if (( biggest == 0 )) && command -v lscpu >/dev/null 2>&1; then
-    local v
-    v=$(lscpu -B 2>/dev/null | awk '/^L3 cache:/ {print $3; exit}')
-    [[ "$v" =~ ^[0-9]+$ ]] && (( v > 0 )) && biggest=$v
+  #
+  # P99_LSCPU_OUT is the injection seam for this branch, added after the
+  # fallback tests below turned out to be environment-dependent: they assert
+  # the FINAL 32M fallback, but that only fires when lscpu ALSO yields nothing.
+  # On macOS (no lscpu) and on a runner whose `lscpu -B` prints "256 MiB (8
+  # instances)" (rejected by the numeric guard) they passed; on a runner with a
+  # clean numeric lscpu they read the real 260 MiB L3 and failed. Neither the
+  # 32M fallback nor the lscpu parse was actually pinned. The seam lets a test
+  # feed known lscpu output (or none) so both paths are deterministic. `-B`
+  # prints bytes, so a fixture holds e.g. "L3 cache: 67108864".
+  if (( biggest == 0 )); then
+    local lscpu_out v
+    if [[ -n "${P99_LSCPU_OUT:-}" ]]; then
+      lscpu_out=$(cat "$P99_LSCPU_OUT" 2>/dev/null)
+    elif command -v lscpu >/dev/null 2>&1; then
+      lscpu_out=$(lscpu -B 2>/dev/null)
+    else
+      lscpu_out=""
+    fi
+    v=$(printf '%s\n' "$lscpu_out" | awk '/^L3 cache:/ {print $3; exit}')
+    # >= 1 MiB, not just > 0: `lscpu -B` prints bytes, but an lscpu that
+    # ignores -B prints "256 MiB (8 instances)" whose $3 is a bare "256" --
+    # numeric, and taken as 256 BYTES it passes a > 0 guard and becomes a
+    # nonsense LLC. No real L3 is under 1 MiB, so a sub-MiB value is a unit
+    # confusion, not a cache size. Reject it and fall through to 32M.
+    [[ "$v" =~ ^[0-9]+$ ]] && (( v >= 1048576 )) && biggest=$v
   fi
   (( biggest == 0 )) && biggest=$((32 * 1024 * 1024))
   printf '%s' "$biggest"
@@ -281,8 +303,15 @@ llc_bytes() {
 # CPU-bound at ~17,400 MiB/s -- half the unpinned 30,763 -- which flattened
 # the local/remote difference the test exists to find.
 numa_node_cpus() {
-  local node="$1" line
-  line=$( { [[ -n "${P99_NUMA_HW:-}" ]] && cat "$P99_NUMA_HW" || numactl --hardware 2>/dev/null; } |
+  local node="$1" line hw
+  # if/else, not `A && B || C`: with the && || form, a cat that prints nothing
+  # (empty fixture) is a "false" left side and numactl runs anyway (SC2015).
+  if [[ -n "${P99_NUMA_HW:-}" ]]; then
+    hw=$(cat "$P99_NUMA_HW" 2>/dev/null)
+  else
+    hw=$(numactl --hardware 2>/dev/null)
+  fi
+  line=$(printf '%s\n' "$hw" |
     awk -v n="$node" '$0 ~ "^node " n " cpus:" {sub(/^node [0-9]+ cpus:[ ]*/, ""); print; exit}')
   [[ -z "$line" ]] && { printf '0'; return; }
   printf '%s' "$(printf '%s\n' "$line" | wc -w | tr -d ' ')"
