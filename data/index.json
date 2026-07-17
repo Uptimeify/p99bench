@@ -3,6 +3,68 @@
   "generated_from": "results/",
   "results": [
     {
+      "provider": "hetzner",
+      "region": "hel-1",
+      "product": "CPX32",
+      "storage_class": "net-fast",
+      "machines": 1,
+      "runs": 1,
+      "fsync_p999_us_median": null,
+      "fsync_p999_us_worst": 1957.89,
+      "price_eur_month": 42.23,
+      "categories": {
+        "disk": "C",
+        "cpu": "B",
+        "ram": "A",
+        "network": "C"
+      },
+      "profiles": {
+        "postgres_oltp": "C",
+        "timescale_ingest": "B",
+        "patroni_member": "B",
+        "redis_sentinel": "B",
+        "worker_probe": "C",
+        "playwright_node": "C",
+        "nuxt_ssr": "B"
+      },
+      "bound_by_counts": {}
+    },
+    {
+      "provider": "ovh",
+      "region": "zrh",
+      "product": "vps-1-lz-2026",
+      "storage_class": "net-slow",
+      "machines": 1,
+      "runs": 1,
+      "fsync_p999_us_median": null,
+      "fsync_p999_us_worst": 112721.92,
+      "price_eur_month": 7.49,
+      "categories": {
+        "disk": "F",
+        "cpu": "?",
+        "ram": "A",
+        "network": "A"
+      },
+      "profiles": {
+        "postgres_oltp": "F",
+        "timescale_ingest": "F",
+        "patroni_member": "F",
+        "redis_sentinel": "F",
+        "worker_probe": "?",
+        "playwright_node": "?",
+        "nuxt_ssr": "?"
+      },
+      "bound_by_counts": {
+        "[postgres_oltp] disk.wal_fsync.p999_us": 1,
+        "[timescale_ingest] disk.wal_fsync.p999_us": 1,
+        "[patroni_member] disk.wal_fsync.p999_us": 1,
+        "[redis_sentinel] disk.wal_fsync.p999_us": 1,
+        "[worker_probe] cpu.stall_p999_us (cpu.stall_p999_us not measured (required))": 1,
+        "[playwright_node] cpu.stall_p999_us (cpu.stall_p999_us not measured (required))": 1,
+        "[nuxt_ssr] cpu.stall_p999_us (cpu.stall_p999_us not measured (required))": 1
+      }
+    },
+    {
       "provider": "windcloud",
       "region": "enge-sande",
       "product": "VPS-L",
