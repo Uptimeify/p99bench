@@ -37,7 +37,17 @@ LLC=$(llc_bytes)
 # swapping run measures the disk.
 RAM_BYTES="${P99_RAM_BYTES:-$(awk '/MemTotal/ {print $2 * 1024; exit}' /proc/meminfo)}"
 BLOCK=$((LLC * 4))
-(( BLOCK < 134217728 )) && BLOCK=134217728
+# Floor at 512M/thread, not 4x LLC alone. Measured on real hardware: a Hetzner
+# CPX32 (EPYC Genoa, 32 MiB L3) reports 98 GB/s at a 128M block and 66 GB/s at
+# both 512M and 1G -- so 128M, despite being 4x its LLC, over-reports by ~48%.
+# It converges at 512M. An OVH VPS (64 MiB L3) and a windcloud VPS (32 MiB L3)
+# read flat across 128M/512M/1G, so the floor costs them nothing.
+#
+# 4x LLC is not enough on its own: prefetchers stream sequential reads happily
+# past a buffer that "should not fit", so the working set has to be big enough
+# that TLB and DRAM behaviour dominate. The cap below still keeps the total
+# under a quarter of RAM.
+(( BLOCK < 536870912 )) && BLOCK=536870912
 MAX_BLOCK=$((RAM_BYTES / 4 / CORES))
 (( BLOCK > MAX_BLOCK )) && BLOCK=$MAX_BLOCK
 

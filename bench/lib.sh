@@ -151,6 +151,16 @@ llc_bytes() {
     esac
     (( v > biggest )) && biggest=$v
   done
+  # sysfs cache info is ABSENT in real cloud guests -- confirmed on Hetzner,
+  # OVH and windcloud VMs, where this loop matched nothing and the 32M default
+  # fired silently on every one. lscpu reads CPUID instead, so it still answers
+  # in a guest. Kept second so the fixture-driven tests (P99_CACHE_ROOT) still
+  # exercise the sysfs parser.
+  if (( biggest == 0 )) && command -v lscpu >/dev/null 2>&1; then
+    local v
+    v=$(lscpu -B 2>/dev/null | awk '/^L3 cache:/ {print $3; exit}')
+    [[ "$v" =~ ^[0-9]+$ ]] && (( v > 0 )) && biggest=$v
+  fi
   (( biggest == 0 )) && biggest=$((32 * 1024 * 1024))
   printf '%s' "$biggest"
 }
