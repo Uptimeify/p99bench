@@ -199,4 +199,7 @@ jq -r '.ram |
 echo
 echo "Reference: DDR4-3200 dual channel ~35-45 GB/s. DDR5-4800 dual ~60-70 GB/s."
 echo "A DDR4-3200 host delivering 12 GB/s is running single channel."
-echo "bw_read_mbs above ~100 GB/s means the working set is still in cache - file a bug."
+echo "bw_read_mbs above ~150 GB/s means the working set is still in cache - file a bug."
+echo "(100 was the old line; a 12-channel DDR5 EPYC genuinely reads ~90-120 GB/s on 4"
+echo " threads -- ovh/zrh measured 114. Cache-resident runs land near the legacy seq"
+echo " number above, ~200 GB/s, so 150 separates a fat real host from a cache leak.)"
