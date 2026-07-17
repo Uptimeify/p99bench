@@ -128,12 +128,27 @@ if [[ "${NODES:-1}" -gt 1 ]]; then
   # matters. Smallest node wins -- nodes are not always equal.
   NODE_MB=$(numactl --hardware 2>/dev/null |
     awk '/^node [0-9]+ size:/ {if (min == "" || $4 < min) min = $4} END {print min + 0}')
-  NUMA_THREADS=$CORES
+  # Threads come from NODE 0's CPU count, not nproc: --cpunodebind=0 confines
+  # the run to node 0's CPUs, so nproc threads oversubscribe every multi-node
+  # host. windcloud (4 vCPU / 2 nodes) ran 4 threads on 2 cores and returned
+  # local 17396 vs remote 17790 MiB/s -- both CPU-bound at ~half the unpinned
+  # 30763, with the locality difference flattened into noise. A memory test
+  # that saturates the cores first is not a memory test.
+  NUMA_THREADS=$(numa_node_cpus 0)
   (( NUMA_THREADS > 4 )) && NUMA_THREADS=4
-  NUMA_BLOCK=$(ram_block_bytes "$LLC" "$NUMA_THREADS" "$((NODE_MB * 1024 * 1024))")
-  NUMA_WS=$((NUMA_BLOCK * NUMA_THREADS))
 
-  if (( NUMA_BLOCK == 0 || NUMA_WS < CACHE_CLEAR_FLOOR )); then
+  # Guard BEFORE ram_block_bytes: it divides by the thread count, so a node
+  # reporting no CPUs would abort the arithmetic rather than skip the test.
+  if (( NUMA_THREADS < 1 )); then
+    warn "RAM: node 0 reports no CPUs (numactl --hardware) - recording NUMA locality as null."
+    NUMA_BLOCK=0
+    NUMA_WS=0
+  else
+    NUMA_BLOCK=$(ram_block_bytes "$LLC" "$NUMA_THREADS" "$((NODE_MB * 1024 * 1024))")
+    NUMA_WS=$((NUMA_BLOCK * NUMA_THREADS))
+  fi
+
+  if (( NUMA_THREADS < 1 || NUMA_BLOCK == 0 || NUMA_WS < CACHE_CLEAR_FLOOR )); then
     warn "RAM: NUMA working set ${NUMA_WS}B (${NUMA_BLOCK}B/thread x ${NUMA_THREADS} threads on a ${NODE_MB}MB node) cannot clear 2x LLC (${CACHE_CLEAR_FLOOR}B) - recording NUMA locality as null rather than comparing two cache measurements."
   else
     log "RAM: NUMA local vs remote (working set ${NUMA_BLOCK}B/thread x ${NUMA_THREADS}, node ${NODE_MB}MB)"

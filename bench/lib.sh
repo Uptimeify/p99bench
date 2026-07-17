@@ -267,6 +267,27 @@ llc_bytes() {
   printf '%s' "$biggest"
 }
 
+# numa_node_cpus <node> - how many CPUs that NUMA node has, or 0 if absent.
+#
+# Lives here so CI tests it: this dev box and the test container have one NUMA
+# node, so the multi-node path never executes anywhere but on real hardware.
+# P99_NUMA_HW points at a file holding `numactl --hardware` output; real runs
+# leave it unset and read numactl directly.
+#
+# It exists because --cpunodebind=0 confines the locality test to node 0's
+# CPUs, so the thread count must come from THAT node, not from nproc. Asking
+# for nproc threads oversubscribes: windcloud (4 vCPU, 2 nodes) ran 4 threads
+# on node 0's 2 cores and both the local and the remote number came back
+# CPU-bound at ~17,400 MiB/s -- half the unpinned 30,763 -- which flattened
+# the local/remote difference the test exists to find.
+numa_node_cpus() {
+  local node="$1" line
+  line=$( { [[ -n "${P99_NUMA_HW:-}" ]] && cat "$P99_NUMA_HW" || numactl --hardware 2>/dev/null; } |
+    awk -v n="$node" '$0 ~ "^node " n " cpus:" {sub(/^node [0-9]+ cpus:[ ]*/, ""); print; exit}')
+  [[ -z "$line" ]] && { printf '0'; return; }
+  printf '%s' "$(printf '%s\n' "$line" | wc -w | tr -d ' ')"
+}
+
 # median - median of the numbers on stdin. Prints nothing when none are valid.
 #
 # Lives here so CI can test it: its only caller (06-network.sh, for

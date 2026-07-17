@@ -267,3 +267,58 @@ def test_median_of_even_count_takes_the_lower_middle(run_bash):
     # Documented choice: no interpolation, so the reported value is always one
     # that was actually measured.
     assert _median(run_bash, "1 2 3 4") == "2"
+
+
+# numa_node_cpus() -- how many CPUs one NUMA node has. Drives the thread count
+# for the locality test in 03-ram.sh.
+#
+# Why this exists: --cpunodebind=0 restricts the run to node 0's CPUs, so
+# asking for CORES threads oversubscribes every multi-node host. On windcloud
+# (4 vCPU / 2 nodes) it ran 4 threads on 2 cores, and both the local and the
+# remote measurement came back CPU-bound at ~17,400 MiB/s -- about half the
+# unpinned 30,763 -- which compressed the local/remote gap toward zero and
+# made the NUMA penalty unmeasurable. A test that cannot see the thing it
+# measures is the same failure as measuring cache and calling it RAM.
+#
+# P99_NUMA_HW is the injection seam: real runs read `numactl --hardware`.
+
+HW_2NODE = """available: 2 nodes (0-1)
+node 0 cpus: 0 1
+node 0 size: 5995 MB
+node 0 free: 5012 MB
+node 1 cpus: 2 3
+node 1 size: 5996 MB
+node 1 free: 5533 MB
+node distances:
+node   0   1
+  0:  10  20
+  1:  20  10"""
+
+HW_BIG = """available: 2 nodes (0-1)
+node 0 cpus: 0 1 2 3 4 5 6 7 8 9 10 11
+node 0 size: 64318 MB
+node 1 cpus: 12 13 14 15 16 17 18 19 20 21 22 23
+node 1 size: 64502 MB"""
+
+
+def test_numa_node_cpus_counts_one_nodes_cpus(run_bash, tmp_path):
+    hw = tmp_path / "hw2"; hw.write_text(HW_2NODE)
+    out = run_bash("numa_node_cpus 0", env={"P99_NUMA_HW": str(hw)})
+    assert out.stdout == "2", "node 0 has cpus 0 and 1 -- exactly 2"
+
+
+def test_numa_node_cpus_reads_the_requested_node(run_bash, tmp_path):
+    hw = tmp_path / "hw2"; hw.write_text(HW_2NODE)
+    assert run_bash("numa_node_cpus 1", env={"P99_NUMA_HW": str(hw)}).stdout == "2"
+
+
+def test_numa_node_cpus_handles_a_wide_node(run_bash, tmp_path):
+    # 12 CPUs on one line -- must count, not take the last id or the line count.
+    hw = tmp_path / "hwbig"; hw.write_text(HW_BIG)
+    assert run_bash("numa_node_cpus 0", env={"P99_NUMA_HW": str(hw)}).stdout == "12"
+
+
+def test_numa_node_cpus_is_zero_when_the_node_is_absent(run_bash, tmp_path):
+    # Caller must be able to tell "no such node" from "one CPU".
+    hw = tmp_path / "hw2"; hw.write_text(HW_2NODE)
+    assert run_bash("numa_node_cpus 7", env={"P99_NUMA_HW": str(hw)}).stdout == "0"
