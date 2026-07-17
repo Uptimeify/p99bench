@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "tests"))
 import aggregate  # noqa: E402
-from writers import index_rows, write_index_csv, write_index_json  # noqa: E402
+from writers import fmt_metric_value, index_rows, write_index_csv, write_index_json  # noqa: E402
 from writers import write_provider_page  # noqa: E402
 from conftest import load_corpus  # noqa: E402
 
@@ -235,16 +235,41 @@ def test_provider_page_network_table_has_no_mean():
 
 
 def _load_windcloud_run():
-    return json.loads((ROOT / "results" / "windcloud" / "enge-sande" /
-                        "2026-07-16T1907-vps-l.json").read_text())
+    """A real tool-0.2.0 run, frozen as a fixture.
+
+    Do NOT read this from results/. Published results are transient -- they get
+    re-run, renamed and replaced, and pinning a test to one filename means the
+    suite goes red the next time someone submits a better measurement of the
+    same host. That is exactly what happened: these tests named a 2026-07-16
+    windcloud file, the host was re-run the next morning, and CI broke on a
+    result that was in every way an improvement.
+
+    Frozen here because it is genuinely useful real data: a live tls_verify_s
+    (9608.3) exercises the provisional-flag path, and a null stall_p999_us
+    exercises the not-measured path. Synthetic values would prove less.
+    """
+    return json.loads((ROOT / "tests" / "fixtures" / "v2-example.json").read_text())
+
+
+def _fsync_ms_from_fixture(run) -> str:
+    """The fixture's own fsync p99.9, formatted as the page formats it.
+
+    Derived, never hardcoded. An earlier version asserted a literal "259.0 ms"
+    from one specific run; the host was re-measured, the number moved, and the
+    test failed on a result that was strictly better data. A test that breaks
+    when the measurement improves is testing the wrong thing -- what matters is
+    that the page prints the number, not which number it is.
+    """
+    us = run["grades"]["categories"]["disk"]["metrics"]["disk.wal_fsync.p999_us"]["value"]
+    return fmt_metric_value(us, "us")
 
 
 def test_provider_page_shows_metric_values_and_grades():
-    # The complaint this whole task exists to fix: a page that says "disk: F"
-    # and never prints the 258998.27 (259.0 ms) behind it.
+    # The complaint this whole task exists to fix: a page that said "disk: F"
+    # and never printed the number behind it.
     run = _load_windcloud_run()
     page = write_provider_page("windcloud", [run])
-    assert "259.0 ms" in page
+    assert _fsync_ms_from_fixture(run) in page
     assert "wal_fsync.p999_us" in page
 
 
@@ -253,7 +278,9 @@ def test_provider_page_marks_the_binding_metric():
     page = write_provider_page("windcloud", [run])
     disk_section = page.split("**`disk`**")[1].split("**`cpu`**")[0]
     assert "**F**" in disk_section
-    assert "**259.0 ms**" in disk_section
+    # The metric that decided the grade is bolded -- a grade without its binding
+    # constraint is a letter with no lead.
+    assert f"**{_fsync_ms_from_fixture(run)}**" in disk_section
 
 
 def test_provider_page_flags_provisional_metrics():
