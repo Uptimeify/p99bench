@@ -60,14 +60,22 @@ MAX_BLOCK=$((RAM_BYTES / 4 / CORES))
 # and warn loudly, while still emitting bw_block_bytes so the reader can see
 # what was attempted (doctrine in lib.sh: null loses one metric, a wrong
 # number loses the whole run's credibility).
+# Compare the TOTAL working set against the LLC, not one thread's block.
+# sysbench allocates BLOCK per thread and every thread streams its own buffer,
+# so what the cache sees is BLOCK * threads. Comparing BLOCK alone against a
+# TOTAL L3 mixes units, and it nulled a perfectly good measurement: an OVH VPS
+# (256 MB L3 across 4 instances, 8 GB RAM -> cap 496 MB/thread) reported n/a
+# because 496 MB < 2 * 256 MB -- while its actual working set was 4 x 496 MB =
+# 1,987 MB, nearly 8x the L3 and comfortably clear of it.
 CACHE_CLEAR_FLOOR=$((LLC * 2))
+WORKING_SET=$((BLOCK * CORES))
 
 # Total bytes moved. Must be well above BLOCK*threads or the run is over
 # before the memory subsystem reaches steady state.
 RAM_TOTAL="${P99_RAM_TOTAL:-50G}"
 
-if (( BLOCK < CACHE_CLEAR_FLOOR )); then
-  warn "RAM: working set capped to ${BLOCK}B/thread (RAM_BYTES=${RAM_BYTES}, CORES=${CORES}), below 2x LLC (${CACHE_CLEAR_FLOOR}B) - this host shape cannot clear cache within a safe (non-swapping) working set. Recording bw_read_mbs as null instead of reporting cache bandwidth as RAM bandwidth."
+if (( WORKING_SET < CACHE_CLEAR_FLOOR )); then
+  warn "RAM: total working set ${WORKING_SET}B (${BLOCK}B/thread x ${CORES} threads, capped by RAM_BYTES=${RAM_BYTES}) is below 2x LLC (${CACHE_CLEAR_FLOOR}B) - this host shape cannot clear cache within a safe (non-swapping) working set. Recording bw_read_mbs as null instead of reporting cache bandwidth as RAM bandwidth."
   BW_R=""
 else
   log "RAM: bandwidth (working set ${BLOCK}B/thread, LLC ${LLC}B)"
