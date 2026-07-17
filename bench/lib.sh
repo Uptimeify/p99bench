@@ -267,6 +267,67 @@ llc_bytes() {
   printf '%s' "$biggest"
 }
 
+# ram_block_bytes <llc_bytes> <cores> <ram_bytes>
+#
+# The per-thread sysbench block for the RAM bandwidth run, or 0 if no legal
+# block exists for this host shape. Lives here rather than in 03-ram.sh (its
+# only caller) so it is unit tested by CI: every 03-ram.sh container test is
+# @pytest.mark.docker and CI runs -m "not docker", so this arithmetic had no
+# gate CI ran. It shipped a non-power-of-two block to three real hosts.
+#
+# THE BLOCK MUST BE A POWER OF TWO. sysbench is not tolerant here --
+# sb_memory.c, memory_init():
+#   if (memory_block_size < SIZEOF_SIZE_T ||
+#       (memory_block_size & (memory_block_size - 1)) != 0)
+#     log_text(LOG_FATAL, "Invalid value for memory-block-size: %s", ...);
+# A FATAL emits no "MiB/sec" line, so the awk parse returns empty and the
+# metric nulls. The old cap (RAM/4/CORES) produced whatever byte count the
+# arithmetic landed on -- 508355840 on a 4 vCPU / 7756 MB Hetzner CPX32 --
+# so every host small enough to hit the cap silently lost bw_read_mbs.
+#
+# Sizing policy, in order:
+#   1. 4x LLC, so the working set cannot be held even by a generous
+#      replacement policy, rounded UP to a power of two (an odd LLC slice
+#      like 96 MiB must never round DOWN back into the cache).
+#   2. Floored at 512M/thread. Measured: a CPX32 (EPYC Genoa, 32 MiB L3)
+#      reports 98 GB/s at 128M and 66 GB/s at both 512M and 1G -- 128M, though
+#      4x its LLC, over-reports by ~48%. Prefetchers stream happily past a
+#      buffer that "should not fit"; only a big working set makes TLB and DRAM
+#      behaviour dominate.
+#   3. Capped so BLOCK * CORES stays under half of RAM -- this must not swap,
+#      and a swapping run measures the disk. Rounded DOWN to a power of two.
+#      Half, not a quarter: a quarter cannot fit 4 x 512M on a 4 vCPU / 8 GB
+#      host, which is the single most common shape this suite is pointed at.
+#      2 GiB of 7.57 GiB is 26% -- no swap risk on any shape measured so far.
+#
+# The result can land below the 512M floor on a small/many-core host. That is
+# the caller's cache guard to judge, not this function's: the contract here is
+# "largest safe legal block", not "a block worth reporting".
+ram_block_bytes() {
+  local llc="$1" cores="$2" ram="$3"
+  local block=$((llc * 4)) max p
+
+  (( block < 536870912 )) && block=536870912
+  # Round up to a power of two.
+  p=8
+  while (( p < block )); do p=$((p * 2)); done
+  block=$p
+
+  max=$((ram / 2 / cores))
+  if (( block > max )); then
+    # Round down. Below sysbench's own minimum (sizeof(size_t)) there is no
+    # legal block at all, so report 0 rather than a value that would FATAL.
+    if (( max < 8 )); then
+      printf '0'
+      return
+    fi
+    p=8
+    while (( p * 2 <= max )); do p=$((p * 2)); done
+    block=$p
+  fi
+  printf '%s' "$block"
+}
+
 host_id() {
   local seed=""
   if [[ -r /etc/machine-id ]]; then

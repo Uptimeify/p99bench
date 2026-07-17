@@ -131,3 +131,97 @@ def test_jnum_rejects_a_decimal_comma(run_bash):
     # comma is a decimal point or a thousands separator -- which is exactly why
     # the locale must be forced upstream rather than the parser widened.
     assert run_bash('jnum "0,13"').stdout == "null"
+
+# ram_block_bytes() -- per-thread sysbench block for the RAM bandwidth run.
+# Lives in lib.sh (not 03-ram.sh) so CI tests it: the container tests that
+# cover 03-ram.sh are all @pytest.mark.docker, and CI runs -m "not docker",
+# so the sizing arithmetic had no gate CI actually executes. It shipped a
+# non-power-of-two block to three real hosts before anyone noticed.
+#
+# sysbench REQUIRES a power-of-two block. sb_memory.c, memory_init():
+#   if (memory_block_size < SIZEOF_SIZE_T ||
+#       (memory_block_size & (memory_block_size - 1)) != 0)
+#     log_text(LOG_FATAL, "Invalid value for memory-block-size: %s", ...);
+# A FATAL prints no "MiB/sec" line, so mem() returned empty and bw_read_mbs
+# came back null -- on every host whose RAM cap trimmed the block off a
+# power of two. Real shapes below, from the 2026-07-17 runs.
+
+MIB = 1024 * 1024
+
+
+def _block(run_bash, llc, cores, ram):
+    return int(run_bash(f"ram_block_bytes {llc} {cores} {ram}").stdout)
+
+
+def _is_pow2(n):
+    return n > 0 and (n & (n - 1)) == 0
+
+
+def test_ram_block_is_power_of_two_hetzner_cpx32(run_bash):
+    # 4 vCPU / 7756 MB, 32 MiB L3. The old RAM/4 cap produced 508355840
+    # (484.8 MiB, not a power of two) -> sysbench FATAL -> bw_read_mbs null.
+    block = _block(run_bash, 32 * MIB, 4, 8133693440)
+    assert _is_pow2(block), f"{block} is not a power of two; sysbench will FATAL"
+    assert block == 512 * MIB
+
+
+def test_ram_block_is_power_of_two_ovh_vps(run_bash):
+    # 4 vCPU / 7946 MB, 64 MiB L3. Old cap gave 520807936. Same failure.
+    block = _block(run_bash, 64 * MIB, 4, 8332926976)
+    assert _is_pow2(block), f"{block} is not a power of two; sysbench will FATAL"
+    assert block == 512 * MIB
+
+
+def test_ram_block_is_power_of_two_across_odd_host_shapes(run_bash):
+    # MemTotal is never a round number (firmware reserves an arbitrary
+    # slice), so the cap must never be trusted to land on a power of two.
+    for ram_mb in (1993, 2047, 3971, 7756, 7946, 11991, 16301, 32612):
+        for cores in (1, 2, 4, 8, 16):
+            block = _block(run_bash, 32 * MIB, cores, ram_mb * MIB)
+            assert _is_pow2(block) or block == 0, \
+                f"ram_mb={ram_mb} cores={cores} -> {block}, not a power of two"
+
+
+def test_ram_block_never_exceeds_half_of_ram(run_bash):
+    # The cap exists so the working set cannot swap; a swapping run measures
+    # the disk. Half of RAM, per the sizing policy: 4 x 512M = 2 GiB on a
+    # 7.57 GiB host is 26%.
+    for ram_mb in (2047, 7756, 11991):
+        for cores in (1, 2, 4, 8, 16):
+            block = _block(run_bash, 32 * MIB, cores, ram_mb * MIB)
+            assert block * cores <= (ram_mb * MIB) // 2, \
+                f"ram_mb={ram_mb} cores={cores}: working set exceeds RAM/2"
+
+
+def test_ram_block_keeps_512m_floor_when_it_fits(run_bash):
+    # 512M is not arbitrary: a CPX32 reports 98 GB/s at 128M and 66 GB/s at
+    # both 512M and 1G, so 128M over-reports by ~48%. It converges at 512M.
+    assert _block(run_bash, 32 * MIB, 4, 64 * 1024**3) == 512 * MIB
+
+
+def test_ram_block_tracks_llc_when_llc_is_large(run_bash):
+    # 4x LLC, when that exceeds the floor. 256 MiB L3 -> 1 GiB block.
+    assert _block(run_bash, 256 * MIB, 2, 64 * 1024**3) == 1024 * MIB
+
+
+def test_ram_block_rounds_up_a_non_power_of_two_llc(run_bash):
+    # lscpu reports whatever CPUID says, and a shared-L3 guest can report an
+    # odd slice (e.g. 96 MiB). 4x = 384M must round UP to 512M, never down --
+    # rounding down would put the working set back inside the cache it is
+    # sized to escape.
+    assert _block(run_bash, 96 * MIB, 2, 64 * 1024**3) == 512 * MIB
+
+
+def test_ram_block_shrinks_below_the_floor_rather_than_lying(run_bash):
+    # 8 vCPU / 2 GiB is a common budget-VPS shape: RAM/2/8 caps at 128M, well
+    # under the 512M floor. Return the capped power of two anyway and let the
+    # caller's cache guard decide -- this function's job is "largest safe
+    # power of two", not "is this measurement meaningful".
+    assert _block(run_bash, 32 * MIB, 8, 2 * 1024**3) == 128 * MIB
+
+
+def test_ram_block_is_zero_when_no_legal_block_exists(run_bash):
+    # sysbench also rejects a block smaller than sizeof(size_t). A shape this
+    # degenerate cannot be measured at all, so say so with 0 rather than
+    # emitting a block sysbench will FATAL on.
+    assert _block(run_bash, 32 * MIB, 16, 64) == 0

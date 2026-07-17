@@ -17,11 +17,23 @@ SPEED=$(dmidecode -t memory 2>/dev/null | awk -F: '/Configured Memory Speed/{gsu
 MTYPE=$(dmidecode -t memory 2>/dev/null | awk -F: '/^\tType:/{gsub(/^ +/,"",$2); print $2; exit}' || echo "")
 SLOTS=$(dmidecode -t memory 2>/dev/null | grep -c "Size: [0-9]" || echo "")
 
+# 2>/dev/null here cost three full re-runs across three hosts: sysbench
+# FATALs on an illegal --memory-block-size, prints no "MiB/sec" line, and the
+# metric nulled with no trace of why. A null is the right OUTCOME (doctrine:
+# null loses one metric, garbage loses the run) but it must never be a silent
+# one -- the run log is the only evidence a remote host leaves behind.
 mem() {
-  local oper="$1" mode="$2" bs="$3" threads="$4" total="$5"
-  sysbench memory --memory-block-size="$bs" --memory-total-size="$total" \
-    --memory-oper="$oper" --memory-access-mode="$mode" --threads="$threads" run 2>/dev/null \
-    | awk '/MiB\/sec/ {gsub(/[()]/,"",$4); print $4; exit}'
+  local oper="$1" mode="$2" bs="$3" threads="$4" total="$5" out val
+  if ! out=$(sysbench memory --memory-block-size="$bs" --memory-total-size="$total" \
+      --memory-oper="$oper" --memory-access-mode="$mode" --threads="$threads" run 2>&1); then
+    warn "sysbench memory failed (oper=$oper mode=$mode block=$bs threads=$threads total=$total): $(printf '%s' "$out" | grep -iE 'fatal|error' | head -2 | tr '\n' ' ')"
+    return 0
+  fi
+  val=$(printf '%s\n' "$out" | awk '/MiB\/sec/ {gsub(/[()]/,"",$4); print $4; exit}')
+  if [[ -z "$val" ]]; then
+    warn "sysbench memory (oper=$oper block=$bs) exited 0 but printed no MiB/sec line - output format changed?: $(printf '%s' "$out" | tail -2 | tr '\n' ' ')"
+  fi
+  printf '%s' "$val"
 }
 
 # sysbench's --memory-block-size IS the per-thread working set, so a block
@@ -31,28 +43,16 @@ mem() {
 # failed anything. llc_bytes() (in lib.sh) reads the real LLC size from
 # sysfs so we can size around it instead.
 LLC=$(llc_bytes)
-# 4x LLC so the working set cannot be held even with a generous replacement
-# policy, floored at 128M for hosts that under-report cache. Capped so that
-# BLOCK * threads stays under a quarter of RAM - this must not swap, and a
-# swapping run measures the disk.
 RAM_BYTES="${P99_RAM_BYTES:-$(awk '/MemTotal/ {print $2 * 1024; exit}' /proc/meminfo)}"
-BLOCK=$((LLC * 4))
-# Floor at 512M/thread, not 4x LLC alone. Measured on real hardware: a Hetzner
-# CPX32 (EPYC Genoa, 32 MiB L3) reports 98 GB/s at a 128M block and 66 GB/s at
-# both 512M and 1G -- so 128M, despite being 4x its LLC, over-reports by ~48%.
-# It converges at 512M. An OVH VPS (64 MiB L3) and a windcloud VPS (32 MiB L3)
-# read flat across 128M/512M/1G, so the floor costs them nothing.
-#
-# 4x LLC is not enough on its own: prefetchers stream sequential reads happily
-# past a buffer that "should not fit", so the working set has to be big enough
-# that TLB and DRAM behaviour dominate. The cap below still keeps the total
-# under a quarter of RAM.
-(( BLOCK < 536870912 )) && BLOCK=536870912
-MAX_BLOCK=$((RAM_BYTES / 4 / CORES))
-(( BLOCK > MAX_BLOCK )) && BLOCK=$MAX_BLOCK
+# Sizing policy (4x LLC, 512M floor, power-of-two, capped at RAM/2) lives in
+# ram_block_bytes() in lib.sh, with the reasoning behind each step. It is
+# there rather than here because every test of this script needs a container
+# and CI runs -m "not docker" -- so this arithmetic, inline, was never gated
+# by CI, and shipped a block sysbench rejects outright to three real hosts.
+BLOCK=$(ram_block_bytes "$LLC" "$CORES" "$RAM_BYTES")
 
-# The RAM cap above exists so the run cannot swap, but on a small/many-core
-# host (8 vCPU / 2G is a common budget VPS) it can shrink BLOCK back down
+# The RAM cap inside ram_block_bytes() exists so the run cannot swap, but on
+# a small/many-core host (8 vCPU / 2G is a common budget VPS) it shrinks BLOCK
 # until it fits in cache again - silently recreating the exact bug this
 # script exists to fix, just via the cap instead of the original hardcoded
 # 1M. A block that cannot clear at least 2x LLC is measuring cache no matter
@@ -74,7 +74,10 @@ WORKING_SET=$((BLOCK * CORES))
 # before the memory subsystem reaches steady state.
 RAM_TOTAL="${P99_RAM_TOTAL:-50G}"
 
-if (( WORKING_SET < CACHE_CLEAR_FLOOR )); then
+if (( BLOCK == 0 )); then
+  warn "RAM: no legal sysbench block exists for this host shape (LLC ${LLC}B, ${CORES} threads, RAM_BYTES=${RAM_BYTES}) - recording bw_read_mbs as null."
+  BW_R=""
+elif (( WORKING_SET < CACHE_CLEAR_FLOOR )); then
   warn "RAM: total working set ${WORKING_SET}B (${BLOCK}B/thread x ${CORES} threads, capped by RAM_BYTES=${RAM_BYTES}) is below 2x LLC (${CACHE_CLEAR_FLOOR}B) - this host shape cannot clear cache within a safe (non-swapping) working set. Recording bw_read_mbs as null instead of reporting cache bandwidth as RAM bandwidth."
   BW_R=""
 else

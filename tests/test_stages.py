@@ -227,10 +227,17 @@ def test_ram_working_set_tracks_llc_via_fixture(repo_root):
     # alone: this container's real sysfs exposes no cache/index*/size files,
     # so llc_bytes() always takes its 32M fallback, and 4 * 32M == 128M
     # exactly -- it would pass even if llc_bytes() returned 0 or inverted
-    # its unit maths. Driving llc_bytes() with a fixture LLC (64M) whose
-    # 4x product (256M) does NOT collide with the floor actually proves the
-    # multiply ran, end to end through the real script.
-    fixture = "/p99bench/tests/fixtures/cache/64m"
+    # its unit maths. Driving llc_bytes() with a fixture LLC whose 4x product
+    # does NOT collide with the floor actually proves the multiply ran, end to
+    # end through the real script.
+    #
+    # The fixture is 256M, not the 64M it was written with: the floor moved
+    # 128M -> 512M in d236a0e, which swallowed 4 * 64M = 256M and left this
+    # test asserting a number the script can no longer produce. It was red
+    # from that commit until 2026-07-17 and nobody saw it, because every test
+    # in this file is @pytest.mark.docker and CI runs -m "not docker". Only an
+    # LLC above 128M outranks the floor now: 256M -> 4x -> 1 GiB.
+    fixture = "/p99bench/tests/fixtures/cache/256m"
     ram = run_stage(repo_root, "03-ram.sh", {
         "P99_RAM_TOTAL": "2G",
         "P99_CACHE_ROOT": fixture,
@@ -240,7 +247,7 @@ def test_ram_working_set_tracks_llc_via_fixture(repo_root):
         "P99_RAM_BYTES": str(64 * 1024 ** 3),
         "P99_CORES": "1",
     }, "ram")["ram"]
-    assert ram["bw_block_bytes"] == 64 * 1024 * 1024 * 4
+    assert ram["bw_block_bytes"] == 256 * 1024 * 1024 * 4
 
 
 @pytest.mark.docker
@@ -248,16 +255,24 @@ def test_ram_bandwidth_null_when_cap_forces_working_set_below_cache(repo_root):
     # The RAM-fraction cap exists so the working set can't swap, but on a
     # small/many-core host it can shrink BLOCK back down until it fits in
     # cache again -- silently recreating the exact bug this script exists to
-    # fix (a cache number reported as RAM bandwidth). 8 vCPU / 2 GiB is a
-    # common budget-VPS shape: RAM_BYTES/4/CORES caps the working set at 64M,
-    # which cannot clear a (fixture) 64M LLC. The script must refuse to
-    # report a bandwidth number it knows is wrong.
+    # fix (a cache number reported as RAM bandwidth). 1 vCPU / 128 MiB against
+    # a (fixture) 64 MiB LLC: the cap allows 64M, and a 64M total working set
+    # cannot clear a 64 MiB cache. The script must refuse to report a
+    # bandwidth number it knows is wrong.
+    #
+    # The shape here is deliberately extreme. It used to be 8 vCPU / 2 GiB,
+    # which was cache-bound only because the cap was RAM/4 AND the guard
+    # compared one thread's block against the whole LLC. Both changed: the cap
+    # is RAM/2 (so 4 x 512M fits the 4 vCPU / 8 GB shape this suite actually
+    # targets) and the guard compares the TOTAL working set. Under those, 8
+    # vCPU / 2 GiB yields 8 x 128M = 1 GiB, which clears a 64 MiB LLC 16x over
+    # and is a perfectly good measurement.
     fixture = "/p99bench/tests/fixtures/cache/64m"
     ram = run_stage(repo_root, "03-ram.sh", {
         "P99_RAM_TOTAL": "2G",
         "P99_CACHE_ROOT": fixture,
-        "P99_RAM_BYTES": str(2 * 1024 ** 3),
-        "P99_CORES": "8",
+        "P99_RAM_BYTES": str(128 * 1024 ** 2),
+        "P99_CORES": "1",
     }, "ram")["ram"]
     assert ram["bw_read_mbs"] is None, (
         "bw_read_mbs came back as a number with the working set capped "
