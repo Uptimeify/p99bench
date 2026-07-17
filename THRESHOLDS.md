@@ -91,7 +91,8 @@ all 10 published results.
 |---|---|---|---|---|---|---|---|
 | `disk.wal_fsync.p999_us` | ≤ 1 ms | ≤ 3 ms | ≤ 10 ms | ≤ 50 ms | > 50 ms | The flagship. Every `COMMIT` waits on one `fdatasync`, alone, with no queue to hide behind. p99.9 is what the slowest transactions feel; the mean describes a commit nobody complains about. | **High** |
 | `disk.wal_fsync.iops` | ≥ 5,000 | ≥ 1,000 | ≥ 333 | ≥ 100 | < 100 | Latency-anchored, not IOPS-anchored: at QD1 this is ~1/mean-latency, so it describes the typical commit where p99.9 describes the tail. Bounds are 200 µs / 1 ms / 3 ms / 10 ms per durable write. | Medium |
-| `disk.rand_read_8k.p99_us` | ≤ 500 µs | ≤ 2 ms | ≤ 5 ms | ≤ 15 ms | > 15 ms | 8k is the Postgres page size; index lookups are random reads. A query doing 100 lookups at 5 ms p99 has a real chance of one slow read. | **High** |
+| `disk.rand_read_8k_qd1.p99_us` | ≤ 500 µs | ≤ 2 ms | ≤ 5 ms | ≤ 15 ms | > 15 ms | 8k is the Postgres page size; index lookups are random reads. A query doing 100 lookups at 5 ms p99 has a real chance of one slow read. Measured at QD1 with `psync` — one read outstanding, nothing to amortise against — because that is how a query waits on a buffer-pool miss. **Provisional**: the bands are inherited from the QD128 metric this replaces (see below) and no host has measured them yet. | **High** (band), provisional (calibration) |
+| `disk.rand_read_8k.p99_us` | — | — | — | — | — | **Informational, not graded.** Measured at `--iodepth=32 --numjobs=4`, so Little's law pins it to its own throughput: p99 ≈ 128/IOPS. Across the 13 runs measured to date, `p99_us / (128/IOPS)` had a median of **1.08** and sat within 7% of 1.0 on every OVH host — it restates `rand_read_8k.iops` rather than measuring a tail. Grading both counted one fact twice, and worst-wins always took the harsher view: band A (≤ 500 µs) demanded **256,000 IOPS** at QD128 while the `iops` band called 100,000 an A. A Hetzner CPX32 doing 79,633 IOPS was marked C for it. Still emitted and still shown as context — a busy pool's latency is worth seeing, it is just not a threshold. | — |
 | `disk.rand_read_8k.iops` | ≥ 100,000 | ≥ 50,000 | ≥ 20,000 | ≥ 5,000 | < 5,000 | Generational marker rather than a workload requirement. Advisory. | Low |
 | `disk.rand_write_8k.iops` | ≥ 50,000 | ≥ 20,000 | ≥ 10,000 | ≥ 3,000 | < 3,000 | Checkpoint flush rate. Advisory. | Low |
 | `disk.seq_write.bw_mbs` | ≥ 1,000 MB/s | ≥ 500 MB/s | ≥ 200 MB/s | ≥ 100 MB/s | < 100 MB/s | Chunk writes and compression output are sequential and bulky. | Medium |
@@ -160,7 +161,7 @@ a reversal of it.
 
 ## Provisional bands
 
-These four metrics ship with a band **and no corpus behind it**. They are
+These five metrics ship with a band **and no corpus behind it**. They are
 listed here explicitly so nobody mistakes a plausible-looking number for a
 calibrated one, and so the follow-up is not forgotten:
 
@@ -170,6 +171,7 @@ calibrated one, and so the follow-up is not forgotten:
 | `cpu.steady_state.degradation_pct` | New 15-minute sustained-load stage. No result has run it yet. |
 | `cpu.tls_verify_s` | New metric. No result has run it yet. |
 | `ram.bw_read_mbs` | New metric, and the LLC working-set fix means the 10 existing results cannot calibrate it even retroactively — they measured cache, not memory. |
+| `disk.rand_read_8k_qd1.p99_us` | New QD1 read job (tool 0.2.1). The bands are carried over from `disk.rand_read_8k.p99_us`, which measured a QD128 queuing delay — so, as with `ram.bw_read_mbs`, the existing corpus cannot calibrate its own replacement: those 13 numbers describe a saturated pool, not a lone lookup. |
 
 **These must be recalibrated once real data exists.** Writing them as High
 confidence today would repeat the mistake this redesign exists to fix: three

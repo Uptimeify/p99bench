@@ -161,8 +161,10 @@
       "disk": {
         "grade": "F",
         "bound_by": "disk.wal_fsync.p999_us",
-        "incomplete": false,
-        "missing": [],
+        "incomplete": true,
+        "missing": [
+          "disk.rand_read_8k_qd1.p99_us"
+        ],
         "metrics": {
           "disk.wal_fsync.p999_us": {
             "value": 459276.29,
@@ -172,9 +174,9 @@
             "value": 71.71,
             "grade": "F"
           },
-          "disk.rand_read_8k.p99_us": {
-            "value": 6848.51,
-            "grade": "D"
+          "disk.rand_read_8k_qd1.p99_us": {
+            "value": null,
+            "grade": "?"
           },
           "disk.rand_read_8k.iops": {
             "value": 61376.35,
@@ -272,7 +274,8 @@
         "bound_by": "disk.wal_fsync.p999_us",
         "incomplete": true,
         "missing": [
-          "cpu.steal_pct_under_load"
+          "cpu.steal_pct_under_load",
+          "disk.rand_read_8k_qd1.p99_us"
         ]
       },
       "timescale_ingest": {

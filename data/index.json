@@ -13,19 +13,19 @@
       "fsync_p999_us_worst": 2244.61,
       "price_eur_month": 42.23,
       "categories": {
-        "disk": "C",
+        "disk": "B",
         "cpu": "B",
         "ram": "A",
         "network": "D"
       },
       "categories_incomplete": {
-        "disk": false,
+        "disk": true,
         "cpu": false,
         "ram": false,
         "network": false
       },
       "profiles": {
-        "postgres_oltp": "C",
+        "postgres_oltp": "B",
         "timescale_ingest": "B",
         "patroni_member": "B",
         "redis_sentinel": "B",
@@ -34,7 +34,7 @@
         "nuxt_ssr": "B"
       },
       "profiles_incomplete": {
-        "postgres_oltp": false,
+        "postgres_oltp": true,
         "timescale_ingest": false,
         "patroni_member": false,
         "redis_sentinel": false,
@@ -61,7 +61,7 @@
         "network": "A"
       },
       "categories_incomplete": {
-        "disk": false,
+        "disk": true,
         "cpu": false,
         "ram": false,
         "network": false
@@ -76,7 +76,7 @@
         "nuxt_ssr": "B"
       },
       "profiles_incomplete": {
-        "postgres_oltp": false,
+        "postgres_oltp": true,
         "timescale_ingest": false,
         "patroni_member": false,
         "redis_sentinel": false,
@@ -108,7 +108,7 @@
         "network": "A"
       },
       "categories_incomplete": {
-        "disk": false,
+        "disk": true,
         "cpu": false,
         "ram": false,
         "network": false
@@ -123,7 +123,7 @@
         "nuxt_ssr": "D"
       },
       "profiles_incomplete": {
-        "postgres_oltp": false,
+        "postgres_oltp": true,
         "timescale_ingest": false,
         "patroni_member": false,
         "redis_sentinel": false,

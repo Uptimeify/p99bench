@@ -3,7 +3,7 @@
 # Sourced by every 0x-*.sh script. Not executable on its own.
 
 # shellcheck disable=SC2034  # consumed by run-all.sh after sourcing
-P99BENCH_VERSION="0.2.0"
+P99BENCH_VERSION="0.2.1"
 
 # Force C locale for every stage. Not cosmetic -- two real failures on a
 # German-locale Debian host (LANG=de_DE.UTF-8), both silent:

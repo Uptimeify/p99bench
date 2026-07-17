@@ -407,7 +407,7 @@ def render_run_row(r: dict) -> str:
         r["run"]["timestamp_utc"][:10],
         f"{r['run']['local_hour']:02d}h",
         fmt_us(dig(r, "disk.wal_fsync.p999_us")),
-        fmt_us(dig(r, "disk.rand_read_8k.p99_us")),
+        fmt_us(dig(r, "disk.rand_read_8k_qd1.p99_us")),
         fmt_pct(dig(r, "cpu.steal_pct_under_load")),
         fmt_us(dig(r, "cpu.stall_p999_us")),
         fmt_pct(dig(r, "disk.steady_state.degradation_pct")),
@@ -694,7 +694,7 @@ def _print_provider_page(provider: str, runs: list[dict]) -> None:
         print("<details>")
         print(f"<summary>All {len(rs)} run{'s' if len(rs) != 1 else ''}</summary>")
         print()
-        run_cols = (["Machine", "Date", "Hour", "fsync p99.9", "rand-read p99", "steal",
+        run_cols = (["Machine", "Date", "Hour", "fsync p99.9", "rand-read p99 (QD1)", "steal",
                      "stall p99.9", "steady drop"] + [PROFILE_ABBR[p] for p in PROFILES])
         print("| " + " | ".join(run_cols) + " |")
         print("|" + "---|" * len(run_cols))

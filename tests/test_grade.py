@@ -295,8 +295,17 @@ HEL1_2119 = {
 def test_compute_category_worst_wins_on_real_v1_data():
     grades = compute(HEL1_2119, THRESHOLDS)
     disk = grades["categories"]["disk"]
-    assert disk["grade"] == "C"
-    assert disk["bound_by"] == "disk.rand_read_8k.p99_us"
+    # Was C bound by disk.rand_read_8k.p99_us until 2026-07-17. That metric is
+    # gone: measured at QD128, its p99 was Little's law restating its own IOPS
+    # (2408us vs 128/80835 = 1583us predicted), so it graded a queuing delay as
+    # a tail and dragged the category down for a disk doing 80k IOPS. What
+    # remains is the real worst measured band: fsync p99.9 of 2867us -> B.
+    # incomplete, because this v1 run predates the QD1 read job -- the B is a
+    # floor that the missing metric can only lower.
+    assert disk["grade"] == "B"
+    assert disk["bound_by"] == "disk.wal_fsync.p999_us"
+    assert disk["incomplete"] is True
+    assert "disk.rand_read_8k_qd1.p99_us" in disk["missing"]
 
     # network.dns_ms is no longer graded (demoted to informational -- it is
     # measured as a single uncached lookup and cannot be honestly banded

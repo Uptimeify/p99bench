@@ -114,9 +114,15 @@ def test_the_discriminating_metrics_still_discriminate():
     to a single grade, that is a regression in the thing the project exists to
     do, and it must not pass silently.
     """
+    # Spec 6.6 named seven. disk.rand_read_8k.p99_us was one of them and is
+    # now ungraded: at QD128 it was Little's law restating disk.rand_read_8k.iops
+    # (median ratio 1.08 across 13 runs), so its "discriminating power" was the
+    # IOPS metric's, counted a second time. Six remain. Its replacement,
+    # disk.rand_read_8k_qd1.p99_us, is provisional and joins this list once a
+    # corpus exists (spec 11).
     expect_at_least_two = [
         "disk.wal_fsync.p999_us", "disk.wal_fsync.iops",
-        "disk.rand_read_8k.p99_us", "disk.rand_read_8k.iops",
+        "disk.rand_read_8k.iops",
         "disk.rand_write_8k.iops", "disk.seq_write.bw_mbs",
         "cpu.single_thread_eps",
     ]
@@ -126,3 +132,45 @@ def test_the_discriminating_metrics_still_discriminate():
             f"{path} collapsed to {sorted(measured)} -- it used to tell machines "
             f"apart (spec 6.6). A band edit broke the discriminating power."
         )
+
+
+def test_qd128_random_read_p99_is_not_graded():
+    """disk.rand_read_8k.p99_us must not band a queuing delay as a tail.
+
+    It was measured at --iodepth=32 --numjobs=4 (128 outstanding) but banded
+    on a QD1 rationale ("a query doing 100 lookups at 5ms p99"), at
+    confidence: High. Little's law makes those the same number: across the
+    13 runs measured to date, p99_us / (128/IOPS) had a median of 1.08 and
+    was within 7% of 1.0 on every OVH host. Grading it alongside
+    rand_read_8k.iops counted one measurement twice, and worst-wins always
+    took the harsher of the two views -- band A (<=500us) demanded 256,000
+    IOPS at QD128 while the iops band called 100,000 an A.
+
+    disk.rand_read_8k_qd1.p99_us replaces it. The field is still emitted and
+    still shown; it is informational, like network mbps.
+    """
+    assert "disk.rand_read_8k.p99_us" not in THRESHOLDS["metrics"], (
+        "QD128 rand-read p99 is a queuing delay, not a tail latency -- it must "
+        "not carry a band. Grade disk.rand_read_8k_qd1.p99_us instead."
+    )
+    for cat, metrics in THRESHOLDS["categories"].items():
+        assert "disk.rand_read_8k.p99_us" not in metrics, f"still graded in category {cat}"
+    for prof, pdef in THRESHOLDS["profiles"].items():
+        paths = [r["metric"] for r in pdef["rules"]]
+        assert "disk.rand_read_8k.p99_us" not in paths, f"still graded in profile {prof}"
+
+
+def test_qd1_random_read_p99_is_graded_and_declared_provisional():
+    mdef = THRESHOLDS["metrics"].get("disk.rand_read_8k_qd1.p99_us")
+    assert mdef, "the QD1 random-read tail must be a graded metric"
+    assert mdef["op"] == "lte"
+    assert mdef["unit"] == "us"
+    # No host has ever measured this, so it cannot claim a corpus. The bands
+    # carry over the workload rationale the QD128 metric was written with and
+    # could not honour; spec 11 recalibrates them once runs land.
+    assert mdef.get("provisional") is True
+    assert "disk.rand_read_8k_qd1.p99_us" in THRESHOLDS["categories"]["disk"]
+    pg = [r for r in THRESHOLDS["profiles"]["postgres_oltp"]["rules"]
+          if r["metric"] == "disk.rand_read_8k_qd1.p99_us"]
+    assert pg and pg[0]["required"] is True, \
+        "index-lookup latency is not optional for an OLTP database"

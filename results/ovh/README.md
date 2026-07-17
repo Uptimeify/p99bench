@@ -24,25 +24,27 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 **Host**: AMD EPYC-Genoa Processor - 4 vCPU - 7.8 GB RAM - microsoft - kernel 6.12.95+deb13-cloud-amd64
 
-**`disk`** -- F, bound by `wal_fsync.p999_us`
+**`disk`** -- F?, bound by `wal_fsync.p999_us` (incomplete -- a `?` row below was required and unmeasured; this grade is a floor)
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
 | **`wal_fsync.p999_us`** | **114.8 ms** | **F** | ≤1.0 ms / ≤3.0 ms / ≤10.0 ms / ≤50.0 ms | durability path broken |
 | `wal_fsync.iops` | 213 | D | ≥5,000 / ≥1,000 / ≥333 / ≥100 | - |
-| `rand_read_8k.p99_us` | 18.0 ms | F | ≤500 us / ≤2.0 ms / ≤5.0 ms / ≤15.0 ms | - |
+| `rand_read_8k_qd1.p99_us*` | — | ? | ≤500 us / ≤2.0 ms / ≤5.0 ms / ≤15.0 ms | not measured |
 | `rand_read_8k.iops` | 7,512 | D | ≥100,000 / ≥50,000 / ≥20,000 / ≥5,000 | - |
 | `rand_write_8k.iops` | 6,099 | D | ≥50,000 / ≥20,000 / ≥10,000 / ≥3,000 | - |
 | `seq_write.bw_mbs` | 300 MB/s | C | ≥1,000 MB/s / ≥500 MB/s / ≥200 MB/s / ≥100 MB/s | - |
 | `seq_read.bw_mbs` | 301 MB/s | D | ≥2,000 MB/s / ≥1,000 MB/s / ≥500 MB/s / ≥200 MB/s | - |
 | `steady_state.degradation_pct` | 0.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
 
+*Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
+
 <details>
 <summary>Why these `disk` metrics</summary>
 
 - `disk.wal_fsync.p999_us`: The flagship. Every COMMIT waits on one fdatasync, alone, with no queue to hide behind. p99.9 is what the slowest transactions feel; the mean describes a commit nobody complains about.
 - `disk.wal_fsync.iops`: Latency-anchored, not IOPS-anchored: at QD1 this is ~1/mean-latency, so it describes the typical commit where p99.9 describes the tail. Bounds are 200us / 1ms / 3ms / 10ms per durable write.
-- `disk.rand_read_8k.p99_us`: 8k is the Postgres page size; index lookups are random reads. A query doing 100 lookups at 5ms p99 has a real chance of one slow read.
+- `disk.rand_read_8k_qd1.p99_us`: 8k is the Postgres page size; index lookups are random reads. A query doing 100 lookups at 5ms p99 has a real chance of one slow read. Measured at QD1 with psync, the way a query actually waits on a buffer-pool miss: one read outstanding, nothing to amortise against. The bands are the ones this rationale always implied; they were previously applied to a QD128 job that could not honour them (A demanded 256,000 IOPS at that depth). provisional until runs on tool >= 0.2.1 build a corpus -- spec 11.
 - `disk.rand_read_8k.iops`: Generational marker rather than a workload requirement. Advisory.
 - `disk.rand_write_8k.iops`: Checkpoint flush rate. Advisory.
 - `disk.seq_write.bw_mbs`: Chunk writes and compression output are sequential and bulky.
@@ -120,9 +122,9 @@ Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown
 <details>
 <summary>All 1 run</summary>
 
-| Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 (QD1) | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `c7d6f7` | 2026-07-17 | 12h | 114.8 ms | 18.0 ms | 0.0% | 321 us | 0.0% | F | F | F | F | B | C | B |
+| `c7d6f7` | 2026-07-17 | 12h | 114.8 ms | - | 0.0% | 321 us | 0.0% | F? | F | F | F | B | C | B |
 
 </details>
 

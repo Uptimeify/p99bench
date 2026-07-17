@@ -74,7 +74,15 @@ def test_v1_results_grade_postgres_and_timescale_but_not_the_new_profiles():
     g = compute(doc, THRESHOLDS)["profiles"]
 
     assert g["postgres_oltp"]["grade"] != "?"
-    assert g["postgres_oltp"]["incomplete"] is False
+    # postgres_oltp went incomplete on 2026-07-17: it requires
+    # disk.rand_read_8k_qd1.p99_us, and no run has ever measured it (the QD1
+    # read job is new in tool 0.2.1). The grade is still a real letter off
+    # everything else -- that is the point of the rollup -- but it is now
+    # honestly a floor. It stops being incomplete when 0.2.1 runs land, not
+    # when a test is edited.
+    assert g["postgres_oltp"]["incomplete"] is True
+    assert "disk.rand_read_8k_qd1.p99_us" in g["postgres_oltp"]["missing"]
+    # timescale_ingest never read a random-read metric -- unaffected.
     assert g["timescale_ingest"]["grade"] != "?"
     assert g["timescale_ingest"]["incomplete"] is False
 

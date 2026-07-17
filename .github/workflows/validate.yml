@@ -90,6 +90,11 @@ jobs:
         run: |
           sudo -E bash bench/01-disk.sh
           sudo jq -e '.disk.wal_fsync.iops != null' "$P99_WORK/frag-disk.json"
+          # The QD1 read job: graded (required: true in postgres_oltp) and its
+          # own fio invocation with a different ioengine, so it can break
+          # independently of every other job in this stage. A shared runner
+          # cannot measure anything, but it can prove the job ran and parsed.
+          sudo jq -e '.disk.rand_read_8k_qd1.p99_us != null' "$P99_WORK/frag-disk.json"
 
       - name: Smoke test latency script
         env:

@@ -46,11 +46,15 @@ log "Target $TARGET on /dev/$DEV ($FS), ${AVAIL_G}G free, boot volume: $IS_BOOT"
 # fio_run <name> <extra fio args...>
 # Writes /tmp/p99bench/fio-<name>.json, cleans up data files afterwards so the
 # next phase starts from a known free-space state.
+# FIO_IOENGINE overrides the default libaio for one call (the QD1 read job
+# uses psync). Set per-call rather than passed through "$@" so there is never
+# a duplicate --ioengine on the command line whose winner depends on fio's
+# argument-parsing order.
 fio_run() {
   local name="$1"; shift
   log "fio: $name"
   fio --name="$name" --directory="$TARGET" --size="$P99_SIZE" --direct=1 \
-      --ioengine=libaio --group_reporting --runtime="$P99_RUNTIME" --time_based \
+      --ioengine="${FIO_IOENGINE:-libaio}" --group_reporting --runtime="$P99_RUNTIME" --time_based \
       --output-format=json "$@" > "$P99_WORK/fio-$name.json" 2>"$P99_WORK/fio-$name.err" \
       || warn "fio $name exited non-zero, see $P99_WORK/fio-$name.err"
   rm -f "$TARGET"/*
@@ -79,9 +83,25 @@ fio_run seq-read  --rw=read  --bs=1M --iodepth=32 --numjobs=1
 fio_run seq-write --rw=write --bs=1M --iodepth=32 --numjobs=1
 
 # Random 8k = Postgres page size. QD32 across 4 jobs approximates a busy pool.
+# NOTE what this job's p99 is and is not. At a fixed queue depth, Little's law
+# ties latency to throughput: latency ~= QD/IOPS, here 128/IOPS. Measured
+# across 13 runs, rand_read_8k.p99_us / (128/IOPS) had a median of 1.08 and sat
+# within 7% of 1.0 on every OVH host -- i.e. this p99 mostly restates the IOPS
+# number. It is a queuing delay under saturation, NOT what one index lookup
+# costs, so it is emitted for context and no longer graded. The QD1 job below
+# answers the latency question.
 fio_run rand-read-8k  --rw=randread  --bs=8k --iodepth=32 --numjobs=4
 fio_run rand-write-8k --rw=randwrite --bs=8k --iodepth=32 --numjobs=4
 fio_run mixed-8k --rw=randrw --rwmixread=70 --bs=8k --iodepth=32 --numjobs=4
+
+# QD1 random read: what ONE index lookup costs, with no queue to hide behind.
+# The companion to wal_fsync and measured the same way -- psync because that is
+# how Postgres reads (pread), iodepth=1/numjobs=1 because a query waiting on a
+# buffer-pool miss has nothing else outstanding to amortise against. This is
+# the metric disk.rand_read_8k_qd1.p99_us bands; the QD128 job above cannot
+# answer that question at any threshold, because its latency is pinned to its
+# own throughput.
+FIO_IOENGINE=psync fio_run rand-read-8k-qd1 --rw=randread --bs=8k --iodepth=1 --numjobs=1
 
 # THE test: QD1 durable write. This is what a COMMIT actually does.
 # psync + fdatasync=1 + sync=1, single job, no queue depth to hide behind.
@@ -112,6 +132,7 @@ emit_json disk "$(jq -n \
   --argjson seq_read  "$(extract "$P99_WORK/fio-seq-read.json" read)" \
   --argjson seq_write "$(extract "$P99_WORK/fio-seq-write.json" write)" \
   --argjson rr "$(extract "$P99_WORK/fio-rand-read-8k.json" read)" \
+  --argjson rr1 "$(extract "$P99_WORK/fio-rand-read-8k-qd1.json" read)" \
   --argjson rw "$(extract "$P99_WORK/fio-rand-write-8k.json" write)" \
   --argjson mx "$(extract "$P99_WORK/fio-mixed-8k.json" read)" \
   --argjson wal "$WAL" \
@@ -124,6 +145,7 @@ emit_json disk "$(jq -n \
       seq_read: (if $seq_read == null then null else {bw_mbs: $seq_read.bw_mbs, iops: $seq_read.iops, p99_us: $seq_read.p99_us} end),
       seq_write: (if $seq_write == null then null else {bw_mbs: $seq_write.bw_mbs, iops: $seq_write.iops, p99_us: $seq_write.p99_us} end),
       rand_read_8k: $rr,
+      rand_read_8k_qd1: $rr1,
       rand_write_8k: $rw,
       mixed_8k: $mx,
       wal_fsync: $wal
@@ -137,7 +159,8 @@ echo "=== Disk summary ==="
 jq -r '.disk |
   "seq-read:      \(.seq_read.bw_mbs // "n/a") MB/s",
   "seq-write:     \(.seq_write.bw_mbs // "n/a") MB/s",
-  "rand-read-8k:  \(.rand_read_8k.iops // "n/a") IOPS  p99=\(.rand_read_8k.p99_us // "n/a")us",
+  "rand-read-8k:  \(.rand_read_8k.iops // "n/a") IOPS  p99=\(.rand_read_8k.p99_us // "n/a")us  (QD128: a queuing delay, not graded)",
+  "rand-read QD1: \(.rand_read_8k_qd1.iops // "n/a") IOPS  p99=\(.rand_read_8k_qd1.p99_us // "n/a")us  (one index lookup, graded)",
   "rand-write-8k: \(.rand_write_8k.iops // "n/a") IOPS  p99=\(.rand_write_8k.p99_us // "n/a")us",
   "mixed-8k:      \(.mixed_8k.iops // "n/a") IOPS  p99=\(.mixed_8k.p99_us // "n/a")us",
   "",

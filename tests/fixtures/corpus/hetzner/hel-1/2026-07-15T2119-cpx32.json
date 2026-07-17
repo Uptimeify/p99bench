@@ -159,10 +159,12 @@
     "storage_class": "net-fast",
     "categories": {
       "disk": {
-        "grade": "C",
-        "bound_by": "disk.rand_read_8k.p99_us",
-        "incomplete": false,
-        "missing": [],
+        "grade": "B",
+        "bound_by": "disk.wal_fsync.p999_us",
+        "incomplete": true,
+        "missing": [
+          "disk.rand_read_8k_qd1.p99_us"
+        ],
         "metrics": {
           "disk.wal_fsync.p999_us": {
             "value": 2867.2,
@@ -172,9 +174,9 @@
             "value": 1191.23,
             "grade": "B"
           },
-          "disk.rand_read_8k.p99_us": {
-            "value": 2408.45,
-            "grade": "C"
+          "disk.rand_read_8k_qd1.p99_us": {
+            "value": null,
+            "grade": "?"
           },
           "disk.rand_read_8k.iops": {
             "value": 80835.69,
@@ -267,10 +269,12 @@
     },
     "profiles": {
       "postgres_oltp": {
-        "grade": "C",
-        "bound_by": "disk.rand_read_8k.p99_us",
-        "incomplete": false,
-        "missing": []
+        "grade": "B",
+        "bound_by": "disk.wal_fsync.p999_us",
+        "incomplete": true,
+        "missing": [
+          "disk.rand_read_8k_qd1.p99_us"
+        ]
       },
       "timescale_ingest": {
         "grade": "B",

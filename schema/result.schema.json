@@ -237,6 +237,9 @@
         "rand_read_8k": {
           "$ref": "#/$defs/ioResult"
         },
+        "rand_read_8k_qd1": {
+          "$ref": "#/$defs/ioResult"
+        },
         "rand_write_8k": {
           "$ref": "#/$defs/ioResult"
         },

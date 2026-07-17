@@ -52,14 +52,25 @@ metrics:
       describes the typical commit where p99.9 describes the tail. Bounds are
       200us / 1ms / 3ms / 10ms per durable write.
 
-  disk.rand_read_8k.p99_us:
+  # disk.rand_read_8k.p99_us is deliberately absent -- see THRESHOLDS.md.
+  # It is measured at --iodepth=32 --numjobs=4, so its p99 is a queuing delay
+  # pinned to its own throughput by Little's law (median p99/(128/IOPS) = 1.08
+  # across 13 runs), not the cost of one index lookup. It is still emitted and
+  # still shown, as context. disk.rand_read_8k_qd1.p99_us grades the tail.
+  disk.rand_read_8k_qd1.p99_us:
     op: lte
     unit: us
     bands: { A: 500, B: 2000, C: 5000, D: 15000 }
     confidence: high
+    provisional: true
     why: >
       8k is the Postgres page size; index lookups are random reads. A query
-      doing 100 lookups at 5ms p99 has a real chance of one slow read.
+      doing 100 lookups at 5ms p99 has a real chance of one slow read. Measured
+      at QD1 with psync, the way a query actually waits on a buffer-pool miss:
+      one read outstanding, nothing to amortise against. The bands are the ones
+      this rationale always implied; they were previously applied to a QD128
+      job that could not honour them (A demanded 256,000 IOPS at that depth).
+      provisional until runs on tool >= 0.2.1 build a corpus -- spec 11.
 
   disk.rand_read_8k.iops:
     op: gte
@@ -255,7 +266,7 @@ categories:
   disk:
     - disk.wal_fsync.p999_us
     - disk.wal_fsync.iops
-    - disk.rand_read_8k.p99_us
+    - disk.rand_read_8k_qd1.p99_us
     - disk.rand_read_8k.iops
     - disk.rand_write_8k.iops
     - disk.seq_write.bw_mbs
@@ -286,7 +297,7 @@ profiles:
     rules:
       - { metric: disk.wal_fsync.p999_us,           required: true }
       - { metric: disk.wal_fsync.iops,              required: true }
-      - { metric: disk.rand_read_8k.p99_us,         required: true }
+      - { metric: disk.rand_read_8k_qd1.p99_us,     required: true }
       - { metric: disk.rand_read_8k.iops,           required: false }
       - { metric: disk.rand_write_8k.iops,          required: false }
       - { metric: cpu.steal_pct_under_load,         required: true }

@@ -467,3 +467,25 @@ def test_steal_parser_reads_steal_not_the_column_beside_it(repo_root):
             f"{script}: steal parser returned {got!r}; %steal is 0.00 and %soft "
             f"is 0.10 -- returning 0.10 means it is reading the column beside it"
         )
+
+
+def test_disk_stage_measures_random_read_at_qd1(repo_root):
+    # Not @pytest.mark.docker: CI runs -m "not docker", so a container-only
+    # assertion is no gate at all -- that is exactly how the sysbench
+    # power-of-two bug reached three hosts. This reads the source.
+    #
+    # disk.rand_read_8k_qd1.p99_us must be measured with ONE outstanding read.
+    # The QD128 job next to it cannot answer the question its band asks: at a
+    # fixed queue depth, Little's law pins latency to QD/IOPS, so that p99 is
+    # ~1.07x (128/IOPS) across the corpus -- a restatement of the IOPS number,
+    # not an independent tail. Only QD1 measures what one index lookup costs.
+    # psync (not libaio) for the same reason wal_fsync uses it: Postgres reads
+    # via pread, and the engine is part of what is being measured.
+    script = (repo_root / "bench" / "01-disk.sh").read_text()
+    job = [ln for ln in script.splitlines()
+           if "rand-read-8k-qd1" in ln and ln.strip().startswith(("fio", "FIO"))]
+    assert job, "01-disk.sh must run a rand-read-8k-qd1 job"
+    line = job[0]
+    assert "--iodepth=1" in line, f"QD1 read job must be iodepth=1: {line!r}"
+    assert "--numjobs=1" in line, f"QD1 read job must be numjobs=1: {line!r}"
+    assert "psync" in line, f"QD1 read job must use psync, as Postgres does: {line!r}"

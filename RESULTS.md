@@ -39,9 +39,9 @@ on any other profile's row is context, not a cause.
 
 | Provider | Region | Product | Class | Machines | Runs | fsync p99.9 worst | disk | cpu | ram | net | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| hetzner | hel-1 | `CPX32` | net-fast | 1 | 1 | 2.2 ms | C | B | A | D | C | B | B | B | D | C | B |
-| ovh | zrh | `vps-1-lz-2026` | net-slow | 1 | 1 | 114.8 ms | F | B | A | A | F | F | F | F | B | C | B |
-| windcloud | enge-sande | `VPS-L` | degraded | 1 | 1 | 333.4 ms | F | D | B | A | F | F | F | F | D | D | D |
+| hetzner | hel-1 | `CPX32` | net-fast | 1 | 1 | 2.2 ms | B? | B | A | D | B? | B | B | B | D | C | B |
+| ovh | zrh | `vps-1-lz-2026` | net-slow | 1 | 1 | 114.8 ms | F? | B | A | A | F? | F | F | F | B | C | B |
+| windcloud | enge-sande | `VPS-L` | degraded | 1 | 1 | 333.4 ms | F? | D | B | A | F? | F | F | F | D | D | D |
 
 ## Network
 
