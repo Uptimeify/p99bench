@@ -10,11 +10,11 @@
       "machines": 1,
       "runs": 1,
       "fsync_p999_us_median": null,
-      "fsync_p999_us_worst": 258998.27,
+      "fsync_p999_us_worst": 295698.43,
       "price_eur_month": 19.0,
       "categories": {
         "disk": "F",
-        "cpu": "F",
+        "cpu": "?",
         "ram": "B",
         "network": "A"
       },
@@ -23,18 +23,18 @@
         "timescale_ingest": "F",
         "patroni_member": "F",
         "redis_sentinel": "F",
-        "worker_probe": "F",
-        "playwright_node": "F",
-        "nuxt_ssr": "F"
+        "worker_probe": "?",
+        "playwright_node": "?",
+        "nuxt_ssr": "?"
       },
       "bound_by_counts": {
         "[postgres_oltp] disk.wal_fsync.p999_us": 1,
         "[timescale_ingest] disk.wal_fsync.p999_us": 1,
         "[patroni_member] disk.wal_fsync.p999_us": 1,
-        "[redis_sentinel] cpu.single_thread_eps": 1,
-        "[worker_probe] cpu.single_thread_eps": 1,
-        "[playwright_node] cpu.single_thread_eps": 1,
-        "[nuxt_ssr] cpu.single_thread_eps": 1
+        "[redis_sentinel] disk.wal_fsync.p999_us": 1,
+        "[worker_probe] cpu.stall_p999_us (cpu.stall_p999_us not measured (required))": 1,
+        "[playwright_node] cpu.stall_p999_us (cpu.stall_p999_us not measured (required))": 1,
+        "[nuxt_ssr] cpu.stall_p999_us (cpu.stall_p999_us not measured (required))": 1
       }
     }
   ]
