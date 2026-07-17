@@ -93,6 +93,51 @@
       "bound_by_counts": {}
     },
     {
+      "provider": "netcup",
+      "region": "nue",
+      "product": "RS-1000-G12",
+      "storage_class": "net-fast",
+      "machines": 1,
+      "runs": 1,
+      "fsync_p999_us_median": null,
+      "fsync_p999_us_worst": 1630.21,
+      "price_eur_month": 17.7,
+      "categories": {
+        "disk": "B",
+        "cpu": "B",
+        "ram": "A",
+        "network": "F"
+      },
+      "categories_incomplete": {
+        "disk": false,
+        "cpu": false,
+        "ram": false,
+        "network": false
+      },
+      "profiles": {
+        "postgres_oltp": "B",
+        "timescale_ingest": "B",
+        "patroni_member": "B",
+        "redis_sentinel": "B",
+        "worker_probe": "F",
+        "playwright_node": "F",
+        "nuxt_ssr": "A"
+      },
+      "profiles_incomplete": {
+        "postgres_oltp": false,
+        "timescale_ingest": false,
+        "patroni_member": false,
+        "redis_sentinel": false,
+        "worker_probe": false,
+        "playwright_node": false,
+        "nuxt_ssr": false
+      },
+      "bound_by_counts": {
+        "[worker_probe] network.loss_pct": 1,
+        "[playwright_node] network.loss_pct": 1
+      }
+    },
+    {
       "provider": "ovh",
       "region": "prg",
       "product": "vps-1-lz-2026",
