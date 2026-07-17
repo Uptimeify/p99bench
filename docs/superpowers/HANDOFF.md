@@ -1,14 +1,22 @@
 # p99bench — session handoff
 
-Written 2026-07-17. Read this before touching anything; it will save you the
+Written 2026-07-17, updated end of the 2026-07-17 evening session (tool 0.2.1,
+`HEAD = 2669e2c`). Read this before touching anything; it will save you the
 mistakes already made once.
 
 ## Where things are
 
 - Branch `main`, everything pushed to `origin/main`. Working tree clean.
-- 137 non-docker tests pass: `python3 -m pytest tests/ -q -m "not docker"`
+- **163 non-docker tests pass**: `python3 -m pytest tests/ -q -m "not docker"`
 - Docker-marked tests need a container: `docker build -t p99bench-test tests/`
-- `python3 tools/validate.py results/` → 3/3 valid
+- **CI is green on `HEAD` (`2669e2c`)** — always confirm with
+  `gh run watch $(gh run list --limit 1 --json databaseId -q '.[0].databaseId')
+  --exit-status` before claiming done. This session claimed "ready" twice while
+  CI was red; `gh` works in the sandbox even when `curl` does not.
+- **shellcheck has no local binary here.** Run it the way CI does:
+  `docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable -e SC1091
+  bench/*.sh`. A bash change that passes locally can still fail the CI lint.
+- `python3 tools/validate.py results/` → 6/6 valid (was 3/3; the fleet grew)
 - `python3 tools/render.py --check` → exit 0 (CI runs this; generated files are
   never hand-edited)
 - **No `Co-Authored-By` trailers anywhere in history, by owner's explicit
@@ -16,6 +24,25 @@ mistakes already made once.
   default. Check with `git log --grep='Co-Authored-By'` before every push.
 - `CLAUDE.md` is gitignored (owner's choice). It is edited on disk but never
   committed. Leave that alone.
+
+## Current corpus (tool 0.2.1, one run per host, 2026-07-17)
+
+Six hosts, four providers. **One run each — not yet a calibrated corpus.**
+`MIN_RUNS_FOR_SPREAD = 3`, so no host has a defensible spread yet, and grades
+near a band edge can flip between runs (ovh/zrh RAM already swung 90→114 GB/s).
+
+| host | disk | cpu | ram |
+|---|---|---|---|
+| hetzner/fsn-1 | C | F | B |
+| hetzner/hel-1 | C | B | A |
+| ovh/prg | D | B | A |
+| ovh/waw | C | F | C |
+| ovh/zrh | D | B | A |
+| windcloud/enge-sande | F | F | B |
+
+The grades discriminate hard (windcloud disk F to hetzner-hel1 RAM A), which is
+the suite working. `cpu=F` on three hosts and `disk=D/F` on the OVH pair are
+real findings, not gaps — every one is `incomplete: false`.
 
 ## What this project is
 
@@ -85,10 +112,10 @@ generated `results/<provider>/README.md`; `data/index.{json,csv}` is the export.
 
 ## The pattern that keeps biting — read this twice
 
-**Every serious bug was invisible until real hardware or CI ran it.** Six so far,
-all the same shape: something worked locally because the dev environment already
-had what the target lacked, or because `results/` only ever held files from the
-*previous* tool version.
+**Every serious bug was invisible until real hardware or CI ran it.** Twelve so
+far, all the same shape: something worked locally because the dev environment
+already had what the target lacked, or because `results/` only ever held files
+from the *previous* tool version.
 
 1. Phase 1 shipped a schema with `additionalProperties: false` that rejected
    every field its own stages had just started emitting. `validate.py results/`
@@ -104,49 +131,92 @@ had what the target lacked, or because `results/` only ever held files from the
 6. `llc_bytes()` read sysfs cache info that **does not exist in cloud guests** —
    so the LLC-aware RAM sizing never actually ran anywhere it mattered.
 
+New this session — same pattern, and the reason the sizing math now lives in
+`lib.sh` with CI-run unit tests instead of inline in the stages:
+
+7. **sysbench requires a power-of-two `--memory-block-size`** and FATALs
+   otherwise, printing no `MiB/sec` line. The old `RAM/4/CORES` cap produced
+   arbitrary byte counts (508355840 on hetzner), so RAM nulled on every host
+   that hit the cap. `2>/dev/null` on the sysbench call hid the FATAL for three
+   full re-runs. Fixed: `ram_block_bytes()` in `lib.sh`, power-of-two by
+   construction, 9 unit tests CI runs. The stages' own tests are all
+   `@pytest.mark.docker` and **CI runs `-m "not docker"`** — the arithmetic had
+   no gate CI executed. That is the through-line for bugs 7–11.
+8. **`rand_read_8k.p99_us` was graded at QD128** (`--iodepth=32 --numjobs=4`)
+   but banded on a QD1 "single index lookup" rationale. Little's law makes it
+   ~`128/IOPS` — median ratio 1.08 across 13 runs, i.e. it just restated
+   `rand_read_8k.iops`, and worst-wins took the harsher of the two. Replaced by
+   `disk.rand_read_8k_qd1.p99_us` (new psync/iodepth=1 fio job); QD128 p99 kept,
+   ungraded.
+9. **The NUMA locality test measured L1.** It called sysbench with no block size
+   and no oper → defaults (1K block, writes) → cache on both sides of the hop.
+   windcloud published *remote faster than local* twice, which is impossible.
+   Then the first fix used `nproc` threads while `--cpunodebind=0` confines the
+   run to one node's CPUs — 4 threads on 2 cores, CPU-bound, gap still invisible.
+   Only after threads came from `numa_node_cpus(0)` did the real 18% hop appear.
+10. **`dns_ms` was one uncached lookup**, so worst-of-four made it
+    authoritative-NS distance, not the host — ungradeable. Split into
+    `dns_warm_p50_ms` (median of 5 cached, a host property) and `dns_first_ms`.
+11. **`llc_bytes()`'s lscpu fallback was never tested and was
+    environment-dependent.** Three fallback tests asserted the 32M last resort,
+    which only fires when lscpu *also* yields nothing — they passed on macOS (no
+    lscpu) and on a runner whose lscpu didn't parse, then went red on a runner
+    whose `lscpu -B` returned a clean 260 MiB L3. A runner swap flipped three
+    green tests red with no code change. Fixed with a `P99_LSCPU_OUT` seam and a
+    `>= 1 MiB` sanity guard (a bare "256" from "256 MiB (8 instances)" was being
+    taken as 256 *bytes*).
+12. **Three `bw_mbs` bands said MB/s but compared MiB/s** (fio ÷1024, sysbench
+    prints MiB/s). ~4.9% stricter than documented; zero grade flips across 13
+    runs, so relabelled (not renamed — spec 9.2 reserves a rename for a changed
+    measurement).
+
 **Guard:** `tests/test_fresh_run_validates.py` pins the `bench/` ↔ `tools/`
 contract (schema_version, `grade.py` invocation, steady durations). When you
-change one side, check the other. `bench/run-all.sh` now preflights every tool
-before spending 60 minutes (`preflight_tools` in `lib.sh`).
+change one side, check the other. `bench/run-all.sh` preflights every tool
+before spending 60 minutes (`preflight_tools`). **The load-bearing lesson: any
+arithmetic in `bench/` that only container tests cover is untested by CI. Push
+it into `lib.sh` with a fixture-driven unit test (`P99_CACHE_ROOT`,
+`P99_NUMA_HW`, `P99_LSCPU_OUT` are the injection-seam pattern), and add a CI
+smoke assertion on the emitted field** (the disk and network smoke jobs now
+assert `rand_read_8k_qd1.p99_us` and `dns_warm_p50_ms`).
 
 ## Open work, roughly in priority order
 
-1. **Phase 5 — recalibrate the four provisional bands.** `cpu.stall_p999_us`,
-   `cpu.steady_state.degradation_pct`, `cpu.tls_verify_s`, `ram.bw_read_mbs`
-   ship with `provisional: true` and **no corpus behind them**. Spec §11. This
-   is blocked on real 0.2.0 runs and is the last thing between the redesign and
-   being calibrated rather than reasoned. First real data so far:
-   `stall_p999_us = 251 µs` (hetzner), `tls_verify_s` 16.8k (Genoa) vs 9.6k
-   (Xeon) — it discriminates.
-2. **Spec §9.3 is narratively stale.** It describes v1 results grading `?` for
+1. **Phase 5 — recalibrate the SIX provisional bands. NOW UNBLOCKED.** These
+   ship `provisional: true` with a reasoned-not-calibrated band:
+   `ram.bw_read_mbs`, `disk.rand_read_8k_qd1.p99_us`, `cpu.stall_p999_us`,
+   `cpu.steady_state.degradation_pct`, `cpu.tls_verify_s`,
+   `network.dns_warm_p50_ms`. Spec §11. The blocker is gone: a full **tool
+   0.2.1 corpus now exists** (6 hosts, all metrics populated). What is NOT yet
+   done: only **one run per host**, and `MIN_RUNS_FOR_SPREAD = 3`. Get 3+ runs
+   per host at different hours *before* recalibrating, or you calibrate against
+   single-sample noise (ovh/zrh RAM already moved 90→114 GB/s run-to-run).
+   Live signal so far: RAM spans 24.8k–114k MiB/s, qd1 read 238–3817 µs — both
+   discriminate cleanly.
+2. **`network.dns_warm_p50_ms` — decide whether `worker_probe` grades it.** The
+   measurement is now honest (bug 10), the band is parked and provisional, and
+   no profile reads it. A monitoring probe's DNS *is* part of its workload, so
+   it is the one profile with a workload-derived reason to grade it — but only
+   after 0.2.1 runs show the band discriminates. A spec §11 call, not a guess.
+3. **Spec §9.3 is narratively stale.** It describes v1 results grading `?` for
    five profiles; after the rollup fix they grade real letters with
    `incomplete: true`. Behaviour is better; the doc hasn't caught up.
-3. **`network.dns_ms` is ungradeable as measured.** `06-network.sh` takes ONE
-   uncached `curl time_namelookup` per target, n=1, reduced worst-of-four. One
-   OVH run, one resolver: 1.86 / 81.07 / 109.60 / 149.45 ms — an 80x spread that
-   is authoritative-NS distance, not the machine. Demoted to informational
-   (§6.5). Grading it needs repeated lookups with warm/cold separated — a
-   `bench/` change.
-4. **The 100 GB/s warning in `03-ram.sh` may be miscalibrated.** It was written
-   for dual-channel assumptions. A 12-channel DDR5 EPYC genuinely does ~100 GB/s
-   on 4 threads (ovh/zrh measured 103/108/94 across 128M/512M/1G — no
-   convergence, i.e. real). Hetzner's 32 MiB L3 box *did* converge (98 → 66 →
-   66), which is what motivated the 512M floor.
-5. **`results/README.md`, `CONTRIBUTING.md`** may need a pass once a full 0.2.0
-   corpus lands.
+4. **`results/README.md`, `CONTRIBUTING.md`** may need a pass now the 0.2.1
+   corpus has landed and the field set changed (new `rand_read_8k_qd1`,
+   `dns_warm_p50_ms`/`dns_first_ms`, `numa_*_read_mbs`).
 
-## Recent fixes that require a re-run to take effect
+Resolved this session (was open work): `network.dns_ms` ungradeability (bug 10),
+the 100 GB/s RAM warning (raised to 150 in `2669e2c` — ovh/zrh reads a genuine
+114 GB/s on 12-channel DDR5, and a cache-resident run lands near the ~200 GB/s
+legacy number, so 150 separates real from leak).
 
-The owner's three hosts (hetzner CPX32 hel-1, ovh vps-1-lz-2026 zrh, windcloud
-VPS-L enge-sande) were measured *before* these. `git pull` on each, then re-run:
+## Re-run status
 
-- **`export LC_ALL=C`** — windcloud's silent nulls
-- **RAM floor 128M → 512M** — hetzner's published 104 GB/s is ~48% inflated
-  (real ≈ 66); its grade does not change (still A) but the number is wrong
-- **`llc_bytes` via `lscpu`** — sysfs cache info absent in guests
-- **Cache guard units** — compared per-thread BLOCK against total LLC and nulled
-  a good OVH measurement; now compares `WORKING_SET = BLOCK * CORES`
-- **Tool preflight** — a missing `rt-tests`/`sysstat` used to cost a full hour
+**Done.** The whole fleet was re-run on tool 0.2.1 at the end of this session
+(the 6 files in `results/`, all `2026-07-17T152x`). Every fix above is baked in;
+there is no pending "these need a re-run" debt. The next re-run is only to build
+the ≥3-runs-per-host spread that Phase 5 calibration wants (open work #1) — same
+hosts, different hours, no code change required.
 
 ## How to run
 
