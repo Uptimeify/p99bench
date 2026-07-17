@@ -77,6 +77,92 @@ need() {
   command -v "$1" >/dev/null 2>&1 || die "missing tool: $1 (see README install step)"
 }
 
+# preflight_tools - verify every external tool a full run touches, before any
+# stage starts. Why this exists: three separate ~60-minute runs were lost to
+# a missing package discovered only once a stage got to it, sometimes 30+
+# minutes in. Some stages `need` a tool and die outright (see need() above);
+# others only `command -v` check it, warn, and skip the metric. The second
+# group is the dangerous one: the metrics behind cyclictest, mpstat and
+# openssl are `required: true` in MORE grading profiles (5, 4 and 1 -
+# worker_probe - respectively) than the tools that die loud. A run missing
+# mpstat still finishes in an hour, looks healthy, and grades a floor or "?"
+# on four profiles with nothing louder than a warn in the log.
+#
+# stress-ng is listed but never blocks alone: 02-cpu.sh falls back to
+# sysbench for CPU load generation when stress-ng is absent.
+preflight_tools() {
+  # tool|apt package|what silently doing without it costs
+  local -a rows=(
+    "fio|fio|disk stage; run dies without it"
+    "sysbench|sysbench|cpu + ram stages; run dies without it"
+    "jq|jq|every stage's JSON; run dies without it"
+    "bc|bc|arithmetic in several stages"
+    "cyclictest|rt-tests|cpu.stall_p999_us -- required by 5 profiles"
+    "mpstat|sysstat|cpu.steal_pct_under_load -- required by 4 profiles"
+    "openssl|openssl|cpu.tls_verify_s -- required by worker_probe"
+    "numactl|numactl|NUMA locality; ram stage"
+    "dmidecode|dmidecode|host inventory, ECC observability"
+    "curl|curl|network stage"
+    "ping|iputils-ping|network stage RTT/loss"
+    "lscpu|util-linux|LLC detection for the RAM working set"
+    "stress-ng|stress-ng|CPU load generator; OPTIONAL -- 02-cpu.sh falls back to sysbench"
+  )
+
+  local -a missing_rows=() blocking_pkgs=() blocking_tools=()
+  local row tool pkg cost
+  for row in "${rows[@]}"; do
+    IFS='|' read -r tool pkg cost <<< "$row"
+    command -v "$tool" >/dev/null 2>&1 && continue
+    missing_rows+=("$row")
+    if [[ "$tool" != "stress-ng" ]]; then
+      blocking_pkgs+=("$pkg")
+      blocking_tools+=("$tool")
+    fi
+  done
+
+  (( ${#missing_rows[@]} == 0 )) && return 0
+
+  warn "missing tools -- each row below is a metric a real run needs:"
+  printf '%-12s %-14s %s\n' "TOOL" "APT PACKAGE" "COST IF MISSING" >&2
+  for row in "${missing_rows[@]}"; do
+    IFS='|' read -r tool pkg cost <<< "$row"
+    printf '%-12s %-14s %s\n' "$tool" "$pkg" "$cost" >&2
+  done
+
+  if (( ${#blocking_pkgs[@]} == 0 )); then
+    warn "only stress-ng is missing, and it is optional (02-cpu.sh falls back to sysbench) -- continuing"
+    return 0
+  fi
+
+  if [[ ! -t 0 ]]; then
+    # A y/N prompt here would hang a scripted/CI/nohup 60-minute run forever --
+    # worse than exiting now with the fix already on screen.
+    warn "stdin is not a TTY, so not prompting. Install and rerun:"
+    warn "  apt-get install -y ${blocking_pkgs[*]}"
+    return 1
+  fi
+
+  local a
+  read -rp "install missing packages now (apt-get install -y ${blocking_pkgs[*]})? [y/N] " a
+  if [[ "$a" != "y" ]]; then
+    warn "declined. Install and rerun:"
+    warn "  apt-get install -y ${blocking_pkgs[*]}"
+    return 1
+  fi
+
+  apt-get install -y "${blocking_pkgs[@]}"
+
+  local -a still_missing=()
+  for tool in "${blocking_tools[@]}"; do
+    command -v "$tool" >/dev/null 2>&1 || still_missing+=("$tool")
+  done
+  if (( ${#still_missing[@]} > 0 )); then
+    warn "still missing after install: ${still_missing[*]}"
+    return 1
+  fi
+  return 0
+}
+
 # jq helper: emit a JSON number, or JSON null when the value is missing or is
 # not actually a number.
 #

@@ -65,6 +65,12 @@ done
 [[ $EUID -ne 0 ]] && die "run as root (dmidecode, cpufreq and fio need it)"
 
 # --- preflight -------------------------------------------------------------
+# Check every tool a run needs before any stage starts, not just load average.
+# See preflight_tools in lib.sh for why: some stages die loud on a missing
+# tool, others warn and skip a metric that grading requires more often than
+# the ones that die do.
+preflight_tools || exit 1
+
 LOAD=$(awk '{print $1}' /proc/loadavg)
 if (( $(echo "$LOAD > 0.5" | bc -l) )); then
   warn "load average is $LOAD - something else is running. Results will be noise."
