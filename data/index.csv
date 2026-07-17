@@ -1,4 +1,4 @@
 provider,region,product,storage_class,machines,runs,fsync_p999_us_median,fsync_p999_us_worst,price_eur_month,cat_disk,cat_cpu,cat_ram,cat_network,prof_postgres_oltp,prof_timescale_ingest,prof_patroni_member,prof_redis_sentinel,prof_worker_probe,prof_playwright_node,prof_nuxt_ssr
-hetzner,hel-1,CPX32,net-fast,1,1,,2039.81,42.23,C,B,?,B,C,B,B,B,B,C,B
-ovh,zrh,vps-1-lz-2026,net-slow,1,1,,120061.95,7.49,F,B,?,A,F,F,F,F,B,C,B
-windcloud,enge-sande,VPS-L,degraded,1,1,,270532.61,19.0,F,F,B,A,F,F,F,F,F,F,F
+hetzner,hel-1,CPX32,net-fast,1,1,,2244.61,42.23,C,B,A,D,C,B,B,B,D,C,B
+ovh,zrh,vps-1-lz-2026,net-slow,1,1,,114819.07,7.49,F,B,A,A,F,F,F,F,B,C,B
+windcloud,enge-sande,VPS-L,degraded,1,1,,333447.17,19.0,F,D,B,A,F,F,F,F,D,D,D

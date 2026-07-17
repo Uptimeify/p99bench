@@ -10,18 +10,18 @@
       "machines": 1,
       "runs": 1,
       "fsync_p999_us_median": null,
-      "fsync_p999_us_worst": 2039.81,
+      "fsync_p999_us_worst": 2244.61,
       "price_eur_month": 42.23,
       "categories": {
         "disk": "C",
         "cpu": "B",
-        "ram": "?",
-        "network": "B"
+        "ram": "A",
+        "network": "D"
       },
       "categories_incomplete": {
         "disk": false,
         "cpu": false,
-        "ram": true,
+        "ram": false,
         "network": false
       },
       "profiles": {
@@ -29,7 +29,7 @@
         "timescale_ingest": "B",
         "patroni_member": "B",
         "redis_sentinel": "B",
-        "worker_probe": "B",
+        "worker_probe": "D",
         "playwright_node": "C",
         "nuxt_ssr": "B"
       },
@@ -52,18 +52,18 @@
       "machines": 1,
       "runs": 1,
       "fsync_p999_us_median": null,
-      "fsync_p999_us_worst": 120061.95,
+      "fsync_p999_us_worst": 114819.07,
       "price_eur_month": 7.49,
       "categories": {
         "disk": "F",
         "cpu": "B",
-        "ram": "?",
+        "ram": "A",
         "network": "A"
       },
       "categories_incomplete": {
         "disk": false,
         "cpu": false,
-        "ram": true,
+        "ram": false,
         "network": false
       },
       "profiles": {
@@ -99,11 +99,11 @@
       "machines": 1,
       "runs": 1,
       "fsync_p999_us_median": null,
-      "fsync_p999_us_worst": 270532.61,
+      "fsync_p999_us_worst": 333447.17,
       "price_eur_month": 19.0,
       "categories": {
         "disk": "F",
-        "cpu": "F",
+        "cpu": "D",
         "ram": "B",
         "network": "A"
       },
@@ -118,9 +118,9 @@
         "timescale_ingest": "F",
         "patroni_member": "F",
         "redis_sentinel": "F",
-        "worker_probe": "F",
-        "playwright_node": "F",
-        "nuxt_ssr": "F"
+        "worker_probe": "D",
+        "playwright_node": "D",
+        "nuxt_ssr": "D"
       },
       "profiles_incomplete": {
         "postgres_oltp": false,
@@ -135,10 +135,7 @@
         "[postgres_oltp] disk.wal_fsync.p999_us": 1,
         "[timescale_ingest] disk.wal_fsync.p999_us": 1,
         "[patroni_member] disk.wal_fsync.p999_us": 1,
-        "[redis_sentinel] cpu.single_thread_eps": 1,
-        "[worker_probe] cpu.single_thread_eps": 1,
-        "[playwright_node] cpu.single_thread_eps": 1,
-        "[nuxt_ssr] cpu.single_thread_eps": 1
+        "[redis_sentinel] disk.wal_fsync.p999_us": 1
       }
     }
   ]

@@ -28,13 +28,13 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
-| **`wal_fsync.p999_us`** | **270.5 ms** | **F** | ≤1.0 ms / ≤3.0 ms / ≤10.0 ms / ≤50.0 ms | durability path broken |
+| **`wal_fsync.p999_us`** | **333.4 ms** | **F** | ≤1.0 ms / ≤3.0 ms / ≤10.0 ms / ≤50.0 ms | durability path broken |
 | `wal_fsync.iops` | 89 | F | ≥5,000 / ≥1,000 / ≥333 / ≥100 | - |
-| `rand_read_8k.p99_us` | 5.8 ms | D | ≤500 us / ≤2.0 ms / ≤5.0 ms / ≤15.0 ms | - |
-| `rand_read_8k.iops` | 63,053 | B | ≥100,000 / ≥50,000 / ≥20,000 / ≥5,000 | - |
-| `rand_write_8k.iops` | 12,362 | C | ≥50,000 / ≥20,000 / ≥10,000 / ≥3,000 | - |
-| `seq_write.bw_mbs` | 649 MB/s | B | ≥1,000 MB/s / ≥500 MB/s / ≥200 MB/s / ≥100 MB/s | - |
-| `seq_read.bw_mbs` | 3,337 MB/s | A | ≥2,000 MB/s / ≥1,000 MB/s / ≥500 MB/s / ≥200 MB/s | - |
+| `rand_read_8k.p99_us` | 5.6 ms | D | ≤500 us / ≤2.0 ms / ≤5.0 ms / ≤15.0 ms | - |
+| `rand_read_8k.iops` | 64,010 | B | ≥100,000 / ≥50,000 / ≥20,000 / ≥5,000 | - |
+| `rand_write_8k.iops` | 13,180 | C | ≥50,000 / ≥20,000 / ≥10,000 / ≥3,000 | - |
+| `seq_write.bw_mbs` | 570 MB/s | B | ≥1,000 MB/s / ≥500 MB/s / ≥200 MB/s / ≥100 MB/s | - |
+| `seq_read.bw_mbs` | 3,313 MB/s | A | ≥2,000 MB/s / ≥1,000 MB/s / ≥500 MB/s / ≥200 MB/s | - |
 | `steady_state.degradation_pct` | 0.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
 
 <details>
@@ -51,16 +51,16 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 </details>
 
-**`cpu`** -- F, bound by `single_thread_eps`
+**`cpu`** -- D, bound by `single_thread_eps`
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
-| **`single_thread_eps`** | **377** | **F** | ≥1,400 / ≥1,000 / ≥700 / ≥400 | - |
-| `scaling_efficiency` | 0.985 | A | ≥0.850 / ≥0.700 / ≥0.550 / ≥0.400 | - |
-| `steal_pct_under_load` | 0.4% | A | ≤0.5% / ≤2.0% / ≤5.0% / ≤10.0% | - |
-| `stall_p999_us*` | 420 us | B | ≤100 us / ≤500 us / ≤2.0 ms / ≤10.0 ms | - |
-| `steady_state.degradation_pct*` | -13.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
-| `tls_verify_s*` | 9,012 | C | ≥30,000 / ≥15,000 / ≥7,000 / ≥3,000 | - |
+| **`single_thread_eps`** | **407** | **D** | ≥1,400 / ≥1,000 / ≥700 / ≥400 | - |
+| `scaling_efficiency` | 0.954 | A | ≥0.850 / ≥0.700 / ≥0.550 / ≥0.400 | - |
+| `steal_pct_under_load` | 0.2% | A | ≤0.5% / ≤2.0% / ≤5.0% / ≤10.0% | - |
+| `stall_p999_us*` | 190 us | B | ≤100 us / ≤500 us / ≤2.0 ms / ≤10.0 ms | - |
+| `steady_state.degradation_pct*` | 1.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
+| `tls_verify_s*` | 9,099 | C | ≥30,000 / ≥15,000 / ≥7,000 / ≥3,000 | - |
 
 *Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
 
@@ -80,7 +80,7 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
-| **`bw_read_mbs*`** | **31,531 MB/s** | **B** | ≥40,000 MB/s / ≥25,000 MB/s / ≥15,000 MB/s / ≥8,000 MB/s | - |
+| **`bw_read_mbs*`** | **33,193 MB/s** | **B** | ≥40,000 MB/s / ≥25,000 MB/s / ≥15,000 MB/s / ≥8,000 MB/s | - |
 
 *Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
 
@@ -110,10 +110,10 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 | Target | Throughput | RTT p50 | RTT p99 |
 |---|---|---|---|
-| `hetzner-fsn1` | 1.25 Gb/s | 17ms | - |
-| `hetzner-hel1` | 458 Mb/s | 29ms | - |
+| `hetzner-fsn1` | 1.20 Gb/s | 17ms | - |
+| `hetzner-hel1` | 468 Mb/s | 29ms | - |
 | `ovh-gra` | 0 Mb/s | 21ms | - |
-| `hetzner-ash` | 239 Mb/s | 93ms | - |
+| `hetzner-ash` | 233 Mb/s | 94ms | - |
 
 Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown per target instead (lowest throughput, highest RTT seen).
 
@@ -122,7 +122,7 @@ Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown
 
 | Machine | Date | Hour | fsync p99.9 | rand-read p99 | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `3637eb` | 2026-07-17 | 11h | 270.5 ms | 5.8 ms | 0.4% | 420 us | 0.0% | F | F | F | F | F | F | F |
+| `3637eb` | 2026-07-17 | 12h | 333.4 ms | 5.6 ms | 0.2% | 190 us | 0.0% | F | F | F | F | D | D | D |
 
 </details>
 
