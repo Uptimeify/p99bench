@@ -105,3 +105,29 @@ def test_llc_bytes_warns_and_ignores_unrecognized_unit(run_bash):
     out = run_bash("llc_bytes", env={"P99_CACHE_ROOT": str(FIXTURES / "unrecognized_unit")})
     assert out.stdout == str(32 * 1024 * 1024)
     assert "unrecognized" in out.stderr.lower()
+
+
+def test_lib_forces_c_locale(run_bash):
+    """Every stage parses English, dot-decimal tool output.
+
+    On a German-locale Debian host mpstat prints "Durchschn.:" instead of
+    "Average:" (so the summary row is never found) AND decimal commas -- "0,13"
+    not "0.13" -- which jnum correctly rejects as non-numeric. Both are silent:
+    cpu.steal_pct_under_load simply comes back null on a host that looks fine.
+    steal is required by four profiles.
+
+    Real failure, real host, found only because someone read the run output.
+    """
+    out = run_bash('printf "%s|%s" "$LC_ALL" "$LANG"')
+    assert out.stdout == "C|C", (
+        f"lib.sh must force the C locale; got {out.stdout!r}. Without it any "
+        f"metric parsed from a localised tool silently nulls."
+    )
+
+
+def test_jnum_rejects_a_decimal_comma(run_bash):
+    # Documents WHY the C locale matters: this is what a German-locale mpstat
+    # hands the parser. Rejecting it is correct -- jnum cannot know whether the
+    # comma is a decimal point or a thousands separator -- which is exactly why
+    # the locale must be forced upstream rather than the parser widened.
+    assert run_bash('jnum "0,13"').stdout == "null"

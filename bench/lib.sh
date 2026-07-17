@@ -5,6 +5,22 @@
 # shellcheck disable=SC2034  # consumed by run-all.sh after sourcing
 P99BENCH_VERSION="0.2.0"
 
+# Force C locale for every stage. Not cosmetic -- two real failures on a
+# German-locale Debian host (LANG=de_DE.UTF-8), both silent:
+#
+#   1. mpstat prints "Durchschn.:" instead of "Average:", so the awk that finds
+#      the summary row never matched and cpu.steal_pct_under_load came back
+#      null. steal is `required: true` in four profiles.
+#   2. Worse, it prints DECIMAL COMMAS: "0,13" not "0.13". jnum rejects that as
+#      non-numeric (correctly -- it cannot know it is not a thousands
+#      separator), so the value would be nulled even if the row were found.
+#
+# Every stage parses the English, dot-decimal output of fio/sysbench/mpstat/
+# openssl. One LANG away from silently nulling any metric, on a host that looks
+# completely healthy. Set here because every stage sources this file.
+export LC_ALL=C
+export LANG=C
+
 # Where partial JSON fragments accumulate before run-all.sh merges them.
 : "${P99_WORK:=/tmp/p99bench}"
 mkdir -p "$P99_WORK" 2>/dev/null || true
