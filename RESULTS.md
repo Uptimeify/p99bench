@@ -3,11 +3,11 @@
 
 # Results
 
-3 runs across 3 machines at 3 providers.
+2 runs across 2 machines at 2 providers.
 
 *Every number below is a measurement of specific machines at specific times. Providers vary by region, by hardware generation within a region, and by who else is on the host. Read [METHODOLOGY.md](METHODOLOGY.md) before drawing conclusions, and [THRESHOLDS.md](THRESHOLDS.md) before disagreeing with a grade.*
 
-Per-provider detail: [hetzner](results/hetzner/README.md), [ovh](results/ovh/README.md), [windcloud](results/windcloud/README.md). Machine-readable export:
+Per-provider detail: [hetzner](results/hetzner/README.md), [ovh](results/ovh/README.md). Machine-readable export:
 [data/index.json](data/index.json) / [data/index.csv](data/index.csv).
 
 ## How to read this table
@@ -39,9 +39,8 @@ on any other profile's row is context, not a cause.
 
 | Provider | Region | Product | Class | Machines | Runs | fsync p99.9 worst | disk | cpu | ram | net | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| hetzner | hel-1 | `CPX32` | net-fast | 1 | 1 | 2.0 ms | C | B | A | C | C | B | B | B | C | C | B |
-| ovh | zrh | `vps-1-lz-2026` | net-slow | 1 | 1 | 112.7 ms | F | B? | A | A | F | F | F? | F? | B? | C? | A? |
-| windcloud | enge-sande | `VPS-L` | degraded | 1 | 1 | 295.7 ms | F | D? | B | A | F? | F? | F? | F? | D? | D? | D? |
+| hetzner | hel-1 | `CPX32` | net-fast | 1 | 1 | 1.8 ms | C | B | ? | B | C | B | B | B | B | C | B |
+| ovh | zrh | `vps-1-lz-2026` | net-slow | 1 | 1 | 112.7 ms | F | B | ? | A | F | F | F | F | B | C | B |
 
 ## Network
 
@@ -49,7 +48,7 @@ Throughput and latency to the **same fixed reference targets** are
 measured on every run but not summarized in this index -- every host
 measures the same targets, so that per-target detail is worth a table
 of its own, and it lives on each provider's page (with a packet-loss
-callout wherever loss exceeds ~0.05%): [hetzner](results/hetzner/README.md), [ovh](results/ovh/README.md), [windcloud](results/windcloud/README.md). **Only `worker_probe`
+callout wherever loss exceeds ~0.05%): [hetzner](results/hetzner/README.md), [ovh](results/ovh/README.md). **Only `worker_probe`
 and `playwright_node` grade any of it** (`loss_pct`, `rtt_jitter_ratio`)
 -- for those two profiles the network *is* the workload. Everyone
 else's `net` column stays informational. See
@@ -64,10 +63,10 @@ a grade? The thing to argue about is the threshold, in
 
 | Binding constraint | Runs affected |
 |---|---|
-| [postgres_oltp] disk.wal_fsync.p999_us | 2 |
-| [timescale_ingest] disk.wal_fsync.p999_us | 2 |
-| [patroni_member] disk.wal_fsync.p999_us | 2 |
-| [redis_sentinel] disk.wal_fsync.p999_us | 2 |
+| [postgres_oltp] disk.wal_fsync.p999_us | 1 |
+| [timescale_ingest] disk.wal_fsync.p999_us | 1 |
+| [patroni_member] disk.wal_fsync.p999_us | 1 |
+| [redis_sentinel] disk.wal_fsync.p999_us | 1 |
 
 ---
 
@@ -77,7 +76,7 @@ Every number above comes from a JSON file under [`results/`](results/),
 laid out as `results/<provider>/<region>/`. Nothing here is hand-written.
 If a number looks wrong, open the file and check it. Per-run detail --
 per-machine tables, host and time variance, binding constraints -- lives
-on each provider's page: [hetzner](results/hetzner/README.md), [ovh](results/ovh/README.md), [windcloud](results/windcloud/README.md).
+on each provider's page: [hetzner](results/hetzner/README.md), [ovh](results/ovh/README.md).
 
 `host_id` is a salted hash of the machine's `/etc/machine-id`. It links runs
 on the same VM together and carries no significance outside this dataset.
