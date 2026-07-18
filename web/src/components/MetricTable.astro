@@ -1,0 +1,20 @@
+---
+import GradeChip from './GradeChip.astro';
+interface Props { title: string; metrics: Record<string, { grade: string; value: number | null }>; boundBy?: string; }
+const { title, metrics, boundBy } = Astro.props;
+---
+<section>
+  <h3>{title}{boundBy && <small> — bound by {boundBy}</small>}</h3>
+  <table>
+    <thead><tr><th>metric</th><th class="num">value</th><th>grade</th></tr></thead>
+    <tbody>
+      {Object.entries(metrics).map(([name, m]) => (
+        <tr>
+          <td><code>{name}</code></td>
+          <td class="num">{m.value ?? '—'}</td>
+          <td><GradeChip grade={m.grade} /></td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</section>

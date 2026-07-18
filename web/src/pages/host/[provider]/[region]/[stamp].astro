@@ -1,0 +1,47 @@
+---
+import Base from '../../../../layouts/Base.astro';
+import GradeChip from '../../../../components/GradeChip.astro';
+import MetricTable from '../../../../components/MetricTable.astro';
+import { loadResults } from '../../../../lib/data';
+
+export function getStaticPaths() {
+  return loadResults().map((r) => ({
+    params: { provider: r.slug.provider, region: r.slug.region, stamp: r.slug.stamp },
+    props: { result: r.data },
+  }));
+}
+
+const { result } = Astro.props;
+const run = result.run;
+const provider = result.provider;
+const cats = result.grades?.categories ?? {};
+const profiles = result.grades?.profiles ?? {};
+---
+<Base title={`${provider.name} ${provider.region} — ${provider.product}`}>
+  <h1>{provider.name} / {provider.region} — {provider.product}</h1>
+  <p>
+    €{provider.price_eur_month}/mo · storage {result.grades?.storage_class ?? '—'} ·
+    host <code>{run.host_id}</code> · {run.timestamp_utc} · submitter {run.submitter ?? '—'}
+  </p>
+
+  <h2>Profiles</h2>
+  <table>
+    <thead><tr><th>profile</th><th>grade</th><th>bound by</th></tr></thead>
+    <tbody>
+      {Object.entries(profiles).map(([name, p]: any) => (
+        <tr><td>{name}</td><td><GradeChip grade={p.grade} /></td><td><code>{p.bound_by ?? '—'}</code></td></tr>
+      ))}
+    </tbody>
+  </table>
+
+  <h2>Categories</h2>
+  {Object.entries(cats).map(([name, c]: any) => (
+    <MetricTable
+      title={`${name} — ${c.grade}`}
+      boundBy={c.bound_by}
+      metrics={Object.fromEntries(
+        Object.entries(c.metrics ?? {}).map(([m, v]: any) => [m, { grade: v.grade, value: v.value }])
+      )}
+    />
+  ))}
+</Base>
