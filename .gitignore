@@ -6,3 +6,9 @@ __pycache__/
 .venv/
 .pytest_cache/
 CLAUDE.md
+
+# Web UI build artifacts (project lives in web/)
+web/node_modules/
+web/dist/
+web/.astro/
+web/src/env.d.ts
