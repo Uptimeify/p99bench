@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { join, dirname, relative, sep } from 'node:path';
+import { join, relative, sep } from 'node:path';
 
 // this file: <root>/web/src/lib/data.ts -> repo root is three levels up.
 const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
