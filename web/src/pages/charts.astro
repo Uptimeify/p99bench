@@ -19,7 +19,8 @@ const sustained = sustainedBars(runs);
     data={{ datasets: [{ label: 'hosts',
       data: scatter.map((p) => ({ x: p.x, y: p.y })),
       backgroundColor: scatter.map((p) => p.color) }] }}
-    options={{ scales: { y: { reverse: true, ticks: { callback: (v: number) => ['A','B','C','D','F'][v] ?? '' } },
+    options={{ scales: {
+      y: { type: 'category', labels: ['A','B','C','D','F'], offset: true, title: { display: true, text: 'grade' } },
       x: { title: { display: true, text: '€/month' } } } }} />
 
   <h2>fsync p99.9 (worst) per host</h2>

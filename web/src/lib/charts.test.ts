@@ -18,6 +18,18 @@ describe('priceVsGrade', () => {
     expect(pts).toHaveLength(1);
     expect(pts[0]).toMatchObject({ x: 5, y: 0 });
   });
+
+  it('excludes rows with null price instead of coercing to 0', () => {
+    const pts = priceVsGrade(
+      [
+        { ...row({ grade: 'A' }), price_eur_month: null },
+        row({ grade: 'B', price: 5 }),
+      ] as any,
+      'postgres_oltp',
+    );
+    expect(pts).toHaveLength(1);
+    expect(pts[0]).toMatchObject({ x: 5, y: 1 });
+  });
 });
 
 describe('fsyncBars', () => {

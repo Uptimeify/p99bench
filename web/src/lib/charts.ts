@@ -4,9 +4,9 @@ import { gradeColor, GRADE_ORDER } from './grades';
 export function priceVsGrade(rows: IndexRow[], profile: string) {
   return rows
     .map((r) => ({ r, g: r.profiles[profile] ?? '?' }))
-    .filter(({ g }) => g !== '?' && GRADE_ORDER.includes(g as any))
+    .filter(({ r, g }) => g !== '?' && GRADE_ORDER.includes(g as any) && r.price_eur_month != null)
     .map(({ r, g }) => ({
-      x: r.price_eur_month ?? 0,
+      x: r.price_eur_month,
       y: GRADE_ORDER.indexOf(g as any), // A=0 .. F=4
       label: `${r.provider}/${r.region}`,
       color: gradeColor(g),
@@ -24,7 +24,7 @@ export function fsyncBars(rows: IndexRow[]) {
 export function sustainedBars(runs: ResultFile[]) {
   const rows = runs
     .map((r) => ({
-      label: `${r.slug.provider}/${r.slug.region}`,
+      label: `${r.slug.provider}/${r.slug.region}/${r.slug.stamp}`,
       first: r.data?.disk?.steady_state?.first_min_iops,
       last: r.data?.disk?.steady_state?.last_min_iops,
     }))
