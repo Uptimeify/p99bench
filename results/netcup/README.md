@@ -3,7 +3,7 @@
 
 # netcup
 
-1 run across 1 machine in 1 region (nue), 1 product.
+2 runs across 1 machine in 1 region (nue), 1 product.
 
 [Back to the index](../../RESULTS.md) - [machine-readable export](../../data/index.json)
 
@@ -20,21 +20,23 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 ## nue / `RS-1000-G12`
 
-1 run - 1 machine - storage class `net-fast` - 17.70 EUR/mo - **boot volume**
+2 runs - 1 machine - storage class `net-fast` - 17.70 EUR/mo - **boot volume**
 
 **Host**: AMD EPYC 9645 96-Core Processor - 4 vCPU - 7.8 GB RAM - kvm - kernel 6.12.95+deb13-amd64
 
 **`disk`** -- B, bound by `wal_fsync.p999_us`
 
+Worst value seen per metric across this section's 2 runs (never smoothed across them; grades roll up worst-wins).
+
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
-| **`wal_fsync.p999_us`** | **1.6 ms** | **B** | ≤1.0 ms / ≤3.0 ms / ≤10.0 ms / ≤50.0 ms | solid VM; ~300+ commits/s single-writer |
-| `wal_fsync.iops` | 1,329 | B | ≥5,000 / ≥1,000 / ≥333 / ≥100 | - |
-| `rand_read_8k_qd1.p99_us*` | 259 us | A | ≤500 us / ≤2.0 ms / ≤5.0 ms / ≤15.0 ms | - |
-| `rand_read_8k.iops` | 100,195 | A | ≥100,000 / ≥50,000 / ≥20,000 / ≥5,000 | - |
+| **`wal_fsync.p999_us`** | **1.8 ms** | **B** | ≤1.0 ms / ≤3.0 ms / ≤10.0 ms / ≤50.0 ms | solid VM; ~300+ commits/s single-writer |
+| `wal_fsync.iops` | 1,275 | B | ≥5,000 / ≥1,000 / ≥333 / ≥100 | - |
+| `rand_read_8k_qd1.p99_us*` | 276 us | A | ≤500 us / ≤2.0 ms / ≤5.0 ms / ≤15.0 ms | - |
+| `rand_read_8k.iops` | 100,183 | A | ≥100,000 / ≥50,000 / ≥20,000 / ≥5,000 | - |
 | `rand_write_8k.iops` | 35,429 | B | ≥50,000 / ≥20,000 / ≥10,000 / ≥3,000 | - |
-| `seq_write.bw_mbs` | 3970.6 MiB/s | A | ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s / ≥100 MiB/s | - |
-| `seq_read.bw_mbs` | 6115.62 MiB/s | A | ≥2000 MiB/s / ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s | - |
+| `seq_write.bw_mbs` | 3373.55 MiB/s | A | ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s / ≥100 MiB/s | - |
+| `seq_read.bw_mbs` | 4102.74 MiB/s | A | ≥2000 MiB/s / ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s | - |
 | `steady_state.degradation_pct` | 0.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
 
 *Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
@@ -55,14 +57,16 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 **`cpu`** -- B, bound by `tls_verify_s`
 
+Worst value seen per metric across this section's 2 runs (never smoothed across them; grades roll up worst-wins).
+
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
-| `single_thread_eps` | 1,695 | A | ≥1,400 / ≥1,000 / ≥700 / ≥400 | - |
-| `scaling_efficiency` | 0.997 | A | ≥0.850 / ≥0.700 / ≥0.550 / ≥0.400 | - |
+| `single_thread_eps` | 1,626 | A | ≥1,400 / ≥1,000 / ≥700 / ≥400 | - |
+| `scaling_efficiency` | 0.979 | A | ≥0.850 / ≥0.700 / ≥0.550 / ≥0.400 | - |
 | `steal_pct_under_load` | 0.0% | A | ≤0.5% / ≤2.0% / ≤5.0% / ≤10.0% | - |
-| `stall_p999_us*` | 97 us | A | ≤100 us / ≤500 us / ≤2.0 ms / ≤10.0 ms | - |
+| `stall_p999_us*` | 110 us | B | ≤100 us / ≤500 us / ≤2.0 ms / ≤10.0 ms | - |
 | `steady_state.degradation_pct*` | 0.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
-| **`tls_verify_s*`** | **20,522** | **B** | ≥30,000 / ≥15,000 / ≥7,000 / ≥3,000 | - |
+| **`tls_verify_s*`** | **19,862** | **B** | ≥30,000 / ≥15,000 / ≥7,000 / ≥3,000 | - |
 
 *Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
 
@@ -80,9 +84,11 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 **`ram`** -- A, bound by `bw_read_mbs`
 
+Worst value seen per metric across this section's 2 runs (never smoothed across them; grades roll up worst-wins).
+
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
-| **`bw_read_mbs*`** | **139472 MiB/s** | **A** | ≥40000 MiB/s / ≥25000 MiB/s / ≥15000 MiB/s / ≥8000 MiB/s | - |
+| **`bw_read_mbs*`** | **80028.3 MiB/s** | **A** | ≥40000 MiB/s / ≥25000 MiB/s / ≥15000 MiB/s / ≥8000 MiB/s | - |
 
 *Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
 
@@ -94,6 +100,8 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 </details>
 
 **`network`** -- F, bound by `loss_pct`
+
+Worst value seen per metric across this section's 2 runs (never smoothed across them; grades roll up worst-wins).
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
@@ -113,9 +121,9 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 | Target | Throughput | RTT p50 | RTT p99 |
 |---|---|---|---|
 | `hetzner-fsn1` | 1.43 Gb/s | 13ms | 12499ms |
-| `hetzner-hel1` | 664 Mb/s | 30ms | - |
+| `hetzner-hel1` | 655 Mb/s | 30ms | - |
 | `ovh-gra` | 0 Mb/s | 15ms | - |
-| `hetzner-ash` | 232 Mb/s | 94ms | - |
+| `hetzner-ash` | 231 Mb/s | 96ms | - |
 
 Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown per target instead (lowest throughput, highest RTT seen).
 
@@ -127,12 +135,17 @@ Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown
 
 Sustained loss above ~0.05% will hurt TCP throughput and replication.
 
+**Machine `2eb75b`** - 2 runs at 07h, 21h
+
+Fewer than 3 runs, so no spread is computed. Worst fsync p99.9 seen: 1.8 ms.
+
 <details>
-<summary>All 1 run</summary>
+<summary>All 2 runs</summary>
 
 | Machine | Date | Hour | fsync p99.9 | rand-read p99 (QD1) | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `2eb75b` | 2026-07-17 | 21h | 1.6 ms | 259 us | 0.0% | 97 us | 0.0% | B | B | B | B | F | F | A |
+| `2eb75b` | 2026-07-18 | 07h | 1.8 ms | 276 us | 0.0% | 110 us | 0.0% | B | B | B | B | B | C | B |
 
 </details>
 

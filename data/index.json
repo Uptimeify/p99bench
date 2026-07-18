@@ -98,9 +98,9 @@
       "product": "RS-1000-G12",
       "storage_class": "net-fast",
       "machines": 1,
-      "runs": 1,
+      "runs": 2,
       "fsync_p999_us_median": null,
-      "fsync_p999_us_worst": 1630.21,
+      "fsync_p999_us_worst": 1794.05,
       "price_eur_month": 17.7,
       "categories": {
         "disk": "B",
@@ -121,7 +121,7 @@
         "redis_sentinel": "B",
         "worker_probe": "F",
         "playwright_node": "F",
-        "nuxt_ssr": "A"
+        "nuxt_ssr": "B"
       },
       "profiles_incomplete": {
         "postgres_oltp": false,
