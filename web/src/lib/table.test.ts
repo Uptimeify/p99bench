@@ -37,6 +37,29 @@ describe('filterRows', () => {
     const f: TableFilter = { profile: 'postgres_oltp', minGrade: 'D' };
     expect(filterRows(rows, f)).toHaveLength(0);
   });
+
+  it('F beats ? — a failed category keeps the row visible even under the loosest filter (no profile selected)', () => {
+    const rows = [row({ categories: { disk: 'F', cpu: '?', ram: 'B', network: 'B' } })];
+    const f: TableFilter = { minGrade: 'F' };
+    expect(filterRows(rows, f)).toHaveLength(1);
+  });
+
+  it('all-? categories (no F) are still excluded as unknown, even at minGrade F', () => {
+    const rows = [row({ categories: { disk: '?', cpu: '?', ram: '?', network: '?' } })];
+    const f: TableFilter = { minGrade: 'F' };
+    expect(filterRows(rows, f)).toHaveLength(0);
+  });
+
+  it('missing selected-profile key falls back to ? and is excluded by any minGrade', () => {
+    const rows = [row({ profiles: { postgres_oltp: 'A' } })]; // no redis_sentinel key
+    const f: TableFilter = { profile: 'redis_sentinel', minGrade: 'D' };
+    expect(filterRows(rows, f)).toHaveLength(0);
+  });
+
+  it('null price is excluded by maxPrice', () => {
+    const rows = [row({ price_eur_month: null }), row({ price_eur_month: 5 })];
+    expect(filterRows(rows, { maxPrice: 10 })).toHaveLength(1);
+  });
 });
 
 describe('sortRows', () => {
@@ -52,5 +75,15 @@ describe('sortRows', () => {
     ];
     const out = sortRows(rows, 'profile', 'asc', 'postgres_oltp');
     expect(out[0].profiles.postgres_oltp).toBe('A');
+  });
+
+  it('sorts null price last, ascending', () => {
+    const rows = [
+      row({ price_eur_month: null }),
+      row({ price_eur_month: 5 }),
+      row({ price_eur_month: 50 }),
+    ];
+    const out = sortRows(rows, 'price', 'asc');
+    expect(out.map((r) => r.price_eur_month)).toEqual([5, 50, null]);
   });
 });

@@ -18,10 +18,10 @@ function gradeRank(g: string): number {
 
 // Worst category grade for a row (used when no profile is selected).
 function worstCategory(r: IndexRow): string {
-  return Object.values(r.categories).reduce(
-    (worst, g) => (gradeRank(g) > gradeRank(worst) ? g : worst),
-    'A',
-  );
+  const grades = Object.values(r.categories);
+  if (grades.includes('F')) return 'F';       // F beats ? — never hide a known failure
+  if (grades.includes('?')) return '?';
+  return grades.reduce((worst, g) => (gradeRank(g) > gradeRank(worst) ? g : worst), 'A');
 }
 
 function gradeFor(r: IndexRow, profile?: string): string {
