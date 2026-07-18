@@ -5,4 +5,4 @@ netcup,nue,RS-1000-G12,net-fast,1,2,,1794.05,17.7,B,B,A,F,B,B,B,B,F,F,B
 ovh,prg,vps-1-lz-2026,net-slow,1,1,,15400.96,7.49,D,B,A,A,D,D,D,D,B,C,B
 ovh,waw,vps-1-lz-2026,net-fast,1,1,,2998.27,7.49,C,F,C,A,C,C,F,F,F,F,F
 ovh,zrh,vps-1-lz-2026,net-slow,1,1,,11206.66,7.49,D,B,A,A,D,D,D,D,B,C,B
-windcloud,enge-sande,VPS-L,net-slow,1,1,,242221.06,19.0,F,F,B,A,F,F,F,F,F,F,F
+windcloud,enge-sande,VPS-L,net-slow,1,2,,242221.06,19.0,F,F,B,A,F,F,F,F,F,F,F

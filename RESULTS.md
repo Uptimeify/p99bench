@@ -3,7 +3,7 @@
 
 # Results
 
-8 runs across 7 machines at 4 providers.
+9 runs across 7 machines at 4 providers.
 
 *Every number below is a measurement of specific machines at specific times. Providers vary by region, by hardware generation within a region, and by who else is on the host. Read [METHODOLOGY.md](METHODOLOGY.md) before drawing conclusions, and [THRESHOLDS.md](THRESHOLDS.md) before disagreeing with a grade.*
 
@@ -45,7 +45,7 @@ on any other profile's row is context, not a cause.
 | ovh | prg | `vps-1-lz-2026` | net-slow | 1 | 1 | 15.4 ms | D | B | A | A | D | D | D | D | B | C | B |
 | ovh | waw | `vps-1-lz-2026` | net-fast | 1 | 1 | 3.0 ms | C | F | C | A | C | C | F | F | F | F | F |
 | ovh | zrh | `vps-1-lz-2026` | net-slow | 1 | 1 | 11.2 ms | D | B | A | A | D | D | D | D | B | C | B |
-| windcloud | enge-sande | `VPS-L` | net-slow | 1 | 1 | 242.2 ms | F | F | B | A | F | F | F | F | F | F | F |
+| windcloud | enge-sande | `VPS-L` | net-slow | 1 | 2 | 242.2 ms | F | F | B | A | F | F | F | F | F | F | F |
 
 ## Network
 
@@ -73,11 +73,12 @@ a grade? The thing to argue about is the threshold, in
 | [playwright_node] cpu.single_thread_eps | 3 |
 | [nuxt_ssr] cpu.single_thread_eps | 3 |
 | [patroni_member] cpu.single_thread_eps | 2 |
+| [postgres_oltp] disk.wal_fsync.p999_us | 2 |
+| [timescale_ingest] disk.wal_fsync.p999_us | 2 |
+| [patroni_member] disk.wal_fsync.p999_us | 2 |
 | [worker_probe] network.loss_pct | 1 |
 | [playwright_node] network.loss_pct | 1 |
-| [postgres_oltp] disk.wal_fsync.p999_us | 1 |
-| [timescale_ingest] disk.wal_fsync.p999_us | 1 |
-| [patroni_member] disk.wal_fsync.p999_us | 1 |
+| [redis_sentinel] disk.wal_fsync.p999_us | 1 |
 
 ---
 
