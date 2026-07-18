@@ -1,0 +1,46 @@
+---
+import Base from '../../layouts/Base.astro';
+import GradeChip from '../../components/GradeChip.astro';
+import { loadResults } from '../../lib/data';
+import { fsyncSpread } from '../../lib/aggregate';
+
+export function getStaticPaths() {
+  const byProvider = new Map<string, any[]>();
+  for (const r of loadResults()) {
+    if (!byProvider.has(r.slug.provider)) byProvider.set(r.slug.provider, []);
+    byProvider.get(r.slug.provider)!.push(r);
+  }
+  return [...byProvider.entries()].map(([name, runs]) => ({
+    params: { name }, props: { runs },
+  }));
+}
+
+const { runs } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const name = Astro.params.name;
+const spread = fsyncSpread(runs);
+---
+<Base title={`${name} — p99bench`}>
+  <h1>{name}</h1>
+  <p>
+    {runs.length} run(s) · fsync p99.9 worst {spread.worst?.toFixed(0) ?? '—'} µs
+    {spread.showSpread && spread.median != null && <> · median {spread.median.toFixed(0)} µs</>}
+    {!spread.showSpread && <small> (median hidden — under {3} runs)</small>}
+  </p>
+  <table>
+    <thead><tr><th>region</th><th>product</th><th class="num">€/mo</th><th>disk</th><th>cpu</th><th>ram</th><th>network</th><th></th></tr></thead>
+    <tbody>
+      {runs.map((r: any) => (
+        <tr>
+          <td>{r.slug.region}</td>
+          <td>{r.data.provider.product}</td>
+          <td class="num">{r.data.provider.price_eur_month}</td>
+          {['disk', 'cpu', 'ram', 'network'].map((c) => (
+            <td><GradeChip grade={r.data.grades?.categories?.[c]?.grade ?? '?'} /></td>
+          ))}
+          <td><a href={`${base}/host/${r.slug.provider}/${r.slug.region}/${r.slug.stamp}`}>detail</a></td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</Base>
