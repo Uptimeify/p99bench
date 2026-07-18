@@ -1,0 +1,22 @@
+---
+import '../styles/global.css';
+interface Props { title: string; }
+const { title } = Astro.props;
+const base = import.meta.env.BASE_URL;
+---
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <main>
+      <nav>
+        <a href={base}>Results</a>
+        <a href={`${base}/charts`}>Charts</a>
+      </nav>
+      <slot />
+    </main>
+  </body>
+</html>

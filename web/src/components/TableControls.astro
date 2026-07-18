@@ -1,0 +1,32 @@
+---
+import { loadIndex } from '../lib/data';
+const rows = loadIndex();
+const providers = [...new Set(rows.map((r) => r.provider))].sort();
+const storage = [...new Set(rows.map((r) => r.storage_class))].sort();
+const profiles = [...new Set(rows.flatMap((r) => Object.keys(r.profiles)))].sort();
+---
+<div class="controls">
+  <label>Provider
+    <select id="f-provider"><option value="">all</option>
+      {providers.map((p) => <option value={p}>{p}</option>)}
+    </select>
+  </label>
+  <label>Storage
+    <select id="f-storage"><option value="">all</option>
+      {storage.map((s) => <option value={s}>{s}</option>)}
+    </select>
+  </label>
+  <label>Profile
+    <select id="f-profile"><option value="">worst category</option>
+      {profiles.map((p) => <option value={p}>{p}</option>)}
+    </select>
+  </label>
+  <label>Min grade
+    <select id="f-mingrade"><option value="">any</option>
+      {['A', 'B', 'C', 'D'].map((g) => <option value={g}>{g}</option>)}
+    </select>
+  </label>
+  <label>Max €/mo
+    <input id="f-maxprice" type="number" min="0" step="1" placeholder="any" />
+  </label>
+</div>

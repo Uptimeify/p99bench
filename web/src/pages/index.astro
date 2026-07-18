@@ -1,7 +1,96 @@
 ---
-// Placeholder — replaced in Task 5. Exists so `astro build` succeeds now.
+import Base from '../layouts/Base.astro';
+import GradeChip from '../components/GradeChip.astro';
+import TableControls from '../components/TableControls.astro';
+import { loadIndex } from '../lib/data';
+const rows = loadIndex();
+const base = import.meta.env.BASE_URL;
+const cats = ['disk', 'cpu', 'ram', 'network'];
 ---
-<html lang="en">
-  <head><meta charset="utf-8" /><title>p99bench</title></head>
-  <body><h1>p99bench</h1></body>
-</html>
+<Base title="p99bench — results">
+  <h1>p99bench results</h1>
+  <p>Tail-latency grades per host. Worst-wins rollups; <code>?</code> = not measured.</p>
+  <TableControls />
+  <table id="results">
+    <thead>
+      <tr>
+        <th data-sort="provider">Provider / region</th>
+        <th>Product</th>
+        <th>Storage</th>
+        <th class="num" data-sort="price">€/mo</th>
+        <th class="num" data-sort="fsync">fsync p99.9 worst µs</th>
+        {cats.map((c) => <th>{c}</th>)}
+        <th data-sort="profile">profile</th>
+      </tr>
+    </thead>
+    <tbody>
+      {rows.map((r) => (
+        <tr>
+          <td><a href={`${base}/provider/${r.provider}`}>{r.provider}</a> / {r.region}</td>
+          <td>{r.product}</td>
+          <td>{r.storage_class}</td>
+          <td class="num">{r.price_eur_month ?? '—'}</td>
+          <td class="num">{r.fsync_p999_us_worst?.toFixed(0) ?? '—'}</td>
+          {cats.map((c) => <td><GradeChip grade={r.categories[c]} /></td>)}
+          <td><GradeChip grade={r.profiles['postgres_oltp'] ?? '?'} /></td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+
+  <script type="application/json" id="rows-data" set:html={JSON.stringify(rows)} />
+
+  <script>
+    import { filterRows, sortRows, type SortKey } from '../lib/table';
+    import { gradeColor } from '../lib/grades';
+
+    const rows = JSON.parse(document.getElementById('rows-data')!.textContent!);
+    const tbody = document.querySelector('#results tbody')!;
+    const base = document.querySelector('nav a')!.getAttribute('href')!;
+    const cats = ['disk', 'cpu', 'ram', 'network'];
+    let sort: { key: SortKey; dir: 'asc' | 'desc' } = { key: 'provider', dir: 'asc' };
+
+    const chip = (g: string) =>
+      `<span class="chip" style="background:${gradeColor(g)}">${g}</span>`;
+
+    function currentFilter() {
+      const v = (id: string) => (document.getElementById(id) as HTMLInputElement).value;
+      const profile = v('f-profile') || undefined;
+      const maxprice = v('f-maxprice');
+      return {
+        profile,
+        provider: v('f-provider') || undefined,
+        storage_class: v('f-storage') || undefined,
+        minGrade: v('f-mingrade') || undefined,
+        maxPrice: maxprice ? Number(maxprice) : undefined,
+      };
+    }
+
+    function render() {
+      const f = currentFilter();
+      let view = filterRows(rows, f);
+      view = sortRows(view, sort.key, sort.dir, f.profile);
+      const profCol = f.profile || 'postgres_oltp';
+      tbody.innerHTML = view.map((r: any) => `
+        <tr>
+          <td><a href="${base}/provider/${r.provider}">${r.provider}</a> / ${r.region}</td>
+          <td>${r.product}</td>
+          <td>${r.storage_class}</td>
+          <td class="num">${r.price_eur_month ?? '—'}</td>
+          <td class="num">${r.fsync_p999_us_worst?.toFixed(0) ?? '—'}</td>
+          ${cats.map((c) => `<td>${chip(r.categories[c])}</td>`).join('')}
+          <td>${chip(r.profiles[profCol] ?? '?')}</td>
+        </tr>`).join('');
+    }
+
+    document.querySelectorAll('.controls select, .controls input')
+      .forEach((el) => el.addEventListener('input', render));
+    document.querySelectorAll('th[data-sort]').forEach((th) =>
+      th.addEventListener('click', () => {
+        const key = th.getAttribute('data-sort') as SortKey;
+        sort = { key, dir: sort.key === key && sort.dir === 'asc' ? 'desc' : 'asc' };
+        render();
+      }));
+    render();
+  </script>
+</Base>
