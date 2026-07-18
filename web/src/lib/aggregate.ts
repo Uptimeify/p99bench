@@ -23,6 +23,6 @@ export function fsyncSpread(runs: ResultFile[]): Spread {
   return {
     median: median(vals),
     worst: vals.length ? Math.max(...vals) : null,
-    showSpread: runs.length >= MIN_RUNS_FOR_SPREAD,
+    showSpread: vals.length >= MIN_RUNS_FOR_SPREAD,
   };
 }

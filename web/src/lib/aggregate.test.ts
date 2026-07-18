@@ -22,4 +22,15 @@ describe('fsyncSpread', () => {
     const s = fsyncSpread(runs as any);
     expect(s.showSpread).toBe(true);
   });
+  it('gates on non-null value count, not run count (matches tools/aggregate.py)', () => {
+    // 3 runs, but one has no numeric p999_us (stage skipped/failed) -> only 2 usable values.
+    const runs = [
+      mk(100),
+      mk(200),
+      { path: '', slug: { provider: 'x', region: 'r', stamp: 's' }, data: { disk: { wal_fsync: {} } } },
+    ];
+    const s = fsyncSpread(runs as any);
+    expect(s.showSpread).toBe(false);
+    expect(s.worst).toBe(200);
+  });
 });
