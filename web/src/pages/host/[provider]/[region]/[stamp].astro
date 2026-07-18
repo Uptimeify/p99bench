@@ -23,6 +23,7 @@ const profiles = result.grades?.profiles ?? {};
     €{provider.price_eur_month}/mo · storage {result.grades?.storage_class ?? '—'} ·
     host <code>{run.host_id}</code> · {run.timestamp_utc} · submitter {run.submitter ?? '—'}
   </p>
+  {run.notes && <p class="notes">Notes: {run.notes}</p>}
 
   <h2>Profiles</h2>
   <table>
