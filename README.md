@@ -24,9 +24,9 @@ never the numbers in the marketing material:
 apt update && apt install -y fio sysbench stress-ng rt-tests smartmontools dmidecode \
   numactl redis-tools jq bc sysstat curl iputils-ping python3-yaml
 
-git clone https://github.com/Uptimeify/p99bench && cd p99bench/bench
+git clone https://github.com/Uptimeify/p99bench && cd p99bench
 
-sudo ./run-all.sh \
+sudo ./banch/run-all.sh \
   --provider hetzner --product CPX41 --region fsn1 \
   --price 29.90 --billing monthly --submitter yourhandle
 ```
