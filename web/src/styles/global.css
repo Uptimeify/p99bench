@@ -55,6 +55,28 @@ nav { display: flex; gap: 1rem; margin-bottom: 1rem; }
   text-align: center; border-radius: 2px; color: #111; font-weight: 700;
   font-size: .72rem; padding: 0 .2rem; }
 
+/* hover tooltip — full-precision value, CSS-only */
+.bars .row { position: relative; }
+.bars .row:hover .fill { filter: brightness(1.18); }
+.bars .row[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 84px;
+  bottom: calc(100% + 5px);
+  z-index: 20;
+  background: #05070b;
+  border: 1px solid var(--line);
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: .74rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  padding: .3rem .55rem;
+  border-radius: 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .55);
+  pointer-events: none;
+}
+
 details.exact { margin: .8rem 0 0; }
 details.exact summary { cursor: pointer; color: var(--muted); font-size: .82rem; }
 details.exact table { margin-top: .5rem; }
