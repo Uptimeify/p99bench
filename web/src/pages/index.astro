@@ -1,96 +1,277 @@
 ---
 import Base from '../layouts/Base.astro';
 import GradeChip from '../components/GradeChip.astro';
-import TableControls from '../components/TableControls.astro';
-import { loadIndex } from '../lib/data';
-const rows = loadIndex();
-const base = import.meta.env.BASE_URL;
-const cats = ['disk', 'cpu', 'ram', 'network'];
----
-<Base title="p99bench — results">
-  <h1>p99bench results</h1>
-  <p>Tail-latency grades per host. Worst-wins rollups; <code>?</code> = not measured.</p>
-  <TableControls />
-  <table id="results">
-    <thead>
-      <tr>
-        <th data-sort="provider">Provider / region</th>
-        <th>Product</th>
-        <th>Storage</th>
-        <th class="num" data-sort="price">€/mo</th>
-        <th class="num" data-sort="fsync">fsync p99.9 worst µs</th>
-        {cats.map((c) => <th>{c}</th>)}
-        <th data-sort="profile">profile</th>
-      </tr>
-    </thead>
-    <tbody>
-      {rows.map((r) => (
-        <tr>
-          <td><a href={`${base}/provider/${r.provider}`}>{r.provider}</a> / {r.region}</td>
-          <td>{r.product}</td>
-          <td>{r.storage_class}</td>
-          <td class="num">{r.price_eur_month ?? '—'}</td>
-          <td class="num">{r.fsync_p999_us_worst?.toFixed(0) ?? '—'}</td>
-          {cats.map((c) => <td><GradeChip grade={r.categories[c]} /></td>)}
-          <td><GradeChip grade={r.profiles['postgres_oltp'] ?? '?'} /></td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
+import { loadResults } from '../lib/data';
+import { buildMatrix } from '../lib/matrix';
+import { fmtValue } from '../lib/hostcharts';
 
-  <script type="application/json" id="rows-data" set:html={JSON.stringify(rows)} />
+const base = import.meta.env.BASE_URL;
+const rows = buildMatrix(loadResults());
+
+const providers = [...new Set(rows.map((r) => r.provider))].sort();
+const storages = [...new Set(rows.map((r) => r.storageClass))].sort();
+const profiles = [...new Set(rows.flatMap((r) => Object.keys(r.profiles)))].sort();
+const DEFAULT_PROFILE = 'postgres_oltp';
+const cats = ['disk', 'cpu', 'ram', 'network'] as const;
+
+const fnum = (v: number | null) => (v == null ? '—' : fmtValue(v));
+const cfgLabel: Record<string, string> = {
+  disk_device_model: 'device', disk_scheduler: 'scheduler', disk_rotational: 'rotational',
+  disk_target_fs: 'fs', disk_is_boot_volume: 'boot vol', cpu_clock_idle_mhz: 'clock idle',
+  cpu_clock_under_load_mhz: 'clock load', cpu_steal_pct_under_load: 'steal %',
+  cpu_scaling_efficiency: 'smt scaling', storage_tier: 'storage tier', billing: 'billing',
+  tool_version: 'tool', schema_version: 'schema', host_id: 'host id',
+};
+---
+<Base title="p99bench — performance & price matrix">
+  <p class="eyebrow">Sovereign EU cloud · tail-latency procurement</p>
+  <h1>Performance &amp; Price Matrix</h1>
+  <p class="meta" style="margin:.3rem 0 0">
+    Every cell is a measured value from a real benchmark run — worst-wins grades,
+    <span class="mono">?</span> = not measured. Click a row for its captured configuration.
+  </p>
+
+  <div class="filters">
+    <div class="f"><label for="f-provider">Provider</label>
+      <select id="f-provider"><option value="">all</option>
+        {providers.map((p) => <option value={p}>{p}</option>)}
+      </select></div>
+    <div class="f"><label for="f-storage">Storage class</label>
+      <select id="f-storage"><option value="">all</option>
+        {storages.map((s) => <option value={s}>{s}</option>)}
+      </select></div>
+    <div class="f"><label for="f-profile">Workload profile</label>
+      <select id="f-profile">
+        {profiles.map((p) => <option value={p} selected={p === DEFAULT_PROFILE}>{p}</option>)}
+      </select></div>
+    <div class="f"><label for="f-mingrade">Min grade</label>
+      <select id="f-mingrade"><option value="">any</option>
+        {['A', 'B', 'C', 'D'].map((g) => <option value={g}>{g}</option>)}
+      </select></div>
+    <div class="f"><label for="f-maxprice">Max €/mo</label>
+      <input id="f-maxprice" type="number" min="0" step="1" placeholder="any" style="min-width:100px" /></div>
+    <div class="f toggle">
+      <input id="f-dedicated" type="checkbox" />
+      <label for="f-dedicated">Dedicated only<br /><span style="color:var(--fg-mute)">measured steal = 0%</span></label>
+    </div>
+    <div class="reset"><button id="f-reset" type="button">reset</button></div>
+  </div>
+
+  <p class="note-omitted">
+    SLA %, EU-HQ, and cost base/storage breakdown are contract/procurement metadata,
+    not measured by the benchmark — omitted rather than invented. "Dedicated" here is the
+    measured <span class="mono">steal_pct_under_load = 0</span>, i.e. no observed CPU overcommit.
+  </p>
+
+  <div class="count" id="rowcount"></div>
+  <div class="matrix-wrap">
+    <table class="matrix" id="matrix">
+      <thead>
+        <tr>
+          <th aria-hidden="true"></th>
+          <th data-sort="provider">Provider / region</th>
+          <th>Product</th>
+          <th class="num" data-sort="price">€/mo</th>
+          <th>Storage</th>
+          <th class="num" data-sort="fsync">fsync p99.9 <span class="u">µs</span></th>
+          <th class="num" data-sort="stall">CPU stall p99.9 <span class="u">µs</span></th>
+          <th class="num" data-sort="steal">Steal %</th>
+          {cats.map((c) => <th style="text-align:center">{c}</th>)}
+          <th data-sort="profile" id="profcol-head" style="text-align:center">{DEFAULT_PROFILE}</th>
+          <th data-sort="overall" style="text-align:center">Overall</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <>
+            <tr class="data" id={`r${i}`} tabindex="0" aria-expanded="false"
+                data-provider={`${r.provider}/${r.region}`} data-storage={r.storageClass}
+                data-price={r.price ?? ''} data-fsync={r.fsyncWorst ?? ''}
+                data-stall={r.stall ?? ''} data-steal={r.steal ?? ''}
+                data-dedicated={String(r.dedicated)} data-overall={r.overall}
+                data-profiles={JSON.stringify(r.profiles)}>
+              <td><span class="expand-ind">▸</span></td>
+              <td><span class="prov">{r.provider}</span> <span class="reg">/ {r.region}</span></td>
+              <td class="prod mono">{r.product}</td>
+              <td class="num">{r.price ?? '—'}</td>
+              <td class="mono" style="color:var(--fg-dim)">{r.storageClass}</td>
+              <td class="num">{fnum(r.fsyncWorst)}</td>
+              <td class="num">{fnum(r.stall)}</td>
+              <td class="num">{r.steal ?? '—'}</td>
+              {cats.map((c) => <td style="text-align:center"><GradeChip grade={r.cats[c]} /></td>)}
+              <td style="text-align:center"><span class="profcol"><GradeChip grade={r.profiles[DEFAULT_PROFILE] ?? '?'} /></span></td>
+              <td style="text-align:center"><GradeChip grade={r.overall} /></td>
+            </tr>
+            <tr class="detail" data-for={`r${i}`} hidden>
+              <td colspan="12">
+                <div class="box">
+                  <div class="kv">
+                    <h4>Captured configuration</h4>
+                    <dl>
+                      {Object.entries(r.config)
+                        .filter(([k]) => k in cfgLabel && r.config[k] != null)
+                        .map(([k, v]) => (<><dt>{cfgLabel[k]}</dt><dd>{String(v)}</dd></>))}
+                      <dt>submitter</dt><dd>{r.submitter ?? '—'}</dd>
+                      <dt>timestamp</dt><dd>{r.timestamp ?? '—'}</dd>
+                    </dl>
+                  </div>
+                  <div class="kv">
+                    <h4>Grades</h4>
+                    <dl>
+                      {cats.map((c) => (<><dt>{c}</dt><dd><GradeChip grade={r.cats[c]} /></dd></>))}
+                      {Object.entries(r.profiles).map(([p, g]) => (<><dt>{p}</dt><dd><GradeChip grade={g} /></dd></>))}
+                    </dl>
+                  </div>
+                  <div class="kv raw">
+                    <h4>Raw config JSON <span style="text-transform:none;letter-spacing:0;color:var(--fg-mute)">— captured fields only (no lscpu / NUMA / fio param strings are recorded)</span></h4>
+                    <pre>{JSON.stringify(r.config, null, 2)}</pre>
+                  </div>
+                  <div class="go">
+                    <a href={`${base}/host/${r.provider}/${r.region}/${r.stamp}`}>full detail + charts →</a>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </>
+        ))}
+      </tbody>
+    </table>
+  </div>
 
   <script>
-    import { filterRows, sortRows, type SortKey } from '../lib/table';
     import { gradeColor } from '../lib/grades';
 
-    const rows = JSON.parse(document.getElementById('rows-data')!.textContent!);
-    const tbody = document.querySelector('#results tbody')!;
-    const base = document.querySelector('nav a')!.getAttribute('href')!;
-    const cats = ['disk', 'cpu', 'ram', 'network'];
-    let sort: { key: SortKey; dir: 'asc' | 'desc' } = { key: 'provider', dir: 'asc' };
+    const ORDER = ['A', 'B', 'C', 'D', 'F', '?'];
+    const rank = (g: string) => { const i = ORDER.indexOf(g); return i < 0 ? 9 : i; };
+    const tbody = document.querySelector('#matrix tbody') as HTMLElement;
+    const val = (id: string) => (document.getElementById(id) as HTMLInputElement).value;
+    const el = (id: string) => document.getElementById(id) as HTMLElement;
 
-    const chip = (g: string) =>
-      `<span class="chip" style="background:${gradeColor(g)}">${g}</span>`;
+    const badge = (g: string) =>
+      `<span class="grade" style="--gc:${gradeColor(g)}" title="${g}">${g}</span>`;
 
-    function currentFilter() {
-      const v = (id: string) => (document.getElementById(id) as HTMLInputElement).value;
-      const profile = v('f-profile') || undefined;
-      const maxprice = v('f-maxprice');
-      return {
-        profile,
-        provider: v('f-provider') || undefined,
-        storage_class: v('f-storage') || undefined,
-        minGrade: v('f-mingrade') || undefined,
-        maxPrice: maxprice ? Number(maxprice) : undefined,
-      };
+    function dataRows(): HTMLElement[] {
+      return Array.from(tbody.querySelectorAll('tr.data'));
+    }
+    function detailFor(r: HTMLElement): HTMLElement | null {
+      return tbody.querySelector(`tr.detail[data-for="${r.id}"]`);
     }
 
-    function render() {
-      const f = currentFilter();
-      let view = filterRows(rows, f);
-      view = sortRows(view, sort.key, sort.dir, f.profile);
-      const profCol = f.profile || 'postgres_oltp';
-      tbody.innerHTML = view.map((r: any) => `
-        <tr>
-          <td><a href="${base}/provider/${r.provider}">${r.provider}</a> / ${r.region}</td>
-          <td>${r.product}</td>
-          <td>${r.storage_class}</td>
-          <td class="num">${r.price_eur_month ?? '—'}</td>
-          <td class="num">${r.fsync_p999_us_worst?.toFixed(0) ?? '—'}</td>
-          ${cats.map((c) => `<td>${chip(r.categories[c])}</td>`).join('')}
-          <td>${chip(r.profiles[profCol] ?? '?')}</td>
-        </tr>`).join('');
+    function currentProfile() { return val('f-profile') || 'postgres_oltp'; }
+
+    function gradeOf(r: HTMLElement): string {
+      const prof = val('f-profile');
+      if (prof) return JSON.parse(r.dataset.profiles!)[prof] ?? '?';
+      return r.dataset.overall!;
     }
 
-    document.querySelectorAll('.controls select, .controls input')
-      .forEach((el) => el.addEventListener('input', render));
-    document.querySelectorAll('th[data-sort]').forEach((th) =>
-      th.addEventListener('click', () => {
-        const key = th.getAttribute('data-sort') as SortKey;
-        sort = { key, dir: sort.key === key && sort.dir === 'asc' ? 'desc' : 'asc' };
-        render();
+    function applyProfileColumn() {
+      const prof = currentProfile();
+      el('profcol-head').textContent = prof;
+      dataRows().forEach((r) => {
+        const cell = r.querySelector('.profcol') as HTMLElement;
+        cell.innerHTML = badge(JSON.parse(r.dataset.profiles!)[prof] ?? '?');
+      });
+    }
+
+    function passes(r: HTMLElement): boolean {
+      const provider = val('f-provider');
+      const storage = val('f-storage');
+      const minGrade = val('f-mingrade');
+      const maxPrice = val('f-maxprice');
+      const dedicated = (document.getElementById('f-dedicated') as HTMLInputElement).checked;
+      if (provider && !r.dataset.provider!.startsWith(provider + '/')) return false;
+      if (storage && r.dataset.storage !== storage) return false;
+      if (dedicated && r.dataset.dedicated !== 'true') return false;
+      if (maxPrice) {
+        const p = r.dataset.price ? Number(r.dataset.price) : Infinity;
+        if (p > Number(maxPrice)) return false;
+      }
+      if (minGrade) {
+        const g = gradeOf(r);
+        if (g === '?' || rank(g) > rank(minGrade)) return false;
+      }
+      return true;
+    }
+
+    function applyFilter() {
+      let shown = 0;
+      const total = dataRows().length;
+      dataRows().forEach((r) => {
+        const ok = passes(r);
+        r.hidden = !ok;
+        if (ok) shown++;
+        const det = detailFor(r);
+        if (det) det.hidden = !ok || r.getAttribute('aria-expanded') !== 'true';
+      });
+      el('rowcount').textContent = `${shown} of ${total} instances`;
+    }
+
+    let sortState: { key: string; dir: number } = { key: '__init__', dir: 1 };
+    function numAttr(r: HTMLElement, a: string) { const v = r.dataset[a]; return v ? Number(v) : Infinity; }
+    function sortBy(key: string) {
+      sortState = { key, dir: sortState.key === key ? -sortState.dir : 1 };
+      const prof = val('f-profile');
+      const rows = dataRows();
+      rows.sort((a, b) => {
+        let c = 0;
+        if (key === 'provider') c = a.dataset.provider!.localeCompare(b.dataset.provider!);
+        else if (key === 'price') c = numAttr(a, 'price') - numAttr(b, 'price');
+        else if (key === 'fsync') c = numAttr(a, 'fsync') - numAttr(b, 'fsync');
+        else if (key === 'stall') c = numAttr(a, 'stall') - numAttr(b, 'stall');
+        else if (key === 'steal') c = numAttr(a, 'steal') - numAttr(b, 'steal');
+        else if (key === 'overall') c = rank(a.dataset.overall!) - rank(b.dataset.overall!);
+        else if (key === 'profile') {
+          const ga = prof ? (JSON.parse(a.dataset.profiles!)[prof] ?? '?') : a.dataset.overall!;
+          const gb = prof ? (JSON.parse(b.dataset.profiles!)[prof] ?? '?') : b.dataset.overall!;
+          c = rank(ga) - rank(gb);
+        }
+        return c * sortState.dir;
+      });
+      rows.forEach((r) => { tbody.appendChild(r); const d = detailFor(r); if (d) tbody.appendChild(d); });
+      document.querySelectorAll('#matrix th[data-sort] .ar').forEach((e) => e.remove());
+      const th = document.querySelector(`#matrix th[data-sort="${key}"]`);
+      if (th) { const s = document.createElement('span'); s.className = 'ar';
+        s.textContent = sortState.dir > 0 ? '▲' : '▼'; th.appendChild(s); }
+    }
+
+    function toggleRow(r: HTMLElement) {
+      const open = r.getAttribute('aria-expanded') === 'true';
+      r.setAttribute('aria-expanded', String(!open));
+      const det = detailFor(r);
+      if (det) det.hidden = open;
+    }
+
+    dataRows().forEach((r) => {
+      r.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('a')) return;
+        toggleRow(r);
+      });
+      r.addEventListener('keydown', (e) => {
+        if ((e as KeyboardEvent).key === 'Enter' || (e as KeyboardEvent).key === ' ') {
+          e.preventDefault(); toggleRow(r);
+        }
+      });
+    });
+    document.querySelectorAll('#matrix th[data-sort]').forEach((th) =>
+      th.addEventListener('click', () => sortBy(th.getAttribute('data-sort')!)));
+    ['f-provider', 'f-storage', 'f-profile', 'f-mingrade', 'f-maxprice', 'f-dedicated'].forEach((id) =>
+      document.getElementById(id)!.addEventListener('input', () => {
+        if (id === 'f-profile') applyProfileColumn();
+        applyFilter();
       }));
-    render();
+    document.getElementById('f-reset')!.addEventListener('click', () => {
+      (document.getElementById('f-provider') as HTMLSelectElement).value = '';
+      (document.getElementById('f-storage') as HTMLSelectElement).value = '';
+      (document.getElementById('f-profile') as HTMLSelectElement).value = 'postgres_oltp';
+      (document.getElementById('f-mingrade') as HTMLSelectElement).value = '';
+      (document.getElementById('f-maxprice') as HTMLInputElement).value = '';
+      (document.getElementById('f-dedicated') as HTMLInputElement).checked = false;
+      applyProfileColumn(); applyFilter();
+    });
+
+    applyProfileColumn();
+    sortBy('overall');
+    applyFilter();
   </script>
 </Base>

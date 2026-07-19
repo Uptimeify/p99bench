@@ -7,10 +7,10 @@ describe('gradeColor', () => {
     expect(new Set(colors).size).toBe(5);
   });
   it('maps ? to neutral grey', () => {
-    expect(gradeColor('?')).toBe('#8a8a8a');
+    expect(gradeColor('?')).toBe('#64748b');
   });
   it('maps unknown input to grey', () => {
-    expect(gradeColor('Z')).toBe('#8a8a8a');
+    expect(gradeColor('Z')).toBe('#64748b');
   });
 });
 

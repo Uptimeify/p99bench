@@ -1,8 +1,23 @@
 ---
 import '../styles/global.css';
+import { loadResults } from '../lib/data';
+
 interface Props { title: string; }
 const { title } = Astro.props;
 const base = import.meta.env.BASE_URL;
+
+// Real corpus stats — every number is measured, none invented.
+const results = loadResults();
+const runs = results.length;
+const providers = new Set(results.map((r) => r.slug.provider)).size;
+const regions = new Set(results.map((r) => `${r.slug.provider}/${r.slug.region}`)).size;
+const products = new Set(results.map((r) => r.data?.provider?.product)).size;
+const updated = results
+  .map((r) => r.data?.run?.timestamp_utc)
+  .filter(Boolean)
+  .sort()
+  .at(-1);
+const updatedDay = typeof updated === 'string' ? updated.slice(0, 10) : '—';
 ---
 <html lang="en">
   <head>
@@ -11,10 +26,26 @@ const base = import.meta.env.BASE_URL;
     <title>{title}</title>
   </head>
   <body>
+    <nav class="nav">
+      <div class="inner">
+        <a class="brand" href={base}>
+          <b>p99bench</b>
+          <span class="org">/ uptimeify</span>
+        </a>
+        <div class="stats">
+          <div class="stat"><span class="k">{providers}</span><span class="v">Providers</span></div>
+          <div class="stat"><span class="k">{regions}</span><span class="v">Regions</span></div>
+          <div class="stat opt"><span class="k">{products}</span><span class="v">Products</span></div>
+          <div class="stat"><span class="k">{runs}</span><span class="v">Runs</span></div>
+          <div class="stat opt"><span class="k" style="font-size:.8rem">{updatedDay}</span><span class="v">Updated</span></div>
+          <div class="stat link">
+            <span class="lbl-up"><span class="status-dot"></span>corpus live</span>
+            <a class="lbl-up" style="color:var(--accent)" href="https://github.com/Uptimeify/p99bench">repo ↗</a>
+          </div>
+        </div>
+      </div>
+    </nav>
     <main>
-      <nav>
-        <a href={base}>Results</a>
-      </nav>
       <slot />
     </main>
   </body>
