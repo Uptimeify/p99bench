@@ -205,6 +205,45 @@ select:hover, input:hover { border-color: var(--fg-mute); }
   padding: .3rem .55rem; border-radius: 3px; box-shadow: 0 6px 18px rgba(0,0,0,.6);
   pointer-events: none;
 }
+/* ── CDF tail-latency chart ─────────────────────────────────────── */
+.cdf { margin: 0; border: 1px solid var(--line); border-radius: 4px; padding: .9rem 1rem 1rem;
+  background: var(--panel); }
+.cdf .cdfsvg { width: 100%; height: auto; display: block; touch-action: none; }
+.cdf .cdfsvg text { font-family: var(--mono); }
+.cdf-read { font-family: var(--mono); font-size: .74rem; color: var(--fg-dim);
+  border-top: 1px solid var(--line); margin-top: .6rem; padding-top: .55rem; }
+.cdf-read b { color: var(--fg); }
+.cdf-cap { font-family: var(--mono); font-size: .72rem; color: var(--fg-mute);
+  margin: .5rem 0 0; line-height: 1.45; }
+
+/* ── marketing vs measured decoder (audit diff) ─────────────────── */
+.decoder { border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
+  font-family: var(--mono); font-size: .78rem; }
+.decoder .dhead { display: grid; grid-template-columns: 1fr 1.2fr;
+  border-bottom: 1px solid var(--line-strong); background: var(--panel); }
+.decoder .dhead span { padding: .5rem .8rem; font-size: .64rem; letter-spacing: .1em;
+  text-transform: uppercase; }
+.decoder .dhead .minus { color: #c56b66; border-right: 1px solid var(--line); }
+.decoder .dhead .plus { color: #6ea88a; }
+.decoder .drow { display: grid; grid-template-columns: 1fr 1.2fr;
+  border-bottom: 1px solid var(--line); }
+.decoder .drow:last-child { border-bottom: 0; }
+.decoder .claim { padding: .6rem .8rem; color: var(--fg-dim);
+  background: color-mix(in srgb, #c56b66 7%, transparent);
+  border-right: 1px solid var(--line); display: flex; gap: .5rem; align-items: baseline; }
+.decoder .real { padding: .6rem .8rem;
+  background: color-mix(in srgb, #6ea88a 7%, transparent);
+  display: flex; gap: .55rem; align-items: baseline; flex-wrap: wrap; }
+.decoder .sign { font-weight: 700; opacity: .8; }
+.decoder .claim .sign { color: #c56b66; }
+.decoder .real .sign { color: #6ea88a; }
+.decoder .metric { color: var(--fg-mute); }
+.decoder .real .value { color: var(--fg); font-weight: 600; margin-left: auto; }
+.decoder .real .grade { margin-left: 0; }
+
+.two-up { display: grid; grid-template-columns: 1.35fr 1fr; gap: 1.5rem; align-items: start; }
+@media (max-width: 900px) { .two-up { grid-template-columns: 1fr; } }
+
 details.exact { margin: .9rem 0 0; }
 details.exact summary { cursor: pointer; color: var(--fg-mute); font-size: .72rem;
   font-family: var(--mono); letter-spacing: .04em; text-transform: uppercase; }

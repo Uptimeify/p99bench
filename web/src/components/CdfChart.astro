@@ -1,0 +1,104 @@
+---
+import { xFrac, yFrac, X_TICKS, Y_TICKS, type CdfPoint } from '../lib/cdf';
+import { gradeColor } from '../lib/grades';
+import { fmtValue } from '../lib/hostcharts';
+
+interface Props { points: CdfPoint[]; grade?: string; id: string; }
+const { points, grade, id } = Astro.props;
+
+const W = 820, H = 320, PADL = 48, PADR = 96, PADT = 16, PADB = 36;
+const plotW = W - PADL - PADR, plotH = H - PADT - PADB;
+const px = (lat: number) => PADL + xFrac(lat) * plotW;
+const py = (pct: number) => PADT + (1 - yFrac(pct)) * plotH;
+
+const pts = points.map((p) => ({ ...p, x: px(p.lat), y: py(p.pct) }));
+const line = pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+const accent = '#5a86ad';
+const clientPoints = pts.map((p) => ({ x: p.x, y: p.y, lat: p.lat, label: p.label, pct: p.pct }));
+---
+<figure class="cdf">
+  <svg class="cdfsvg" id={id} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet"
+       role="img" aria-label="fsync tail-latency cumulative distribution">
+    <!-- y gridlines + percentile labels -->
+    {Y_TICKS.map((t) => (
+      <g>
+        <line x1={PADL} y1={py(t.pct)} x2={W - PADR} y2={py(t.pct)}
+              stroke="#26262b" stroke-width="1" />
+        <text x={PADL - 8} y={py(t.pct) + 3} text-anchor="end"
+              fill="#71717a" font-size="10" font-family="var(--mono)">{t.label}</text>
+      </g>
+    ))}
+    <text x="12" y={PADT + plotH / 2} fill="#71717a" font-size="9"
+          font-family="var(--mono)" transform={`rotate(-90 12 ${PADT + plotH / 2})`}
+          text-anchor="middle" letter-spacing="1">PERCENTILE</text>
+    <!-- x decade ticks -->
+    {X_TICKS.map((t) => (
+      <g>
+        <line x1={px(t.lat)} y1={PADT} x2={px(t.lat)} y2={PADT + plotH}
+              stroke="#1b1b1f" stroke-width="1" />
+        <text x={px(t.lat)} y={H - PADB + 16} text-anchor="middle"
+              fill="#71717a" font-size="10" font-family="var(--mono)">{t.label}</text>
+      </g>
+    ))}
+    <text x={PADL + plotW / 2} y={H - 4} text-anchor="middle" fill="#71717a"
+          font-size="9" font-family="var(--mono)" letter-spacing="1">fsync latency · log µs</text>
+    <!-- axis frame -->
+    <line x1={PADL} y1={PADT} x2={PADL} y2={PADT + plotH} stroke="#3f3f46" stroke-width="1" />
+    <line x1={PADL} y1={PADT + plotH} x2={W - PADR} y2={PADT + plotH} stroke="#3f3f46" stroke-width="1" />
+    <!-- the distribution curve -->
+    <polyline points={line} fill="none" stroke={accent} stroke-width="2"
+              stroke-linejoin="round" stroke-linecap="round" />
+    <!-- measured points -->
+    {pts.map((p) => (
+      <g>
+        <circle cx={p.x} cy={p.y} r={p.graded ? 5 : 4}
+                fill={p.graded && grade ? gradeColor(grade) : accent}
+                stroke="#09090b" stroke-width="1.5" />
+        <text x={p.x + (p.label === 'max' ? -8 : 8)} y={p.y - 8}
+              text-anchor={p.label === 'max' ? 'end' : 'start'}
+              fill={p.graded && grade ? gradeColor(grade) : '#a1a1aa'}
+              font-size="10.5" font-family="var(--mono)" font-weight={p.graded ? 700 : 400}>{p.label}</text>
+      </g>
+    ))}
+    <!-- crosshair (JS-driven, snaps to measured points) -->
+    <g class="xhair" style="display:none">
+      <line class="xhair-l" y1={PADT} y2={PADT + plotH} stroke="#5a86ad" stroke-width="1" stroke-dasharray="3 3" />
+      <circle class="xhair-d" r="5.5" fill="none" stroke="#f4f4f5" stroke-width="1.5" />
+    </g>
+  </svg>
+  <div class="cdf-read" id={`${id}-read`} aria-live="polite">
+    hover the curve — snaps to measured percentiles
+  </div>
+  <script type="application/json" set:html={JSON.stringify(clientPoints)} id={`${id}-data`} />
+</figure>
+
+<script>
+  import { fmtValue } from '../lib/hostcharts';
+  document.querySelectorAll<SVGSVGElement>('svg.cdfsvg').forEach((svg) => {
+    const data = JSON.parse(document.getElementById(`${svg.id}-data`)!.textContent!);
+    const read = document.getElementById(`${svg.id}-read`)!;
+    const hair = svg.querySelector('.xhair') as SVGGElement;
+    const hl = svg.querySelector('.xhair-l') as SVGLineElement;
+    const hd = svg.querySelector('.xhair-d') as SVGCircleElement;
+    const vb = svg.viewBox.baseVal;
+    function nearest(mx: number) {
+      let best = data[0], bd = Infinity;
+      for (const p of data) { const d = Math.abs(p.x - mx); if (d < bd) { bd = d; best = p; } }
+      return best;
+    }
+    svg.addEventListener('pointermove', (e) => {
+      const r = svg.getBoundingClientRect();
+      const mx = ((e.clientX - r.left) / r.width) * vb.width;
+      const p = nearest(mx);
+      hair.style.display = '';
+      hl.setAttribute('x1', p.x); hl.setAttribute('x2', p.x);
+      hd.setAttribute('cx', p.x); hd.setAttribute('cy', p.y);
+      const pctLabel = p.pct >= 1 ? '100' : (p.pct * 100).toString();
+      read.innerHTML = `<b>${p.label}</b> · ${fmtValue(p.lat)} µs · ${pctLabel}th percentile`;
+    });
+    svg.addEventListener('pointerleave', () => {
+      hair.style.display = 'none';
+      read.innerHTML = 'hover the curve — snaps to measured percentiles';
+    });
+  });
+</script>

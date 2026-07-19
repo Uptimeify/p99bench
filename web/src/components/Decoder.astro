@@ -1,0 +1,23 @@
+---
+import GradeChip from './GradeChip.astro';
+import type { DecoderRow } from '../lib/decoder';
+interface Props { rows: DecoderRow[]; }
+const { rows } = Astro.props;
+---
+<div class="decoder">
+  <div class="dhead">
+    <span class="minus">− typical marketing claim</span>
+    <span class="plus">+ what p99bench measured here</span>
+  </div>
+  {rows.map((r) => (
+    <div class="drow">
+      <div class="claim"><span class="sign">−</span>{r.claim}</div>
+      <div class="real">
+        <span class="sign">+</span>
+        <span class="metric">{r.metric}</span>
+        <span class="value">{r.reality}</span>
+        {r.grade && <GradeChip grade={r.grade} />}
+      </div>
+    </div>
+  ))}
+</div>

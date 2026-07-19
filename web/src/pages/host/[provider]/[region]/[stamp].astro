@@ -3,8 +3,12 @@ import Base from '../../../../layouts/Base.astro';
 import GradeChip from '../../../../components/GradeChip.astro';
 import MetricTable from '../../../../components/MetricTable.astro';
 import BarChart from '../../../../components/BarChart.astro';
+import CdfChart from '../../../../components/CdfChart.astro';
+import Decoder from '../../../../components/Decoder.astro';
 import { loadResults } from '../../../../lib/data';
 import { hostChartSections } from '../../../../lib/hostcharts';
+import { fsyncCdf } from '../../../../lib/cdf';
+import { decoderRows } from '../../../../lib/decoder';
 
 export function getStaticPaths() {
   return loadResults().map((r) => ({
@@ -20,6 +24,9 @@ const cats = result.grades?.categories ?? {};
 const profiles = result.grades?.profiles ?? {};
 const sections = hostChartSections(result);
 const CAT_NAME: Record<string, string> = { disk: 'Disk', cpu: 'CPU', ram: 'RAM', network: 'Network' };
+const cdf = fsyncCdf(result);
+const fsyncGrade = cats.disk?.metrics?.['disk.wal_fsync.p999_us']?.grade;
+const decode = decoderRows(result);
 ---
 <Base title={`${provider.name} ${provider.region} — ${provider.product}`}>
   <h1>{provider.name} / {provider.region} — {provider.product}</h1>
@@ -38,6 +45,31 @@ const CAT_NAME: Record<string, string> = { disk: 'Disk', cpu: 'CPU', ram: 'RAM',
       ))}
     </tbody>
   </table>
+
+  {(cdf.length > 0 || decode.length > 0) && (
+    <section>
+      <div class="cat-head"><h2>Tail-latency reality</h2></div>
+      <div class="two-up">
+        {cdf.length > 0 && (
+          <div>
+            <p class="eyebrow" style="margin:0 0 .5rem">fsync cumulative distribution</p>
+            <CdfChart points={cdf} grade={fsyncGrade} id="cdf-fsync" />
+            <p class="cdf-cap">
+              Points are the measured p50 / p99 / p99.9 / max — the line between them is
+              interpolated (we store percentiles, not a full histogram). Fixed axis:
+              a tight curve on the left is a good host; a curve swept right is an exploding tail.
+            </p>
+          </div>
+        )}
+        {decode.length > 0 && (
+          <div>
+            <p class="eyebrow" style="margin:0 0 .5rem">marketing claim vs measured</p>
+            <Decoder rows={decode} />
+          </div>
+        )}
+      </div>
+    </section>
+  )}
 
   {sections.map((s) => (
     <section>
