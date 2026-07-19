@@ -93,6 +93,48 @@
       "bound_by_counts": {}
     },
     {
+      "provider": "hetzner",
+      "region": "nbg-1",
+      "product": "CPX32",
+      "storage_class": "local-nvme",
+      "machines": 1,
+      "runs": 1,
+      "fsync_p999_us_median": null,
+      "fsync_p999_us_worst": 569.34,
+      "price_eur_month": 42.23,
+      "categories": {
+        "disk": "B",
+        "cpu": "B",
+        "ram": "A",
+        "network": "A"
+      },
+      "categories_incomplete": {
+        "disk": false,
+        "cpu": false,
+        "ram": false,
+        "network": false
+      },
+      "profiles": {
+        "postgres_oltp": "B",
+        "timescale_ingest": "A",
+        "patroni_member": "B",
+        "redis_sentinel": "B",
+        "worker_probe": "B",
+        "playwright_node": "C",
+        "nuxt_ssr": "B"
+      },
+      "profiles_incomplete": {
+        "postgres_oltp": false,
+        "timescale_ingest": false,
+        "patroni_member": false,
+        "redis_sentinel": false,
+        "worker_probe": false,
+        "playwright_node": false,
+        "nuxt_ssr": false
+      },
+      "bound_by_counts": {}
+    },
+    {
       "provider": "netcup",
       "region": "nue",
       "product": "RS-1000-G12",

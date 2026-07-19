@@ -3,7 +3,7 @@
 
 # Results
 
-11 runs across 7 machines at 4 providers.
+12 runs across 8 machines at 4 providers.
 
 *Every number below is a measurement of specific machines at specific times. Providers vary by region, by hardware generation within a region, and by who else is on the host. Read [METHODOLOGY.md](METHODOLOGY.md) before drawing conclusions, and [THRESHOLDS.md](THRESHOLDS.md) before disagreeing with a grade.*
 
@@ -41,6 +41,7 @@ on any other profile's row is context, not a cause.
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | hetzner | fsn-1 | `CPX32` | net-fast | 1 | 1 | 4.4 ms | C | F | B | D | C | C | F | F | F | F | F |
 | hetzner | hel-1 | `CPX32` | net-fast | 1 | 1 | 3.7 ms | C | B | A | B | C | C | C | C | B | C | B |
+| hetzner | nbg-1 | `CPX32` | local-nvme | 1 | 1 | 569 us | B | B | A | A | B | A | B | B | B | C | B |
 | netcup | nue | `RS-1000-G12` | net-fast | 1 | 3 | 1.8 ms | B | B | A | F | B | B | B | B | F | F | B |
 | ovh | prg | `vps-1-lz-2026` | net-slow | 1 | 1 | 15.4 ms | D | B | A | A | D | D | D | D | B | C | B |
 | ovh | waw | `vps-1-lz-2026` | net-fast | 1 | 1 | 3.0 ms | C | F | C | A | C | C | F | F | F | F | F |
