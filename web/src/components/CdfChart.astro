@@ -1,7 +1,6 @@
 ---
 import { xFrac, yFrac, X_TICKS, Y_TICKS, type CdfPoint } from '../lib/cdf';
 import { gradeColor } from '../lib/grades';
-import { fmtValue } from '../lib/hostcharts';
 
 interface Props { points: CdfPoint[]; grade?: string; id: string; }
 const { points, grade, id } = Astro.props;
@@ -41,7 +40,7 @@ const clientPoints = pts.map((p) => ({ x: p.x, y: p.y, lat: p.lat, label: p.labe
       </g>
     ))}
     <text x={PADL + plotW / 2} y={H - 4} text-anchor="middle" fill="#71717a"
-          font-size="9" font-family="var(--mono)" letter-spacing="1">fsync latency · log µs</text>
+          font-size="9" font-family="var(--mono)" letter-spacing="1">fsync latency · log ms</text>
     <!-- axis frame -->
     <line x1={PADL} y1={PADT} x2={PADL} y2={PADT + plotH} stroke="#3f3f46" stroke-width="1" />
     <line x1={PADL} y1={PADT + plotH} x2={W - PADR} y2={PADT + plotH} stroke="#3f3f46" stroke-width="1" />
@@ -73,7 +72,7 @@ const clientPoints = pts.map((p) => ({ x: p.x, y: p.y, lat: p.lat, label: p.labe
 </figure>
 
 <script>
-  import { fmtValue } from '../lib/hostcharts';
+  import { fmtMs } from '../lib/hostcharts';
   document.querySelectorAll<SVGSVGElement>('svg.cdfsvg').forEach((svg) => {
     const data = JSON.parse(document.getElementById(`${svg.id}-data`)!.textContent!);
     const read = document.getElementById(`${svg.id}-read`)!;
@@ -94,7 +93,7 @@ const clientPoints = pts.map((p) => ({ x: p.x, y: p.y, lat: p.lat, label: p.labe
       hl.setAttribute('x1', p.x); hl.setAttribute('x2', p.x);
       hd.setAttribute('cx', p.x); hd.setAttribute('cy', p.y);
       const pctLabel = p.pct >= 1 ? '100' : (p.pct * 100).toString();
-      read.innerHTML = `<b>${p.label}</b> · ${fmtValue(p.lat)} µs · ${pctLabel}th percentile`;
+      read.innerHTML = `<b>${p.label}</b> · ${fmtMs(p.lat)} ms · ${pctLabel}th percentile`;
     });
     svg.addEventListener('pointerleave', () => {
       hair.style.display = 'none';

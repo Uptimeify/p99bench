@@ -22,7 +22,7 @@ describe('decoderRows', () => {
   it('pairs a generic claim with the measured reality (fsync)', () => {
     const r = rows[0];
     expect(r.claim).toMatch(/IOPS/);
-    expect(r.reality).toBe('4,424 µs');
+    expect(r.reality).toBe('4.42 ms');
     expect(r.grade).toBe('C');
   });
 

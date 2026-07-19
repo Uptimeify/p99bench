@@ -3,7 +3,7 @@ import Base from '../layouts/Base.astro';
 import GradeChip from '../components/GradeChip.astro';
 import { loadResults } from '../lib/data';
 import { buildMatrix } from '../lib/matrix';
-import { fmtValue } from '../lib/hostcharts';
+import { fmtMs } from '../lib/hostcharts';
 
 const base = import.meta.env.BASE_URL;
 const rows = buildMatrix(loadResults());
@@ -14,7 +14,7 @@ const profiles = [...new Set(rows.flatMap((r) => Object.keys(r.profiles)))].sort
 const DEFAULT_PROFILE = 'postgres_oltp';
 const cats = ['disk', 'cpu', 'ram', 'network'] as const;
 
-const fnum = (v: number | null) => (v == null ? '—' : fmtValue(v));
+const fms = (v: number | null) => (v == null ? '—' : fmtMs(v));
 const cfgLabel: Record<string, string> = {
   disk_device_model: 'device', disk_scheduler: 'scheduler', disk_rotational: 'rotational',
   disk_target_fs: 'fs', disk_is_boot_volume: 'boot vol', cpu_clock_idle_mhz: 'clock idle',
@@ -73,8 +73,8 @@ const cfgLabel: Record<string, string> = {
           <th>Product</th>
           <th class="num" data-sort="price">€/mo</th>
           <th>Storage</th>
-          <th class="num" data-sort="fsync">fsync p99.9 <span class="u">µs</span></th>
-          <th class="num" data-sort="stall">CPU stall p99.9 <span class="u">µs</span></th>
+          <th class="num" data-sort="fsync">fsync p99.9 ms</th>
+          <th class="num" data-sort="stall">CPU stall p99.9 ms</th>
           <th class="num" data-sort="steal">Steal %</th>
           {cats.map((c) => <th style="text-align:center">{c}</th>)}
           <th data-sort="profile" id="profcol-head" style="text-align:center">{DEFAULT_PROFILE}</th>
@@ -95,8 +95,8 @@ const cfgLabel: Record<string, string> = {
               <td class="prod mono">{r.product}</td>
               <td class="num">{r.price ?? '—'}</td>
               <td class="mono" style="color:var(--fg-dim)">{r.storageClass}</td>
-              <td class="num">{fnum(r.fsyncWorst)}</td>
-              <td class="num">{fnum(r.stall)}</td>
+              <td class="num">{fms(r.fsyncWorst)}</td>
+              <td class="num">{fms(r.stall)}</td>
               <td class="num">{r.steal ?? '—'}</td>
               {cats.map((c) => <td style="text-align:center"><GradeChip grade={r.cats[c]} /></td>)}
               <td style="text-align:center"><span class="profcol"><GradeChip grade={r.profiles[DEFAULT_PROFILE] ?? '?'} /></span></td>

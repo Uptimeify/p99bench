@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hostChartSections, fmtValue } from './hostcharts';
+import { hostChartSections, fmtValue, fmtMs } from './hostcharts';
 
 // Minimal result fixture with the fields the shaper reads.
 const result = {
@@ -44,13 +44,14 @@ describe('hostChartSections', () => {
     expect(sections.map((s) => s.key)).toEqual(['disk', 'cpu', 'ram', 'network']);
   });
 
-  it('fsync ladder grades only the p99.9 bar', () => {
+  it('fsync ladder grades only the p99.9 bar, values in ms', () => {
     const disk = sections.find((s) => s.key === 'disk')!;
     const ladder = disk.groups.find((g) => g.title.startsWith('WAL fsync'))!;
     const p999 = ladder.bars.find((b) => b.label === 'p99.9')!;
     const avg = ladder.bars.find((b) => b.label === 'avg')!;
     expect(p999.grade).toBe('C');
-    expect(p999.value).toBe(4423.68);
+    expect(p999.unit).toBe('ms');
+    expect(p999.value).toBeCloseTo(4.42368, 5); // 4423.68 µs → ms
     expect(avg.grade).toBeUndefined(); // ungraded percentile
   });
 
@@ -80,5 +81,14 @@ describe('fmtValue', () => {
   it('keeps small values readable', () => {
     expect(fmtValue(0.5)).toBe('0.5');
     expect(fmtValue(2.22)).toBe('2.2');
+  });
+});
+
+describe('fmtMs — µs → human ms', () => {
+  it('scales precision down as magnitude grows', () => {
+    expect(fmtMs(242221)).toBe('242');   // >=100 ms → integer
+    expect(fmtMs(15401)).toBe('15.4');   // 10–100 ms → 1 dp
+    expect(fmtMs(1794)).toBe('1.79');    // 1–10 ms → 2 dp
+    expect(fmtMs(698)).toBe('0.7');      // sub-ms → 2 dp, trailing zero trimmed
   });
 });

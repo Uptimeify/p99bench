@@ -4,7 +4,7 @@
 // NOT a quote attributed to this specific provider — we don't store per-product ad
 // copy and won't invent it. The RIGHT side is this host's REAL measured counter-metric.
 
-import { fmtValue } from './hostcharts';
+import { fmtValue, fmtMs } from './hostcharts';
 
 export interface DecoderRow {
   claim: string;    // typical marketing claim
@@ -30,13 +30,13 @@ export function decoderRows(result: any): DecoderRow[] {
     n(f.p999_us) != null ? {
       claim: '"Up to N,000 IOPS"',
       metric: 'fsync p99.9 latency at QD1',
-      reality: `${fmtValue(f.p999_us)} µs`,
+      reality: `${fmtMs(f.p999_us)} ms`,
       grade: gradeOf(result, 'disk', 'disk.wal_fsync.p999_us'),
     } : null,
     n(qd1.p50_us) != null && n(qd1.p999_us) != null ? {
       claim: '"NVMe SSD — low latency"',
       metric: 'p99.9 vs median, not the mean',
-      reality: `p50 ${fmtValue(qd1.p50_us)} µs → p99.9 ${fmtValue(qd1.p999_us)} µs`,
+      reality: `p50 ${fmtMs(qd1.p50_us)} ms → p99.9 ${fmtMs(qd1.p999_us)} ms`,
       grade: gradeOf(result, 'disk', 'disk.rand_read_8k_qd1.p99_us'),
     } : null,
     n(c.steal_pct_under_load) != null ? {
@@ -58,7 +58,7 @@ export function decoderRows(result: any): DecoderRow[] {
     n(c.stall_p999_us) != null ? {
       claim: '"No noisy neighbours"',
       metric: 'scheduler stall p99.9',
-      reality: `${fmtValue(c.stall_p999_us)} µs`,
+      reality: `${fmtMs(c.stall_p999_us)} ms`,
       grade: gradeOf(result, 'cpu', 'cpu.stall_p999_us'),
     } : null,
   ];

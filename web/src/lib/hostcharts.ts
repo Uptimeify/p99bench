@@ -38,6 +38,12 @@ function bar(label: string, value: unknown, unit: string, grade?: string): Bar {
   return { label, value: num(value), unit, grade };
 }
 
+// latency bar: store the value already converted µs → ms so the label/tooltip read in ms.
+function latBar(label: string, us: unknown, grade?: string): Bar {
+  const v = num(us);
+  return { label, value: v === null ? null : v / 1000, unit: 'ms', grade };
+}
+
 // Drop groups whose every bar is null (metric absent on this host).
 function live(groups: BarGroup[]): BarGroup[] {
   return groups
@@ -51,23 +57,23 @@ function diskSection(result: any): ChartSection {
   const ss = d.steady_state ?? {};
   const groups = live([
     {
-      title: 'WAL fsync latency ladder (µs, QD1)',
+      title: 'WAL fsync latency ladder (ms, QD1)',
       note: 'Every COMMIT waits on one fdatasync. p99.9 is the graded metric — the tail that stalls a database.',
       bars: [
-        bar('avg', f.avg_us, 'µs'),
-        bar('p50', f.p50_us, 'µs'),
-        bar('p99', f.p99_us, 'µs'),
-        bar('p99.9', f.p999_us, 'µs', gradeOf(result, 'disk', 'disk.wal_fsync.p999_us')),
-        bar('max', f.max_us, 'µs'),
+        latBar('avg', f.avg_us),
+        latBar('p50', f.p50_us),
+        latBar('p99', f.p99_us),
+        latBar('p99.9', f.p999_us, gradeOf(result, 'disk', 'disk.wal_fsync.p999_us')),
+        latBar('max', f.max_us),
       ],
     },
     {
-      title: '8K random latency p99.9 by operation (µs)',
+      title: '8K random latency p99.9 by operation (ms)',
       bars: [
-        bar('read QD1', d.rand_read_8k_qd1?.p999_us, 'µs'),
-        bar('read', d.rand_read_8k?.p999_us, 'µs'),
-        bar('write', d.rand_write_8k?.p999_us, 'µs'),
-        bar('mixed', d.mixed_8k?.p999_us, 'µs'),
+        latBar('read QD1', d.rand_read_8k_qd1?.p999_us),
+        latBar('read', d.rand_read_8k?.p999_us),
+        latBar('write', d.rand_write_8k?.p999_us),
+        latBar('mixed', d.mixed_8k?.p999_us),
       ],
     },
     {
@@ -110,12 +116,12 @@ function cpuSection(result: any): ChartSection {
       ],
     },
     {
-      title: 'Scheduler stall ladder (µs)',
+      title: 'Scheduler stall ladder (ms)',
       note: 'How long the kernel keeps a runnable thread waiting. p99.9 is graded.',
       bars: [
-        bar('p99', c.stall_p99_us, 'µs'),
-        bar('p99.9', c.stall_p999_us, 'µs', gradeOf(result, 'cpu', 'cpu.stall_p999_us')),
-        bar('max', c.stall_max_us, 'µs'),
+        latBar('p99', c.stall_p99_us),
+        latBar('p99.9', c.stall_p999_us, gradeOf(result, 'cpu', 'cpu.stall_p999_us')),
+        latBar('max', c.stall_max_us),
       ],
     },
     {
@@ -175,4 +181,12 @@ export function fmtValue(v: number): string {
   const abs = Math.abs(v);
   const rounded = abs >= 100 ? Math.round(v) : abs >= 1 ? Math.round(v * 10) / 10 : Math.round(v * 100) / 100;
   return rounded.toLocaleString('en-US');
+}
+
+// Latency in µs → human milliseconds. 242221 -> "242", 15401 -> "15.4", 1794 -> "1.79", 698 -> "0.7".
+// Big µs counts read far easier as ms; precision scales down as the magnitude grows.
+export function fmtMs(us: number): string {
+  const ms = us / 1000;
+  const dec = ms >= 100 ? 0 : ms >= 10 ? 1 : 2;
+  return ms.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: dec });
 }
