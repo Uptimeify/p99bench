@@ -35,7 +35,7 @@ apt update && apt install -y fio sysbench stress-ng rt-tests smartmontools dmide
 
 git clone https://github.com/Uptimeify/p99bench && cd p99bench
 
-sudo ./banch/run-all.sh \
+sudo ./bench/run-all.sh \
   --provider hetzner --product CPX41 --region fsn1 \
   --price 29.90 --billing monthly --submitter yourhandle
 ```
