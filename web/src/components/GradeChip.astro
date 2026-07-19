@@ -1,8 +1,8 @@
 ---
 import { gradeColor, gradeLabel } from '../lib/grades';
-interface Props { grade: string; }
-const { grade } = Astro.props;
+interface Props { grade: string; class?: string; }
+const { grade, class: extra } = Astro.props;
 ---
-<span class="chip" style={`background:${gradeColor(grade)}`} title={gradeLabel(grade)}>
+<span class:list={['chip', extra]} style={`background:${gradeColor(grade)}`} title={gradeLabel(grade)}>
   {grade}
 </span>

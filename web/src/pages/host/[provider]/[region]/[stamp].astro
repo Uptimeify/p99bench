@@ -2,7 +2,9 @@
 import Base from '../../../../layouts/Base.astro';
 import GradeChip from '../../../../components/GradeChip.astro';
 import MetricTable from '../../../../components/MetricTable.astro';
+import BarChart from '../../../../components/BarChart.astro';
 import { loadResults } from '../../../../lib/data';
+import { hostChartSections } from '../../../../lib/hostcharts';
 
 export function getStaticPaths() {
   return loadResults().map((r) => ({
@@ -16,10 +18,12 @@ const run = result.run;
 const provider = result.provider;
 const cats = result.grades?.categories ?? {};
 const profiles = result.grades?.profiles ?? {};
+const sections = hostChartSections(result);
+const CAT_NAME: Record<string, string> = { disk: 'Disk', cpu: 'CPU', ram: 'RAM', network: 'Network' };
 ---
 <Base title={`${provider.name} ${provider.region} — ${provider.product}`}>
   <h1>{provider.name} / {provider.region} — {provider.product}</h1>
-  <p>
+  <p class="meta">
     €{provider.price_eur_month}/mo · storage {result.grades?.storage_class ?? '—'} ·
     host <code>{run.host_id}</code> · {run.timestamp_utc} · submitter {run.submitter ?? '—'}
   </p>
@@ -35,14 +39,27 @@ const profiles = result.grades?.profiles ?? {};
     </tbody>
   </table>
 
-  <h2>Categories</h2>
-  {Object.entries(cats).map(([name, c]: any) => (
-    <MetricTable
-      title={`${name} — ${c.grade}`}
-      boundBy={c.bound_by}
-      metrics={Object.fromEntries(
-        Object.entries(c.metrics ?? {}).map(([m, v]: any) => [m, { grade: v.grade, value: v.value }])
+  {sections.map((s) => (
+    <section>
+      <div class="cat-head">
+        <GradeChip grade={s.grade} class="lg" />
+        <h2>{CAT_NAME[s.key] ?? s.key}</h2>
+        {s.boundBy && <span class="bound">bound by {s.boundBy}</span>}
+      </div>
+      <div class="charts">
+        {s.groups.map((g) => <BarChart group={g} />)}
+      </div>
+      {cats[s.key]?.metrics && (
+        <details class="exact">
+          <summary>exact values &amp; per-metric grades</summary>
+          <MetricTable
+            title=""
+            metrics={Object.fromEntries(
+              Object.entries(cats[s.key].metrics).map(([m, v]: any) => [m, { grade: v.grade, value: v.value }])
+            )}
+          />
+        </details>
       )}
-    />
+    </section>
   ))}
 </Base>

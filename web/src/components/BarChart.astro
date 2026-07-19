@@ -1,0 +1,35 @@
+---
+import { gradeColor } from '../lib/grades';
+import { fmtValue, type BarGroup } from '../lib/hostcharts';
+
+interface Props { group: BarGroup; }
+const { group } = Astro.props;
+
+// Linear scale within the group so bar lengths compare honestly against each other.
+const max = Math.max(...group.bars.map((b) => b.value ?? 0), 1);
+const ACCENT = '#5aa9e6'; // single sequential hue for ungraded magnitude bars — never a rainbow
+---
+<figure class="barchart">
+  <figcaption>
+    {group.title}
+    {group.note && <span class="note">{group.note}</span>}
+  </figcaption>
+  <div class="bars">
+    {group.bars.map((b) => {
+      const pct = b.value != null ? Math.max((b.value / max) * 100, 1.5) : 0;
+      const color = b.grade ? gradeColor(b.grade) : ACCENT;
+      return (
+        <div class="row">
+          <span class="lbl" title={b.label}>{b.label}</span>
+          <div class="track">
+            <div class="fill" style={`width:${pct}%;background:${color}`}></div>
+          </div>
+          <span class="val">
+            {b.value != null ? `${fmtValue(b.value)} ${b.unit}` : '—'}
+            {b.grade && <b class="g" style={`background:${gradeColor(b.grade)}`}>{b.grade}</b>}
+          </span>
+        </div>
+      );
+    })}
+  </div>
+</figure>
