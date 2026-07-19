@@ -37,14 +37,14 @@ const decode = decoderRows(result);
   {run.notes && <p class="notes">Notes: {run.notes}</p>}
 
   <h2>Profiles</h2>
-  <table>
+  <div class="tscroll"><table>
     <thead><tr><th>profile</th><th>grade</th><th>bound by</th></tr></thead>
     <tbody>
       {Object.entries(profiles).map(([name, p]: any) => (
         <tr><td>{name}</td><td><GradeChip grade={p.grade} /></td><td><code>{p.bound_by ?? '—'}</code></td></tr>
       ))}
     </tbody>
-  </table>
+  </table></div>
 
   {(cdf.length > 0 || decode.length > 0) && (
     <section>

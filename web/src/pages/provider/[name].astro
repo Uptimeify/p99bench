@@ -27,7 +27,7 @@ const spread = fsyncSpread(runs);
     {spread.showSpread && spread.median != null && <> · median {spread.median.toFixed(0)} µs</>}
     {!spread.showSpread && <small> (median hidden — under {3} runs)</small>}
   </p>
-  <table>
+  <div class="tscroll"><table>
     <thead><tr><th>region</th><th>product</th><th class="num">€/mo</th><th>disk</th><th>cpu</th><th>ram</th><th>network</th><th></th></tr></thead>
     <tbody>
       {runs.map((r: any) => (
@@ -42,5 +42,5 @@ const spread = fsyncSpread(runs);
         </tr>
       ))}
     </tbody>
-  </table>
+  </table></div>
 </Base>

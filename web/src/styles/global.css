@@ -93,11 +93,14 @@ thead th .u { text-transform: none; letter-spacing: 0; }
 td.num, th.num { text-align: right; font-family: var(--mono); }
 
 /* ── matrix (the core table) ───────────────────────────────────────── */
-/* no overflow clip here: a clipped ancestor breaks position:sticky on thead
-   (row 1 slides behind the offset header). Border only. */
-.matrix-wrap { border: 1px solid var(--line); border-radius: 4px; margin-top: 1rem; }
-table.matrix { width: 100%; }
-table.matrix thead th { background: var(--panel); position: sticky; top: 49px; z-index: 10;
+/* scrolls the wide table within its own box so the page body never scrolls
+   horizontally on narrow screens. (This container breaks position:sticky on
+   thead, so the header is intentionally not sticky — the table is short.) */
+.matrix-wrap { border: 1px solid var(--line); border-radius: 4px; margin-top: 1rem;
+  overflow-x: auto; }
+.tscroll { overflow-x: auto; }
+table.matrix { width: 100%; min-width: 900px; }
+table.matrix thead th { background: var(--panel); z-index: 10;
   cursor: pointer; white-space: nowrap; user-select: none; }
 table.matrix thead th .ar { color: var(--accent); margin-left: .25rem; }
 table.matrix tbody tr.data { cursor: pointer; }
@@ -249,9 +252,18 @@ details.exact summary { cursor: pointer; color: var(--fg-mute); font-size: .72re
   font-family: var(--mono); letter-spacing: .04em; text-transform: uppercase; }
 details.exact table { margin-top: .5rem; }
 
+@media (max-width: 900px) { .two-up { grid-template-columns: 1fr; } .nav .stat.opt { display: none; } }
+@media (max-width: 680px) {
+  .nav .stat:not(.link) { display: none; }
+}
+@media (max-width: 560px) {
+  .decoder .dhead, .decoder .drow { grid-template-columns: 1fr; }
+  .decoder .claim { border-right: 0; border-bottom: 1px solid var(--line); }
+  .decoder .dhead .minus { border-right: 0; border-bottom: 1px solid var(--line-strong); }
+  .decoder .real .value { margin-left: 0; }
+}
 @media (max-width: 720px) {
   .charts { grid-template-columns: 1fr; }
   .bars .row { grid-template-columns: 92px 1fr 104px; }
-  .nav .stats .stat.opt { display: none; }
   main { padding: 1rem; }
 }

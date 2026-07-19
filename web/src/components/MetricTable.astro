@@ -5,7 +5,7 @@ const { title, metrics, boundBy } = Astro.props;
 ---
 <section>
   <h3>{title}{boundBy && <small> — bound by {boundBy}</small>}</h3>
-  <table>
+  <div class="tscroll"><table>
     <thead><tr><th>metric</th><th class="num">value</th><th>grade</th></tr></thead>
     <tbody>
       {Object.entries(metrics).map(([name, m]) => (
@@ -16,5 +16,5 @@ const { title, metrics, boundBy } = Astro.props;
         </tr>
       ))}
     </tbody>
-  </table>
+  </table></div>
 </section>
