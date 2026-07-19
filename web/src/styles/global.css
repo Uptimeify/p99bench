@@ -109,6 +109,9 @@ table.matrix tbody tr.data:focus-visible { background: var(--panel-2); outline-o
 table.matrix td { border-bottom: 1px solid var(--line); vertical-align: middle;
   white-space: nowrap; }
 table.matrix .prov { font-weight: 600; }
+table.matrix .runs { font-family: var(--mono); font-size: .64rem; color: var(--fg-mute);
+  border: 1px solid var(--line-strong); border-radius: 3px; padding: 0 .28rem; margin-left: .45rem;
+  vertical-align: middle; }
 table.matrix .reg, table.matrix .prod { color: var(--fg-dim); }
 table.matrix .mono { font-family: var(--mono); }
 table.matrix .cat-strip { display: inline-flex; gap: 3px; }

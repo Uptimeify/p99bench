@@ -1,12 +1,14 @@
 ---
 import Base from '../layouts/Base.astro';
 import GradeChip from '../components/GradeChip.astro';
-import { loadResults } from '../lib/data';
+import { loadIndex, loadResults } from '../lib/data';
 import { buildMatrix } from '../lib/matrix';
 import { fmtMs } from '../lib/hostcharts';
 
 const base = import.meta.env.BASE_URL;
-const rows = buildMatrix(loadResults());
+// merged per product (median+worst) like RESULTS.md — one row per provider/region/product,
+// not one per run. Same-machine repeats collapse into a single row.
+const rows = buildMatrix(loadIndex(), loadResults());
 
 const providers = [...new Set(rows.map((r) => r.provider))].sort();
 const storages = [...new Set(rows.map((r) => r.storageClass))].sort();
@@ -91,7 +93,7 @@ const cfgLabel: Record<string, string> = {
                 data-dedicated={String(r.dedicated)} data-overall={r.overall}
                 data-profiles={JSON.stringify(r.profiles)}>
               <td><span class="expand-ind">▸</span></td>
-              <td><span class="prov">{r.provider}</span> <span class="reg">/ {r.region}</span></td>
+              <td><span class="prov">{r.provider}</span> <span class="reg">/ {r.region}</span>{r.runs > 1 && <span class="runs" title={`${r.runs} runs merged (median + worst)`}>×{r.runs}</span>}</td>
               <td class="prod mono">{r.product}</td>
               <td class="num">{r.price ?? '—'}</td>
               <td class="mono" style="color:var(--fg-dim)">{r.storageClass}</td>
@@ -103,11 +105,14 @@ const cfgLabel: Record<string, string> = {
               <td style="text-align:center"><GradeChip grade={r.overall} /></td>
             </tr>
             <tr class="detail" data-for={`r${i}`} hidden>
-              <td colspan="12">
+              <td colspan="14">
                 <div class="box">
                   <div class="kv">
-                    <h4>Captured configuration</h4>
+                    <h4>Captured config{r.runs > 1 && <span style="text-transform:none;letter-spacing:0;color:var(--fg-mute)"> · {r.runs}× (worst)</span>}</h4>
                     <dl>
+                      <dt>runs merged</dt><dd>{r.runs}</dd>
+                      <dt>fsync median</dt><dd>{r.fsyncMedian != null ? `${fmtMs(r.fsyncMedian)} ms` : '—'}</dd>
+                      <dt>fsync worst</dt><dd>{r.fsyncWorst != null ? `${fmtMs(r.fsyncWorst)} ms` : '—'}</dd>
                       {Object.entries(r.config)
                         .filter(([k]) => k in cfgLabel && r.config[k] != null)
                         .map(([k, v]) => (<><dt>{cfgLabel[k]}</dt><dd>{String(v)}</dd></>))}
