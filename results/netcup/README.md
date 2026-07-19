@@ -3,7 +3,7 @@
 
 # netcup
 
-2 runs across 1 machine in 1 region (nue), 1 product.
+3 runs across 1 machine in 1 region (nue), 1 product.
 
 [Back to the index](../../RESULTS.md) - [machine-readable export](../../data/index.json)
 
@@ -20,13 +20,13 @@ everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
 
 ## nue / `RS-1000-G12`
 
-2 runs - 1 machine - storage class `net-fast` - 17.70 EUR/mo - **boot volume**
+3 runs - 1 machine - storage class `net-fast` - 17.70 EUR/mo - **boot volume**
 
 **Host**: AMD EPYC 9645 96-Core Processor - 4 vCPU - 7.8 GB RAM - kvm - kernel 6.12.95+deb13-amd64
 
 **`disk`** -- B, bound by `wal_fsync.p999_us`
 
-Worst value seen per metric across this section's 2 runs (never smoothed across them; grades roll up worst-wins).
+Worst value seen per metric across this section's 3 runs (never smoothed across them; grades roll up worst-wins).
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
@@ -36,8 +36,8 @@ Worst value seen per metric across this section's 2 runs (never smoothed across 
 | `rand_read_8k.iops` | 100,183 | A | ≥100,000 / ≥50,000 / ≥20,000 / ≥5,000 | - |
 | `rand_write_8k.iops` | 35,429 | B | ≥50,000 / ≥20,000 / ≥10,000 / ≥3,000 | - |
 | `seq_write.bw_mbs` | 3373.55 MiB/s | A | ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s / ≥100 MiB/s | - |
-| `seq_read.bw_mbs` | 4102.74 MiB/s | A | ≥2000 MiB/s / ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s | - |
-| `steady_state.degradation_pct` | 0.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
+| `seq_read.bw_mbs` | 4102.69 MiB/s | A | ≥2000 MiB/s / ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s | - |
+| `steady_state.degradation_pct` | 0.2% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
 
 *Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
 
@@ -57,7 +57,7 @@ Worst value seen per metric across this section's 2 runs (never smoothed across 
 
 **`cpu`** -- B, bound by `tls_verify_s`
 
-Worst value seen per metric across this section's 2 runs (never smoothed across them; grades roll up worst-wins).
+Worst value seen per metric across this section's 3 runs (never smoothed across them; grades roll up worst-wins).
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
@@ -84,7 +84,7 @@ Worst value seen per metric across this section's 2 runs (never smoothed across 
 
 **`ram`** -- A, bound by `bw_read_mbs`
 
-Worst value seen per metric across this section's 2 runs (never smoothed across them; grades roll up worst-wins).
+Worst value seen per metric across this section's 3 runs (never smoothed across them; grades roll up worst-wins).
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
@@ -101,7 +101,7 @@ Worst value seen per metric across this section's 2 runs (never smoothed across 
 
 **`network`** -- F, bound by `loss_pct`
 
-Worst value seen per metric across this section's 2 runs (never smoothed across them; grades roll up worst-wins).
+Worst value seen per metric across this section's 3 runs (never smoothed across them; grades roll up worst-wins).
 
 | Metric | Value | Grade | Bands A/B/C/D | Plain-English |
 |---|---|---|---|---|
@@ -120,12 +120,12 @@ Worst value seen per metric across this section's 2 runs (never smoothed across 
 
 | Target | Throughput | RTT p50 | RTT p99 |
 |---|---|---|---|
-| `hetzner-fsn1` | 1.43 Gb/s | 13ms | 12499ms |
+| `hetzner-fsn1` | 1.43 Gb/s | 13ms | - |
 | `hetzner-hel1` | 655 Mb/s | 30ms | - |
 | `ovh-gra` | 0 Mb/s | 15ms | - |
 | `hetzner-ash` | 231 Mb/s | 96ms | - |
 
-Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown per target instead (lowest throughput, highest RTT seen).
+Median throughput / RTT per target across this section's 3 runs.
 
 **Packet loss observed**
 
@@ -135,17 +135,18 @@ Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown
 
 Sustained loss above ~0.05% will hurt TCP throughput and replication.
 
-**Machine `2eb75b`** - 2 runs at 07h, 21h
+**Machine `2eb75b`** - 3 runs at 07h, 20h, 21h
 
-Fewer than 3 runs, so no spread is computed. Worst fsync p99.9 seen: 1.8 ms.
+fsync p99.9 across the day: median 1.6 ms, worst 1.8 ms.
 
 <details>
-<summary>All 2 runs</summary>
+<summary>All 3 runs</summary>
 
 | Machine | Date | Hour | fsync p99.9 | rand-read p99 (QD1) | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `2eb75b` | 2026-07-17 | 21h | 1.6 ms | 259 us | 0.0% | 97 us | 0.0% | B | B | B | B | F | F | A |
 | `2eb75b` | 2026-07-18 | 07h | 1.8 ms | 276 us | 0.0% | 110 us | 0.0% | B | B | B | B | B | C | B |
+| `2eb75b` | 2026-07-18 | 20h | 1.6 ms | 264 us | 0.0% | 96 us | 0.2% | B | B | B | B | B | C | A |
 
 </details>
 

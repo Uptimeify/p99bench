@@ -98,8 +98,8 @@
       "product": "RS-1000-G12",
       "storage_class": "net-fast",
       "machines": 1,
-      "runs": 2,
-      "fsync_p999_us_median": null,
+      "runs": 3,
+      "fsync_p999_us_median": 1630.21,
       "fsync_p999_us_worst": 1794.05,
       "price_eur_month": 17.7,
       "categories": {
@@ -275,8 +275,8 @@
       "product": "VPS-L",
       "storage_class": "net-slow",
       "machines": 1,
-      "runs": 2,
-      "fsync_p999_us_median": null,
+      "runs": 3,
+      "fsync_p999_us_median": 208666.62,
       "fsync_p999_us_worst": 242221.06,
       "price_eur_month": 19.0,
       "categories": {
@@ -310,14 +310,14 @@
         "nuxt_ssr": false
       },
       "bound_by_counts": {
-        "[postgres_oltp] disk.wal_fsync.p999_us": 2,
-        "[timescale_ingest] disk.wal_fsync.p999_us": 2,
-        "[patroni_member] disk.wal_fsync.p999_us": 2,
+        "[postgres_oltp] disk.wal_fsync.p999_us": 3,
+        "[timescale_ingest] disk.wal_fsync.p999_us": 3,
+        "[patroni_member] disk.wal_fsync.p999_us": 3,
         "[redis_sentinel] cpu.single_thread_eps": 1,
         "[worker_probe] cpu.single_thread_eps": 1,
         "[playwright_node] cpu.single_thread_eps": 1,
         "[nuxt_ssr] cpu.single_thread_eps": 1,
-        "[redis_sentinel] disk.wal_fsync.p999_us": 1
+        "[redis_sentinel] disk.wal_fsync.p999_us": 2
       }
     }
   ]
