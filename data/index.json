@@ -312,6 +312,48 @@
       "bound_by_counts": {}
     },
     {
+      "provider": "upcloud",
+      "region": "de-fra1",
+      "product": "CLOUDNATIVE-2xCPU-4GB-storage-standard-25GB",
+      "storage_class": "net-fast",
+      "machines": 1,
+      "runs": 1,
+      "fsync_p999_us_median": null,
+      "fsync_p999_us_worst": 21626.88,
+      "price_eur_month": 20.59,
+      "categories": {
+        "disk": "D",
+        "cpu": "B",
+        "ram": "A",
+        "network": "D"
+      },
+      "categories_incomplete": {
+        "disk": false,
+        "cpu": false,
+        "ram": false,
+        "network": false
+      },
+      "profiles": {
+        "postgres_oltp": "D",
+        "timescale_ingest": "D",
+        "patroni_member": "D",
+        "redis_sentinel": "D",
+        "worker_probe": "D",
+        "playwright_node": "D",
+        "nuxt_ssr": "B"
+      },
+      "profiles_incomplete": {
+        "postgres_oltp": false,
+        "timescale_ingest": false,
+        "patroni_member": false,
+        "redis_sentinel": false,
+        "worker_probe": false,
+        "playwright_node": false,
+        "nuxt_ssr": false
+      },
+      "bound_by_counts": {}
+    },
+    {
       "provider": "windcloud",
       "region": "enge-sande",
       "product": "VPS-L",

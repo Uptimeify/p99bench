@@ -31,7 +31,7 @@ picks it up on the next build.
 ```bash
 # Debian 13 / Ubuntu 24.04
 apt update && apt install -y fio sysbench stress-ng rt-tests smartmontools dmidecode \
-  numactl redis-tools jq bc sysstat curl iputils-ping python3-yaml
+  numactl redis-tools git jq bc sysstat curl iputils-ping python3-yaml
 
 git clone https://github.com/Uptimeify/p99bench && cd p99bench
 
