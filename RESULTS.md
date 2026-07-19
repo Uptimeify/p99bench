@@ -3,7 +3,7 @@
 
 # Results
 
-13 runs across 9 machines at 5 providers.
+14 runs across 10 machines at 5 providers.
 
 *Every number below is a measurement of specific machines at specific times. Providers vary by region, by hardware generation within a region, and by who else is on the host. Read [METHODOLOGY.md](METHODOLOGY.md) before drawing conclusions, and [THRESHOLDS.md](THRESHOLDS.md) before disagreeing with a grade.*
 
@@ -47,6 +47,7 @@ on any other profile's row is context, not a cause.
 | ovh | waw | `vps-1-lz-2026` | net-fast | 1 | 1 | 3.0 ms | C | F | C | A | C | C | F | F | F | F | F |
 | ovh | zrh | `vps-1-lz-2026` | net-slow | 1 | 1 | 11.2 ms | D | B | A | A | D | D | D | D | B | C | B |
 | upcloud | de-fra1 | `CLOUDNATIVE-2xCPU-4GB-storage-standard-25GB` | net-fast | 1 | 1 | 21.6 ms | D | B | A | D | D | D | D | D | D | D | B |
+| upcloud | de-fra1 | `STARTER-4xCPU-8GB` | net-fast | 1 | 1 | 4.6 ms | D | D | A | B | D | D | D | D | D | D | D |
 | windcloud | enge-sande | `VPS-L` | net-slow | 1 | 3 | 242.2 ms | F | F | B | A | F | F | F | F | F | F | F |
 
 ## Network

@@ -7,4 +7,5 @@ ovh,prg,vps-1-lz-2026,net-slow,1,1,,15400.96,7.49,D,B,A,A,D,D,D,D,B,C,B
 ovh,waw,vps-1-lz-2026,net-fast,1,1,,2998.27,7.49,C,F,C,A,C,C,F,F,F,F,F
 ovh,zrh,vps-1-lz-2026,net-slow,1,1,,11206.66,7.49,D,B,A,A,D,D,D,D,B,C,B
 upcloud,de-fra1,CLOUDNATIVE-2xCPU-4GB-storage-standard-25GB,net-fast,1,1,,21626.88,20.59,D,B,A,D,D,D,D,D,D,D,B
+upcloud,de-fra1,STARTER-4xCPU-8GB,net-fast,1,1,,4620.29,20.0,D,D,A,B,D,D,D,D,D,D,D
 windcloud,enge-sande,VPS-L,net-slow,1,3,208666.62,242221.06,19.0,F,F,B,A,F,F,F,F,F,F,F
