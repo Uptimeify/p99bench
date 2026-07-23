@@ -181,6 +181,90 @@
     },
     {
       "provider": "ovh",
+      "region": "eu-south-mil-b",
+      "product": "c3-8",
+      "storage_class": "net-fast",
+      "machines": 1,
+      "runs": 1,
+      "fsync_p999_us_median": null,
+      "fsync_p999_us_worst": 667.65,
+      "price_eur_month": 65.52,
+      "categories": {
+        "disk": "C",
+        "cpu": "B",
+        "ram": "A",
+        "network": "A"
+      },
+      "categories_incomplete": {
+        "disk": false,
+        "cpu": false,
+        "ram": false,
+        "network": false
+      },
+      "profiles": {
+        "postgres_oltp": "C",
+        "timescale_ingest": "B",
+        "patroni_member": "A",
+        "redis_sentinel": "A",
+        "worker_probe": "B",
+        "playwright_node": "C",
+        "nuxt_ssr": "A"
+      },
+      "profiles_incomplete": {
+        "postgres_oltp": false,
+        "timescale_ingest": false,
+        "patroni_member": false,
+        "redis_sentinel": false,
+        "worker_probe": false,
+        "playwright_node": false,
+        "nuxt_ssr": false
+      },
+      "bound_by_counts": {}
+    },
+    {
+      "provider": "ovh",
+      "region": "frankfurt-de1",
+      "product": "c3-8",
+      "storage_class": "net-fast",
+      "machines": 1,
+      "runs": 1,
+      "fsync_p999_us_median": null,
+      "fsync_p999_us_worst": 1581.06,
+      "price_eur_month": 65.52,
+      "categories": {
+        "disk": "C",
+        "cpu": "C",
+        "ram": "A",
+        "network": "A"
+      },
+      "categories_incomplete": {
+        "disk": false,
+        "cpu": false,
+        "ram": false,
+        "network": false
+      },
+      "profiles": {
+        "postgres_oltp": "C",
+        "timescale_ingest": "C",
+        "patroni_member": "B",
+        "redis_sentinel": "B",
+        "worker_probe": "C",
+        "playwright_node": "C",
+        "nuxt_ssr": "B"
+      },
+      "profiles_incomplete": {
+        "postgres_oltp": false,
+        "timescale_ingest": false,
+        "patroni_member": false,
+        "redis_sentinel": false,
+        "worker_probe": false,
+        "playwright_node": false,
+        "nuxt_ssr": false
+      },
+      "bound_by_counts": {}
+    },
+    {
+      "provider": "ovh",
       "region": "prg",
       "product": "vps-1-lz-2026",
       "storage_class": "net-slow",

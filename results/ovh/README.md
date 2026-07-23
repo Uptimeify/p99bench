@@ -3,7 +3,7 @@
 
 # ovh
 
-3 runs across 3 machines in 3 regions (prg, waw, zrh), 1 product.
+5 runs across 5 machines in 5 regions (eu-south-mil-b, frankfurt-de1, prg, waw, zrh), 2 products.
 
 [Back to the index](../../RESULTS.md) - [machine-readable export](../../data/index.json)
 
@@ -17,6 +17,226 @@ geography. **Only `worker_probe` and `playwright_node` grade any of
 it** (`loss_pct`, `rtt_jitter_ratio`) -- for those two profiles the
 network *is* the workload. Throughput and DNS stay ungraded
 everywhere. See [THRESHOLDS.md](../../THRESHOLDS.md#known-gaps).
+
+## eu-south-mil-b / `c3-8`
+
+1 run - 1 machine - storage class `net-fast` - 65.52 EUR/mo - **boot volume**
+
+**Host**: AMD EPYC-Milan Processor - 4 vCPU - 7.6 GB RAM - kvm - kernel 6.12.96+deb13-amd64
+
+**`disk`** -- C, bound by `rand_read_8k.iops`
+
+| Metric | Value | Grade | Bands A/B/C/D | Plain-English |
+|---|---|---|---|---|
+| `wal_fsync.p999_us` | 668 us | A | ≤1.0 ms / ≤3.0 ms / ≤10.0 ms / ≤50.0 ms | local-NVMe/PLP class; tail invisible |
+| `wal_fsync.iops` | 2,903 | B | ≥5,000 / ≥1,000 / ≥333 / ≥100 | - |
+| `rand_read_8k_qd1.p99_us*` | 159 us | A | ≤500 us / ≤2.0 ms / ≤5.0 ms / ≤15.0 ms | - |
+| **`rand_read_8k.iops`** | **40,065** | **C** | ≥100,000 / ≥50,000 / ≥20,000 / ≥5,000 | - |
+| `rand_write_8k.iops` | 23,464 | B | ≥50,000 / ≥20,000 / ≥10,000 / ≥3,000 | - |
+| `seq_write.bw_mbs` | 1965.6 MiB/s | A | ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s / ≥100 MiB/s | - |
+| `seq_read.bw_mbs` | 7150.07 MiB/s | A | ≥2000 MiB/s / ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s | - |
+| `steady_state.degradation_pct` | 0.3% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
+
+*Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
+
+<details>
+<summary>Why these `disk` metrics</summary>
+
+- `disk.wal_fsync.p999_us`: The flagship. Every COMMIT waits on one fdatasync, alone, with no queue to hide behind. p99.9 is what the slowest transactions feel; the mean describes a commit nobody complains about.
+- `disk.wal_fsync.iops`: Latency-anchored, not IOPS-anchored: at QD1 this is ~1/mean-latency, so it describes the typical commit where p99.9 describes the tail. Bounds are 200us / 1ms / 3ms / 10ms per durable write.
+- `disk.rand_read_8k_qd1.p99_us`: 8k is the Postgres page size; index lookups are random reads. A query doing 100 lookups at 5ms p99 has a real chance of one slow read. Measured at QD1 with psync, the way a query actually waits on a buffer-pool miss: one read outstanding, nothing to amortise against. The bands are the ones this rationale always implied; they were previously applied to a QD128 job that could not honour them (A demanded 256,000 IOPS at that depth). provisional until runs on tool >= 0.2.1 build a corpus -- spec 11.
+- `disk.rand_read_8k.iops`: Generational marker rather than a workload requirement. Advisory.
+- `disk.rand_write_8k.iops`: Checkpoint flush rate. Advisory.
+- `disk.seq_write.bw_mbs`: Chunk writes and compression output are sequential and bulky.
+- `disk.seq_read.bw_mbs`: Continuous aggregate refresh reads whole chunks. Advisory: a generational marker rather than a figure derived from a workload requirement, which is why timescale_ingest reads it as required: false. Corpus check (spec 4.4): produces A and D -- hetzner and ovh/waw clear 5.7-7.4 GB/s while ovh/prg and ovh/zrh sit pinned at 300 MB/s. It discriminates, so it is neither broken nor quiet and needs no label.
+- `disk.steady_state.degradation_pct`: Burst credits. A 60s run measures the credit balance; 30 minutes measures the machine you will actually run. Quiet in the current corpus (0.0-2.0% across all 10 runs) -- reachable in both directions, the hosts simply do not throttle. Contrast a broken threshold, which no machine can ever pass.
+
+</details>
+
+**`cpu`** -- B, bound by `tls_verify_s`
+
+| Metric | Value | Grade | Bands A/B/C/D | Plain-English |
+|---|---|---|---|---|
+| `single_thread_eps` | 1,681 | A | ≥1,400 / ≥1,000 / ≥700 / ≥400 | - |
+| `scaling_efficiency` | 0.999 | A | ≥0.850 / ≥0.700 / ≥0.550 / ≥0.400 | - |
+| `steal_pct_under_load` | 0.0% | A | ≤0.5% / ≤2.0% / ≤5.0% / ≤10.0% | - |
+| `stall_p999_us*` | 74 us | A | ≤100 us / ≤500 us / ≤2.0 ms / ≤10.0 ms | - |
+| `steady_state.degradation_pct*` | 0.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
+| **`tls_verify_s*`** | **16,414** | **B** | ≥30,000 / ≥15,000 / ≥7,000 / ≥3,000 | - |
+
+*Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
+
+<details>
+<summary>Why these `cpu` metrics</summary>
+
+- `cpu.single_thread_eps`: Redis, each Node worker, and each Postgres backend are bounded by one core. Contemporary server silicon lands ~1600-1800. This metric already caught a 4.7x starvation on ovh/waw (356 vs ~1600) that steal time missed.
+- `cpu.scaling_efficiency`: multi / (single * cores). ~0.9 means physical cores; ~0.6 means SMT siblings sold as cores; well below means sharing physical cores with other tenants. Quiet in the current corpus -- all 10 backfilled values fall in 0.953-1.018, i.e. all A, because every host measured so far hands out physical cores. 0.70 and 0.40 are reachable on SMT-sold-as- cores or oversubscribed hosts; this band is insurance for that host, not a dead threshold.
+- `cpu.steal_pct_under_load`: C is a correctness line, not a performance one: past ~5% Patroni heartbeats start missing TTLs and a failover fires because the host was busy, not because anything was wrong. Quiet in the current corpus (0.0-0.24%) -- these hosts genuinely do not steal. Keep it: it is insurance that fires on an oversubscribed host, and its silence is itself a finding.
+- `cpu.stall_p999_us`: PROVISIONAL -- no corpus. Redis is one thread; each Node worker is one event loop. A stall is dead time for every client, with no other core to absorb it. Measured at SCHED_OTHER because that is the class Redis and Node actually run in. Recalibrate once real data exists (spec 11).
+- `cpu.steady_state.degradation_pct`: PROVISIONAL -- no corpus. CPU burst credits, the same trap the disk steady test exists for. This is the metric that catches a node pinned at a throttled baseline -- the Prague failure mode, which steal time did not see. Recalibrate once real data exists (spec 11).
+- `cpu.tls_verify_s`: PROVISIONAL -- no corpus. SSL checks are handshake-bound. A probe is the TLS CLIENT, and the client VERIFIES (the server signs) -- and verify is the expensive half, 2 scalar mults vs 1, so it is ~3x slower than sign. Do not swap this for tls_sign_s. Recalibrate once real data exists.
+
+</details>
+
+**`ram`** -- A, bound by `bw_read_mbs`
+
+| Metric | Value | Grade | Bands A/B/C/D | Plain-English |
+|---|---|---|---|---|
+| **`bw_read_mbs*`** | **77421.9 MiB/s** | **A** | ≥40000 MiB/s / ≥25000 MiB/s / ≥15000 MiB/s / ≥8000 MiB/s | - |
+
+*Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
+
+<details>
+<summary>Why these `ram` metrics</summary>
+
+- `ram.bw_read_mbs`: PROVISIONAL -- and it cannot be calibrated from the existing corpus at all: those 10 numbers were measured with a 1M working set that sat in L2, so they describe cache, not memory, and cannot calibrate their own replacement. Anchored to DDR generation instead: DDR4-2666 dual ~43 GB/s, DDR5-4800 dual ~76 GB/s; single channel halves it. Recalibrate (spec 11).
+
+</details>
+
+**`network`** -- A, bound by `loss_pct`
+
+| Metric | Value | Grade | Bands A/B/C/D | Plain-English |
+|---|---|---|---|---|
+| **`loss_pct`** | **0.0%** | **A** | ≤0.0% / ≤0.1% / ≤0.5% / ≤2.0% | - |
+| `rtt_jitter_ratio` | 1.007 | A | ≤1.100 / ≤1.500 / ≤2.000 / ≤5.000 | - |
+
+<details>
+<summary>Why these `network` metrics</summary>
+
+- `network.loss_pct`: DERIVED, not chosen. An ICMP check sending 3 packets and declaring "down" on total loss false-alarms at rate p^3. At p=10% that is 1-in-1000 checks; at one check per minute, 1.4 false alarms per day. The corpus contains exactly this case: ovh/zrh -> hetzner-ash at 10% loss.
+- `network.rtt_jitter_ratio`: rtt_p99 / rtt_p50. Timing-sensitive checks care about the spread, not the mean.
+
+</details>
+
+**Network**
+
+| Target | Throughput | RTT p50 | RTT p99 |
+|---|---|---|---|
+| `hetzner-fsn1` | 458 Mb/s | 14ms | - |
+| `hetzner-hel1` | 410 Mb/s | 29ms | - |
+| `ovh-gra` | 0 Mb/s | 17ms | - |
+| `hetzner-ash` | 222 Mb/s | 92ms | - |
+
+Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown per target instead (lowest throughput, highest RTT seen).
+
+<details>
+<summary>All 1 run</summary>
+
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 (QD1) | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `b73916` | 2026-07-22 | 17h | 668 us | 159 us | 0.0% | 74 us | 0.3% | C | B | A | A | B | C | A |
+
+</details>
+
+## frankfurt-de1 / `c3-8`
+
+1 run - 1 machine - storage class `net-fast` - 65.52 EUR/mo - **boot volume**
+
+**Host**: AMD EPYC-Milan Processor - 4 vCPU - 7.6 GB RAM - kvm - kernel 6.12.96+deb13-amd64
+
+**`disk`** -- C, bound by `rand_read_8k.iops`
+
+| Metric | Value | Grade | Bands A/B/C/D | Plain-English |
+|---|---|---|---|---|
+| `wal_fsync.p999_us` | 1.6 ms | B | ≤1.0 ms / ≤3.0 ms / ≤10.0 ms / ≤50.0 ms | solid VM; ~300+ commits/s single-writer |
+| `wal_fsync.iops` | 1,610 | B | ≥5,000 / ≥1,000 / ≥333 / ≥100 | - |
+| `rand_read_8k_qd1.p99_us*` | 185 us | A | ≤500 us / ≤2.0 ms / ≤5.0 ms / ≤15.0 ms | - |
+| **`rand_read_8k.iops`** | **40,066** | **C** | ≥100,000 / ≥50,000 / ≥20,000 / ≥5,000 | - |
+| `rand_write_8k.iops` | 18,406 | C | ≥50,000 / ≥20,000 / ≥10,000 / ≥3,000 | - |
+| `seq_write.bw_mbs` | 3273.47 MiB/s | A | ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s / ≥100 MiB/s | - |
+| `seq_read.bw_mbs` | 9929.49 MiB/s | A | ≥2000 MiB/s / ≥1000 MiB/s / ≥500 MiB/s / ≥200 MiB/s | - |
+| `steady_state.degradation_pct` | 0.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
+
+*Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
+
+<details>
+<summary>Why these `disk` metrics</summary>
+
+- `disk.wal_fsync.p999_us`: The flagship. Every COMMIT waits on one fdatasync, alone, with no queue to hide behind. p99.9 is what the slowest transactions feel; the mean describes a commit nobody complains about.
+- `disk.wal_fsync.iops`: Latency-anchored, not IOPS-anchored: at QD1 this is ~1/mean-latency, so it describes the typical commit where p99.9 describes the tail. Bounds are 200us / 1ms / 3ms / 10ms per durable write.
+- `disk.rand_read_8k_qd1.p99_us`: 8k is the Postgres page size; index lookups are random reads. A query doing 100 lookups at 5ms p99 has a real chance of one slow read. Measured at QD1 with psync, the way a query actually waits on a buffer-pool miss: one read outstanding, nothing to amortise against. The bands are the ones this rationale always implied; they were previously applied to a QD128 job that could not honour them (A demanded 256,000 IOPS at that depth). provisional until runs on tool >= 0.2.1 build a corpus -- spec 11.
+- `disk.rand_read_8k.iops`: Generational marker rather than a workload requirement. Advisory.
+- `disk.rand_write_8k.iops`: Checkpoint flush rate. Advisory.
+- `disk.seq_write.bw_mbs`: Chunk writes and compression output are sequential and bulky.
+- `disk.seq_read.bw_mbs`: Continuous aggregate refresh reads whole chunks. Advisory: a generational marker rather than a figure derived from a workload requirement, which is why timescale_ingest reads it as required: false. Corpus check (spec 4.4): produces A and D -- hetzner and ovh/waw clear 5.7-7.4 GB/s while ovh/prg and ovh/zrh sit pinned at 300 MB/s. It discriminates, so it is neither broken nor quiet and needs no label.
+- `disk.steady_state.degradation_pct`: Burst credits. A 60s run measures the credit balance; 30 minutes measures the machine you will actually run. Quiet in the current corpus (0.0-2.0% across all 10 runs) -- reachable in both directions, the hosts simply do not throttle. Contrast a broken threshold, which no machine can ever pass.
+
+</details>
+
+**`cpu`** -- C, bound by `tls_verify_s`
+
+| Metric | Value | Grade | Bands A/B/C/D | Plain-English |
+|---|---|---|---|---|
+| `single_thread_eps` | 1,420 | A | ≥1,400 / ≥1,000 / ≥700 / ≥400 | - |
+| `scaling_efficiency` | 0.998 | A | ≥0.850 / ≥0.700 / ≥0.550 / ≥0.400 | - |
+| `steal_pct_under_load` | 0.0% | A | ≤0.5% / ≤2.0% / ≤5.0% / ≤10.0% | - |
+| `stall_p999_us*` | 148 us | B | ≤100 us / ≤500 us / ≤2.0 ms / ≤10.0 ms | - |
+| `steady_state.degradation_pct*` | 0.0% | A | ≤5.0% / ≤15.0% / ≤30.0% / ≤50.0% | - |
+| **`tls_verify_s*`** | **13,753** | **C** | ≥30,000 / ≥15,000 / ≥7,000 / ≥3,000 | - |
+
+*Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
+
+<details>
+<summary>Why these `cpu` metrics</summary>
+
+- `cpu.single_thread_eps`: Redis, each Node worker, and each Postgres backend are bounded by one core. Contemporary server silicon lands ~1600-1800. This metric already caught a 4.7x starvation on ovh/waw (356 vs ~1600) that steal time missed.
+- `cpu.scaling_efficiency`: multi / (single * cores). ~0.9 means physical cores; ~0.6 means SMT siblings sold as cores; well below means sharing physical cores with other tenants. Quiet in the current corpus -- all 10 backfilled values fall in 0.953-1.018, i.e. all A, because every host measured so far hands out physical cores. 0.70 and 0.40 are reachable on SMT-sold-as- cores or oversubscribed hosts; this band is insurance for that host, not a dead threshold.
+- `cpu.steal_pct_under_load`: C is a correctness line, not a performance one: past ~5% Patroni heartbeats start missing TTLs and a failover fires because the host was busy, not because anything was wrong. Quiet in the current corpus (0.0-0.24%) -- these hosts genuinely do not steal. Keep it: it is insurance that fires on an oversubscribed host, and its silence is itself a finding.
+- `cpu.stall_p999_us`: PROVISIONAL -- no corpus. Redis is one thread; each Node worker is one event loop. A stall is dead time for every client, with no other core to absorb it. Measured at SCHED_OTHER because that is the class Redis and Node actually run in. Recalibrate once real data exists (spec 11).
+- `cpu.steady_state.degradation_pct`: PROVISIONAL -- no corpus. CPU burst credits, the same trap the disk steady test exists for. This is the metric that catches a node pinned at a throttled baseline -- the Prague failure mode, which steal time did not see. Recalibrate once real data exists (spec 11).
+- `cpu.tls_verify_s`: PROVISIONAL -- no corpus. SSL checks are handshake-bound. A probe is the TLS CLIENT, and the client VERIFIES (the server signs) -- and verify is the expensive half, 2 scalar mults vs 1, so it is ~3x slower than sign. Do not swap this for tls_sign_s. Recalibrate once real data exists.
+
+</details>
+
+**`ram`** -- A, bound by `bw_read_mbs`
+
+| Metric | Value | Grade | Bands A/B/C/D | Plain-English |
+|---|---|---|---|---|
+| **`bw_read_mbs*`** | **50835.6 MiB/s** | **A** | ≥40000 MiB/s / ≥25000 MiB/s / ≥15000 MiB/s / ≥8000 MiB/s | - |
+
+*Provisional band -- no corpus behind it yet; see [THRESHOLDS.md](../../THRESHOLDS.md#provisional-bands).
+
+<details>
+<summary>Why these `ram` metrics</summary>
+
+- `ram.bw_read_mbs`: PROVISIONAL -- and it cannot be calibrated from the existing corpus at all: those 10 numbers were measured with a 1M working set that sat in L2, so they describe cache, not memory, and cannot calibrate their own replacement. Anchored to DDR generation instead: DDR4-2666 dual ~43 GB/s, DDR5-4800 dual ~76 GB/s; single channel halves it. Recalibrate (spec 11).
+
+</details>
+
+**`network`** -- A, bound by `loss_pct`
+
+| Metric | Value | Grade | Bands A/B/C/D | Plain-English |
+|---|---|---|---|---|
+| **`loss_pct`** | **0.0%** | **A** | ≤0.0% / ≤0.1% / ≤0.5% / ≤2.0% | - |
+| `rtt_jitter_ratio` | 1.020 | A | ≤1.100 / ≤1.500 / ≤2.000 / ≤5.000 | - |
+
+<details>
+<summary>Why these `network` metrics</summary>
+
+- `network.loss_pct`: DERIVED, not chosen. An ICMP check sending 3 packets and declaring "down" on total loss false-alarms at rate p^3. At p=10% that is 1-in-1000 checks; at one check per minute, 1.4 false alarms per day. The corpus contains exactly this case: ovh/zrh -> hetzner-ash at 10% loss.
+- `network.rtt_jitter_ratio`: rtt_p99 / rtt_p50. Timing-sensitive checks care about the spread, not the mean.
+
+</details>
+
+**Network**
+
+| Target | Throughput | RTT p50 | RTT p99 |
+|---|---|---|---|
+| `hetzner-fsn1` | 471 Mb/s | 6.1ms | - |
+| `hetzner-hel1` | 436 Mb/s | 21ms | - |
+| `ovh-gra` | 0 Mb/s | 9.8ms | - |
+| `hetzner-ash` | 211 Mb/s | - | - |
+
+Fewer than 3 runs, so no median is computed -- worst-case throughput / RTT shown per target instead (lowest throughput, highest RTT seen).
+
+<details>
+<summary>All 1 run</summary>
+
+| Machine | Date | Hour | fsync p99.9 | rand-read p99 (QD1) | steal | stall p99.9 | steady drop | pg | ts | patroni | redis | probe | pw | nuxt |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `826ac7` | 2026-07-22 | 17h | 1.6 ms | 185 us | 0.0% | 148 us | 0.0% | C | C | B | B | C | C | B |
+
+</details>
 
 ## prg / `vps-1-lz-2026`
 
